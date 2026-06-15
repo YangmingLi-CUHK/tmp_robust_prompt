@@ -4,7 +4,8 @@ from prompt_graph.utils import seed_everything
 from torchsummary import summary
 from prompt_graph.utils import print_model_parameters
 from prompt_graph.utils import  get_args
-from prompt_graph.data import load4graph, load4link, induced_graphs_from_edges, CustomTUDataset
+# 非 Cora 链路已删除: load4graph, load4link, induced_graphs_from_edges, CustomTUDataset
+# 如需 GraphTask/LinkTask，请从 git history 恢复相关函数
 import torch
 
 args = get_args()
@@ -63,17 +64,23 @@ if args.task == 'NodeTask':
     print('########################################################################################')
     # 打印一个split下多个seed的平均
     for split_num, split_acc_dict in all_split_acc_dict.items():
-        if len(all_split_acc_list[split_num]) ==1:
-            print("There's only one result, it's recommended to try several seeds.")
+        # 过滤掉 NaN 值（loss 为 NaN 的 seed 会返回 NaN）
+        valid_accs = [a for a in all_split_acc_list[split_num] if not (isinstance(a, float) and np.isnan(a))]
+        if len(valid_accs) == 0:
+            print(f"Split {split_num}: All seeds returned NaN, no valid results.")
+            continue
+        if len(valid_accs) == 1:
+            print("There's only one valid result, it's recommended to try several seeds.")
+            trimmed_accs = valid_accs
         else:
             # 对所有seed的结果排序，去掉最低和最高的值再求平均
-            all_split_acc_list[split_num].sort(reverse=True)
-            all_split_acc_list[split_num] = all_split_acc_list[split_num][:-1]
+            valid_accs.sort(reverse=True)
+            trimmed_accs = valid_accs[1:-1] if len(valid_accs) > 2 else valid_accs
         for seed, acc in split_acc_dict.items():
             print('split: {} | seed {} : {}'.format(split_num, seed, acc))
 
-        split_final_acc, split_final_acc_std = np.mean(all_split_acc_list[split_num]), np.std(all_split_acc_list[split_num])
-        print(f"# Split {split_num} Muti Seed Acc without min value: {split_final_acc:.4f}±{split_final_acc_std:.4f}")
+        split_final_acc, split_final_acc_std = np.mean(trimmed_accs), np.std(trimmed_accs)
+        print(f"# Split {split_num} Muti Seed Acc (trimmed, {len(trimmed_accs)}/{len(valid_accs)} seeds): {split_final_acc:.4f}±{split_final_acc_std:.4f}")
     print('########################################################################################')
 
 
@@ -83,35 +90,7 @@ if args.task == 'NodeTask':
 
 
 
-elif args.task == 'GraphTask':
-    for seed in args.seed:
-        seed_everything(seed)
+# GraphTask / LinkTask 已暂时禁用：相关数据加载函数 (load4graph, load4link,
+# induced_graphs_from_edges, CustomTUDataset) 已从 load4data.py 删除。
+# 如需恢复，请从 git history 找回。
 
-        input_dim, output_dim, dataset = load4graph(args.dataset_name)
-        tasker = GraphTask(pre_train_model_path = args.pre_train_model_path, 
-                        dataset_name = args.dataset_name, num_layer = args.num_layer, gnn_type = args.gnn_type, hid_dim = args.hid_dim, prompt_type = args.prompt_type, epochs = args.epochs,
-                        shot_num = args.shot_num, device=args.device, lr = args.lr, wd = args.decay,
-                        batch_size = args.batch_size, dataset = dataset, input_dim = input_dim, output_dim = output_dim, task_type = 'GraphTask', filter_mode=args.filter_mode, filter_sim1_weight=args.filter_sim1_weight, filter_sim2_weight=args.filter_sim2_weight, filter_hybrid_alpha=args.filter_hybrid_alpha)
-        _, test_acc, std_test_acc, f1, std_f1, roc, std_roc, _, _= tasker.run()
-
-elif args.task == 'LinkTask': # 链接预测任务转换为图任务，只是induced graph不同
-    for seed in args.seed:
-        seed_everything(seed)
-        assert args.dataset_name in ['Cora', 'Citeseer', 'PubMed','Wisconsin','ogbn-arxiv']
-        dataset = load4link(args.dataset_name)
-        data = dataset[0]
-        if args.dataset_name == 'ogbn-arxiv':
-            data.y = data.y.squeeze()
-
-        input_dim = dataset.num_features
-        out_dim = dataset.num_classes
-        dataset = induced_graphs_from_edges(data, args.device, smallest_size=1, largest_size=30)
-        print("num edge subgraphs: ", len(dataset))
-        dataset = CustomTUDataset(dataset)
-        
-        tasker = GraphTask(pre_train_model_path = args.pre_train_model_path, 
-                    dataset_name = args.dataset_name, num_layer = args.num_layer, gnn_type = args.gnn_type, hid_dim = args.hid_dim, prompt_type = args.prompt_type, epochs = args.epochs,
-                    shot_num = args.shot_num, device=args.device, lr = args.lr, wd = args.decay,
-                    batch_size = 1024, dataset = dataset, input_dim = input_dim, output_dim = 2, task_type = 'LinkTask', filter_mode=args.filter_mode, filter_sim1_weight=args.filter_sim1_weight, filter_sim2_weight=args.filter_sim2_weight, filter_hybrid_alpha=args.filter_hybrid_alpha)
-        
-        _, test_acc, std_test_acc, f1, std_f1, roc, std_roc, _, _= tasker.run()
