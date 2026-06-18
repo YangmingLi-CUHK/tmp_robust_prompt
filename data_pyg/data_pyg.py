@@ -1,60 +1,52 @@
-import os.path as osp
-from torch_geometric.datasets import Planetoid, CitationFull, WikiCS, Coauthor, Amazon,Flickr,Reddit,Yelp, PPI
-import torch_geometric.transforms as T
-from ogb.nodeproppred import PygNodePropPredDataset # 会卡住 pip uninstall setuptools 解决
+"""
+统一数据获取函数（仅保留攻击数据分支）。
+
+非 Cora 数据集分支（Planetoid, CitationFull, Coauthor, Amazon, Reddit, WikiCS,
+Flickr, Yelp, PPI, ogbn）已删除。如需恢复，请从 git history 找回。
+"""
 from data_pyg.Attack_data.attackdata               import AttackDataset
 from data_pyg.Attack_unit_test_data.attackunitdata import AttackUnitDataset
-from project_paths import data_pyg_root
-# from data_pyg.Reddit_small.Reddit_small import Reddit_small
-
-def get_dataset(path, name, attackmethod= None, attackptb = None, adaptive_dict=None):
-    assert name in ['Cora', 'CiteSeer', 'PubMed', 'DBLP', 'WikiCS', 'Coauthor-CS', 'Coauthor-Phy', 'Amazon-Computers', 'Amazon-Photo', 'ogbn-arxiv','Flickr','Yelp','Reddit','Attack-Cora','Attack-Cora_ml','Attack-Citeseer','Attack-Pubmed','Attack-polblogs','Attack-Cora_ml','PPI','Reddit_small', 'Unit-Citeseer', 'Unit-Cora_ml']
-    
-    name = 'dblp' if name == 'DBLP' else name
-    root_path = data_pyg_root()
 
 
-    if name == 'Coauthor-Phy':
-        return Coauthor(osp.join(root_path, 'Coauthor'), name='physics', transform=T.NormalizeFeatures())
+def get_dataset(path, name, attackmethod=None, attackptb=None, adaptive_dict=None):
+    """获取攻击数据集。
 
-    if name == 'Coauthor-CS':
-        return Coauthor(osp.join(root_path, 'Coauthor'), name='cs', transform=T.NormalizeFeatures())
-      
-    if name == 'Yelp':
-        return Yelp(root=path, transform=T.NormalizeFeatures())
+    Parameters
+    ----------
+    path : str
+        数据根路径（Attack_data 或 Attack_unit_test_data 的路径）。
+    name : str
+        数据集名，必须以 'Attack-' 或 'Unit-' 开头。
+        例如: 'Attack-Cora', 'Unit-Citeseer'。
+    attackmethod : str, optional
+        攻击方法名（Meta_Self 等），仅 Attack- 分支需要。
+    attackptb : str or float, optional
+        扰动率，仅 Attack- 分支需要。
+    adaptive_dict : EasyDict, optional
+        自适应攻击参数字典，仅 Unit- 分支需要。
 
-    if name == 'Flickr':
-        return Flickr(root=path, transform=T.NormalizeFeatures())
-
-    if name == 'Reddit':
-        return Reddit(root=path, transform=T.NormalizeFeatures())
-
-    # if name == 'Reddit_small':
-    #     return Reddit_small(root=path, transform=T.NormalizeFeatures())
-
-    if name == 'WikiCS':
-        return WikiCS(root=path, transform=T.NormalizeFeatures())
-
-    if name == 'Amazon-Computers':
-        return Amazon(root=path, name='computers', transform=T.NormalizeFeatures())
-
-    if name == 'Amazon-Photo':
-        return Amazon(root=path, name='photo', transform=T.NormalizeFeatures())
-    
-    if name == 'PPI':
-        return [PPI(root=path, split='train'),PPI(root=path, split='val'),PPI(root=path, split='test')]
-
+    Returns
+    -------
+    InMemoryDataset
+    """
     if name.startswith('Attack'):
-        return AttackDataset(root = path, name = name, attackmethod = attackmethod, ptb_rate=attackptb) # , transform=T.NormalizeFeatures()
-        # 这里对特征进行normolize会导致预训练有问题，取消
+        return AttackDataset(
+            root=path, name=name,
+            attackmethod=attackmethod,
+            ptb_rate=attackptb
+        )
 
-    # unit test
     if name.startswith('Unit'):
-        return AttackUnitDataset(root = path , name = name , scenario=adaptive_dict.scenario, split = adaptive_dict.split, adaptive_attack_model= adaptive_dict.adaptive_attack_model, ptb_rate=adaptive_dict.ptb_rate)
+        return AttackUnitDataset(
+            root=path, name=name,
+            scenario=adaptive_dict.scenario,
+            split=adaptive_dict.split,
+            adaptive_attack_model=adaptive_dict.adaptive_attack_model,
+            ptb_rate=adaptive_dict.ptb_rate
+        )
 
-
-
-    if name.startswith('ogbn'):
-        return PygNodePropPredDataset(root=osp.join(root_path, 'OGB'), name=name) #S2GAE里不需要, transform=T.NormalizeFeatures()
-
-    return (CitationFull if name == 'dblp' else Planetoid)(osp.join(root_path, 'Citation'), name, transform=T.NormalizeFeatures())
+    raise ValueError(
+        f"Unsupported dataset name: {name!r}. "
+        f"Currently only 'Attack-*' and 'Unit-*' datasets are supported. "
+        f"Non-Cora dataset branches were removed — restore from git history if needed."
+    )

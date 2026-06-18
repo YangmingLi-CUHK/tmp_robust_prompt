@@ -6,7 +6,8 @@ import time
 import os 
 import numpy as np
 import torch
-from prompt_graph.data import load4graph,graph_sample_and_save, node_degree_as_features
+# load4graph, graph_sample_and_save, node_degree_as_features removed (deprecated 2026-06-16)
+# GraphTask is disabled; GraphTask = None in tasker/__init__.py
 from prompt_graph.evaluation import GpromptGraphEva, GNNGraphEva, GPFGraphEva, AllInOneGraphEva, GPPTGraphEva, RobustPromptInductiveGraphEva
 from prompt_graph.utils import constraint,  center_embedding, Gprompt_tuning_loss
 

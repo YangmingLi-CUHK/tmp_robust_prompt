@@ -5,15 +5,17 @@ from torch_geometric.data import Data
 from random import shuffle
 import random
 from prompt_graph.utils import mkdir, graph_views
-from prompt_graph.data import load4graph, NodePretrain
+from prompt_graph.data import NodePretrain
+# load4graph removed (non-Cora GraphTask deprecated 2026-06-16)
 from torch.optim import Adam
 import time
 from.base import PreTrain
 
 class GraphCL(PreTrain):
-    def __init__(self, *args, hid_dim = 16, **kwargs):    # hid_dim=16
+    def __init__(self, *args, hid_dim = 16, seed = 0, **kwargs):    # hid_dim=16
         super().__init__(*args, **kwargs)
         self.hid_dim = hid_dim # 这里如果不self的话用的是pretrain里默认的hid_dim
+        self.seed = seed
         self.load_graph_data()
         self.initialize_gnn(self.input_dim, hid_dim)  
         self.projection_head = torch.nn.Sequential(torch.nn.Linear(self.hid_dim, self.hid_dim),
@@ -24,7 +26,7 @@ class GraphCL(PreTrain):
             self.graph_list, self.input_dim = NodePretrain(dataname = self.dataset_name, preprocess_method = self.preprocess_method, num_parts = 200)
             # self.graph_list, self.input_dim = NodePretrain(dataname = self.dataset_name, num_parts=200, split_method='Cluster')
         else:
-            self.input_dim, self.out_dim, self.graph_list= load4graph(self.dataset_name, pretrained=True)
+            raise ValueError(f"Dataset '{self.dataset_name}' not supported. Only Cora/Citeseer/PubMed node datasets are available after 2026-06-16 cleanup.")
     
     def get_loader(self, graph_list, batch_size,aug1=None, aug2=None, aug_ratio=None):
         if len(graph_list) % batch_size == 1:
@@ -134,8 +136,11 @@ class GraphCL(PreTrain):
         # torch.save(self.gnn.state_dict(),
         #                    "./pre_trained_model_adaptive/{}.{}.{}.{}.pth".format(self.dataset_name, 'GraphCL', self.gnn_type, str(self.hid_dim) + 'hidden_dim'))
         
-        torch.save(self.gnn.state_dict(),
-                           "./pre_trained_model_raw/{}.{}.{}.{}.pth".format(self.dataset_name, 'GraphCL', self.gnn_type, str(self.hid_dim) + '_hidden_dim'))
+        file_suffix = "{}.{}.{}.{}_hidden_dim.aug1_{}.aug2_{}.lr_{}.seed_{}.pth".format(
+                    self.dataset_name, 'GraphCL', self.gnn_type, str(self.hid_dim), aug1, aug2, str(lr), str(self.seed)
+                )
+        
+        torch.save(self.gnn.state_dict(), "./pre_trained_model_raw/" + file_suffix)
+        print("+++model saved ! " + file_suffix)
 
 
-        print("+++model saved ! {}.{}.{}.{}.pth".format(self.dataset_name, 'GraphCL', self.gnn_type, str(self.hid_dim) + '_hidden_dim'))

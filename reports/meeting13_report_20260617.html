@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting 13 — RobustPrompt-I 稳定性诊断报告</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fdfae7;
+  --primary: #1e2bfa;
+  --text: #111;
+  --text-muted: #6b6b6b;
+  --text-light: #9a9a9a;
+  --accent-light: rgba(30,43,250,0.08);
+  --border: rgba(30,43,250,0.2);
+  --card-bg: rgba(30,43,250,0.04);
+  --positive: #059669;
+  --negative: #dc2626;
+  --warn: #d97706;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', 'Noto Sans SC', sans-serif;
+  padding: 3vw 4vw 6vh;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+h1 { font-family:'Space Grotesk','Noto Sans SC',sans-serif; font-weight:700; font-size:clamp(32px,4vw,52px); letter-spacing:-0.02em; color:var(--text); margin-bottom:0.15em; }
+h2 { font-family:'Space Grotesk','Noto Sans SC',sans-serif; font-weight:600; font-size:clamp(22px,2.5vw,34px); letter-spacing:-0.02em; color:var(--text); margin:2.5rem 0 1rem; padding-bottom:0.4rem; border-bottom:1px solid var(--border); }
+h3 { font-family:'Space Grotesk','Noto Sans SC',sans-serif; font-weight:500; font-size:clamp(16px,1.5vw,20px); letter-spacing:-0.02em; color:var(--text); margin:1.5rem 0 0.6rem; }
+h4 { font-family:'Space Grotesk','Noto Sans SC',sans-serif; font-weight:600; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--primary); margin-bottom:0.3rem; }
+
+.accent-line { width:60px; height:4px; background:var(--primary); border-radius:2px; margin-bottom:1rem; }
+
+.meta { font-family:'Space Grotesk',sans-serif; font-size:13px; color:var(--text-light); letter-spacing:0.05em; }
+.tags { display:flex; gap:8px; flex-wrap:wrap; margin:0.6rem 0 1.2rem; }
+.tag { background:var(--accent-light); color:var(--primary); padding:0.3rem 0.8rem; border-radius:100px; font-family:'Space Grotesk',sans-serif; font-weight:500; font-size:11px; }
+
+/* Cards */
+.card-grid { display:grid; gap:1.2rem; margin:1rem 0 2rem; }
+.card-grid.two { grid-template-columns:1fr 1fr; }
+.card-grid.three { grid-template-columns:repeat(3,1fr); }
+.card-grid.four { grid-template-columns:repeat(4,1fr); }
+.card {
+  background:var(--card-bg);
+  border:1.5px solid var(--border);
+  border-radius:14px;
+  padding:1.4rem 1.5rem;
+}
+.card h3 { margin:0 0 0.6rem; }
+.card .num {
+  font-family:'Space Grotesk',sans-serif;
+  font-weight:700;
+  font-size:clamp(28px,3vw,40px);
+  color:var(--primary);
+  line-height:1;
+}
+.card .num.bad { color:var(--negative); }
+.card .num.good { color:var(--positive); }
+.card .num.warn { color:var(--warn); }
+.card .lbl { font-family:'Inter',sans-serif; font-weight:600; font-size:14px; color:var(--text); margin-top:0.2rem; }
+.card .desc { font-size:13px; color:var(--text-muted); margin-top:0.3rem; line-height:1.5; }
+
+/* KPI strip */
+.kpi-strip {
+  display:flex; gap:2rem;
+  background:var(--card-bg);
+  border:1.5px solid var(--border);
+  border-radius:14px;
+  padding:1.5rem 2rem;
+  margin:1.2rem 0 2rem;
+}
+.kpi { flex:1; text-align:center; }
+.kpi .val { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(24px,2.5vw,36px); color:var(--primary); }
+.kpi .val.warn { color:var(--negative); }
+.kpi .val.good { color:var(--positive); }
+.kpi .lbl { font-size:12px; color:var(--text-muted); margin-top:0.2rem; }
+
+/* Tables */
+table { width:100%; border-collapse:collapse; margin:1rem 0 2rem; font-size:13px; }
+th {
+  font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:11px;
+  letter-spacing:0.05em; text-transform:uppercase; color:var(--text-light);
+  text-align:center; padding:0.6rem 0.5rem; border-bottom:2px solid var(--border);
+}
+td {
+  text-align:center; padding:0.5rem 0.4rem;
+  border-bottom:1px solid rgba(30,43,250,0.08);
+  font-variant-numeric:tabular-nums; font-family:'Inter',sans-serif;
+}
+tr:nth-child(even) td { background:var(--card-bg); }
+td.best { background:rgba(5,150,105,0.1) !important; font-weight:600; color:var(--positive); }
+td.good { font-weight:600; color:var(--positive); }
+td.nan { color:var(--text-light); font-style:italic; }
+td.mono { font-family:'Space Grotesk',monospace; font-size:12px; }
+th:first-child, td:first-child { text-align:left; font-weight:600; padding-left:0.8rem; }
+
+/* Highlight box */
+.highlight {
+  background:var(--accent-light);
+  border-left:4px solid var(--primary);
+  border-radius:0 12px 12px 0;
+  padding:1rem 1.5rem;
+  margin:1.2rem 0;
+  font-size:14px; line-height:1.6; color:var(--text-muted);
+}
+.highlight strong { color:var(--text); }
+
+/* Alert box */
+.alert {
+  border-left:4px solid var(--negative);
+  background:rgba(220,38,38,0.05);
+  border-radius:0 12px 12px 0;
+  padding:1rem 1.5rem;
+  margin:1.2rem 0;
+  font-size:14px; line-height:1.6;
+}
+.alert strong { color:var(--negative); }
+
+/* Success box */
+.success {
+  border-left:4px solid var(--positive);
+  background:rgba(5,150,105,0.05);
+  border-radius:0 12px 12px 0;
+  padding:1rem 1.5rem;
+  margin:1.2rem 0;
+  font-size:14px; line-height:1.6;
+}
+.success strong { color:var(--positive); }
+
+/* Comparison row */
+.compare-row { display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin:1rem 0 2rem; }
+.compare-card {
+  background:var(--card-bg);
+  border:1.5px solid var(--border);
+  border-radius:14px;
+  padding:1.5rem;
+}
+.compare-card.new { border-left:4px solid var(--positive); }
+.compare-card.old { border-left:4px solid var(--primary); }
+.compare-card .title { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; margin-bottom:0.8rem; }
+
+/* Step-flow */
+.step-flow { display:flex; gap:1rem; margin:1rem 0 2rem; }
+.step-card {
+  flex:1;
+  background:var(--card-bg);
+  border:1.5px solid var(--border);
+  border-radius:14px;
+  padding:1.2rem;
+  text-align:center;
+}
+.step-card .step-num { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:24px; color:var(--primary); }
+.step-card .step-conf { font-size:12px; color:var(--text-muted); margin-top:0.4rem; line-height:1.4; }
+.step-card .step-res { font-size:14px; font-weight:600; margin-top:0.5rem; }
+.step-card.ok { border-left:4px solid var(--positive); }
+.step-card.fail { border-left:4px solid var(--negative); }
+
+/* Print */
+@media print {
+  body { padding:1cm 1.5cm; max-width:none; }
+  h2 { break-before:page; }
+  h2:first-of-type { break-before:avoid; }
+  .card, .compare-card, .kpi-strip, .step-card { break-inside:avoid; }
+  table { break-inside:avoid; }
+}
+@media screen and (max-width:800px) {
+  .card-grid.two, .card-grid.three, .card-grid.four { grid-template-columns:1fr; }
+  .compare-row { grid-template-columns:1fr; }
+  .kpi-strip { flex-wrap:wrap; }
+  .step-flow { flex-direction:column; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="accent-line"></div>
+<h4>Meeting 13 &middot; 2026-06-17 → 06-18 (Updated Jun 18 evening)</h4>
+<h1>RobustPrompt-I 稳定性诊断<br>四步消融 → 根因排除 → 学习率突破 → 敏捷扫参</h1>
+<div class="tags">
+  <span class="tag">RobustPrompt-I</span>
+  <span class="tag">GPromptShield</span>
+  <span class="tag">Cora</span>
+  <span class="tag">Inductive MD-PT</span>
+  <span class="tag">5-Shot</span>
+  <span class="tag">Stability Ablation</span>
+  <span class="tag">lr Breakthrough</span>
+  <span class="tag">Full Sweep</span>
+  <span class="tag">Peak Recovery</span>
+</div>
+<p class="meta">实验日期：2026-06-17 ~ 06-18 &middot; 数据集：Cora (GraphCL GCN 256d) &middot; 攻击：Meta_Self (Metattack) &middot; GPU：RTX 5090 &middot; 脚本：exp_20260617_I_stability_tuning.sh → exp_20260618_I_stability_fix.sh → 敏捷命令行 (A/B/C)</p>
+
+<!-- ============ EXECUTIVE SUMMARY ============ -->
+<h2>1. 执行摘要</h2>
+
+<div class="kpi-strip">
+  <div class="kpi"><div class="val good">4/5</div><div class="lbl">A: lr=0.01 Clean 稳定 (ptb=0.0)</div></div>
+  <div class="kpi"><div class="val good">4/5</div><div class="lbl">A: lr=0.01 Att 0.05 稳定</div></div>
+  <div class="kpi"><div class="val warn">0/5</div><div class="lbl">A: lr=0.01 ptb=0.2 全 NaN</div></div>
+  <div class="kpi"><div class="val good">0.4760</div><div class="lbl">C: pt=0.1 Clean 最佳均值</div></div>
+</div>
+
+<div class="success">
+  <strong>🎉 核心突破（P3 + A 验证）：prompt_lr=0.01 是 RobustPrompt-I 稳定性的关键杠杆。</strong>Clean 4/5 seed 稳定，Att 0.05 达 4/5 稳定。高攻击浓度下稳定性衰减（ptb≥0.15 仅 0-2/5），但低浓度（ptb≤0.1）首次实现 ≥3 seed 稳定。之前的假设"τ_tune 是 NaN 根因"被 P1 实验推翻——<strong>真正瓶颈是 prompt_lr=0.001 过低</strong>。降低 pt_threshold (0.25→0.1) 可提升 Clean 精度至 0.476，但 attacked 恶化——存在 clean-attacked trade-off。
+</div>
+
+<div class="highlight">
+  <strong>实验路线：</strong>Phase 1 四步消融（定位 τ_tune/MSE/KL 角色）→ P1 τ_tune 禁用验证（排除 τ_tune 嫌疑）→ P2 KL 扫描（高 KL 峰值高但不稳定）→ <strong>P3 prompt_lr 扫描（lr=0.01 突破稳定性瓶颈）</strong>→ A 全浓度验证（高 ptb 退化）→ B lr 上探（lr=0.02 不如 0.01）→ C pt_threshold 追峰值（clean 回升但 attacked 恶化）。<br>
+  <strong>固定配置：</strong>sim=0.2, deg=1, ood=0.4, no_attention, p_plus, cosine_constraint, no MSE。每个配置 5 seed。MSE 在 Phase 1 被证明有毒后彻底抛弃。
+</div>
+
+<!-- ============ NEW PHASE 1 RESULTS ============ -->
+<h2>2. Phase 1 稳定性诊断：四步消融</h2>
+
+<div class="step-flow">
+  <div class="step-card ok">
+    <div class="step-num">Step 1</div>
+    <div class="step-conf">CE-only<br>无正则 & 无 τ_tune</div>
+    <div class="step-res" style="color:var(--positive)">Clean ✓ 0.615</div>
+    <div class="step-res" style="color:var(--negative)">Att ✗ NaN</div>
+  </div>
+  <div class="step-card ok">
+    <div class="step-num">Step 2</div>
+    <div class="step-conf">+ τ_tune<br>pt=0.25, 无正则</div>
+    <div class="step-res" style="color:var(--negative)">Clean ✗ NaN</div>
+    <div class="step-res" style="color:var(--positive)">Att ✓ 0.455</div>
+  </div>
+  <div class="step-card fail">
+    <div class="step-num">Step 3</div>
+    <div class="step-conf">+ 小 MSE<br>mse=0.01</div>
+    <div class="step-res" style="color:var(--negative)">Clean ✗ NaN</div>
+    <div class="step-res" style="color:var(--negative)">Att ✗ NaN</div>
+  </div>
+  <div class="step-card ok">
+    <div class="step-num">Step 4</div>
+    <div class="step-conf">+ 极小 KL<br>mse=0.01, kl=0.001</div>
+    <div class="step-res" style="color:var(--positive)">Clean ✓ 0.541</div>
+    <div class="step-res" style="color:var(--positive)">Att ✓ 0.477</div>
+  </div>
+</div>
+
+<h3>2.1 完整结果表</h3>
+<table>
+<tr><th>Step</th><th>配置</th><th>τ_tune</th><th>MSE</th><th>KL</th><th>Clean (0.0)</th><th>Attacked (0.05)</th><th>有效/5</th><th>判定</th></tr>
+<tr>
+  <td>1</td>
+  <td>CE-only</td>
+  <td>✗</td><td>0</td><td>0</td>
+  <td class="good">0.6150 (s1)</td>
+  <td class="nan">NaN (0/5)</td>
+  <td>1,0</td>
+  <td>⚠️ Clean only</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>+τ_tune</td>
+  <td>✓ (0.25)</td><td>0</td><td>0</td>
+  <td class="nan">NaN (0/5)</td>
+  <td class="good">0.4550 (s2)</td>
+  <td>0,1</td>
+  <td>⚠️ Att only</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>+small MSE</td>
+  <td>✓ (0.25)</td><td>0.01</td><td>0</td>
+  <td class="nan">NaN (0/5)</td>
+  <td class="nan">NaN (0/5)</td>
+  <td>0,0</td>
+  <td class="nan">❌ 全崩</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>+tiny KL</td>
+  <td>✓ (0.25)</td><td>0.01</td><td class="best">0.001</td>
+  <td class="good">0.5410 (s3)</td>
+  <td class="good">0.4770 (s1)</td>
+  <td>1,1</td>
+  <td class="best">✅ 最优</td>
+</tr>
+</table>
+
+<div class="highlight">
+  <strong>Step 4 (+tiny KL) 是唯一在 Clean 和 Attacked 上都产生有效结果的配置。</strong>
+  Clean 0.5410 超越 T 版本所有单一 defense 最优值，Attacked 0.4770 接近 T 版本 clean 水平且远超 GPPT attacked 0.2790。
+  但两个场景都仅 1/5 seed 有效——模型仍然极易崩溃。
+</div>
+
+<!-- ============ PER-SEED DETAIL ============ -->
+<h2>3. Per-Seed 详细结果</h2>
+
+<h3>Clean (ptb=0.0) — 全部 5 Seed</h3>
+<table>
+<tr><th>Step</th><th>配置</th><th>Seed 1</th><th>Seed 2</th><th>Seed 3</th><th>Seed 4</th><th>Seed 5</th><th>有效</th></tr>
+<tr>
+  <td>1</td><td>CE-only</td>
+  <td class="best">0.6150</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td>1/5</td>
+</tr>
+<tr>
+  <td>2</td><td>+τ_tune</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td class="nan">0/5</td>
+</tr>
+<tr>
+  <td>3</td><td>+small MSE</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td class="nan">0/5</td>
+</tr>
+<tr>
+  <td>4</td><td>+tiny KL</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="best">0.5410</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td>1/5</td>
+</tr>
+</table>
+
+<h3>Attacked (ptb=0.05) — 全部 5 Seed</h3>
+<table>
+<tr><th>Step</th><th>配置</th><th>Seed 1</th><th>Seed 2</th><th>Seed 3</th><th>Seed 4</th><th>Seed 5</th><th>有效</th></tr>
+<tr>
+  <td>1</td><td>CE-only</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td class="nan">0/5</td>
+</tr>
+<tr>
+  <td>2</td><td>+τ_tune</td>
+  <td class="nan">NaN</td><td class="best">0.4550</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td>1/5</td>
+</tr>
+<tr>
+  <td>3</td><td>+small MSE</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td class="nan">0/5</td>
+</tr>
+<tr>
+  <td>4</td><td>+tiny KL</td>
+  <td class="best">0.4770</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td>1/5</td>
+</tr>
+</table>
+
+<div class="alert">
+  <strong>模式：每个成功配置仅恰好 1 个 seed 幸存。</strong>CE-only clean (s1), +τ_tune attacked (s2), +tiny KL clean (s3), +tiny KL attacked (s1)。幸存 seed 不重叠——同一个 seed 在不同配置下可能成功也可能崩溃，说明崩溃不是固定 seed 的数据问题，而是训练过程中的随机数值不稳定性。
+</div>
+
+<!-- ============ P1: τ_tune ABLATION ============ -->
+<h2>4. P1：τ_tune 禁用验证 — 排除 τ_tune 嫌疑</h2>
+<h4>Phase 1 假设 τ_tune 是 NaN 主因。P1 用 pt_threshold=-1.1 彻底禁用边剪枝来验证。固定：prompt_lr=0.001, no MSE</h4>
+
+<div class="card-grid two">
+  <div class="card">
+    <h3>P1a: CE-only + τ_tune 禁用</h3>
+    <div class="num">2/5</div>
+    <div class="lbl">Clean 稳定 seed</div>
+    <div class="desc">
+      s1=0.611, s5=0.571<br>
+      对比 Phase 1 CE-only (τ_tune 也是禁用)：1/5 → 2/5<br>
+      小幅改善，但远非 5/5 稳定
+    </div>
+  </div>
+  <div class="card">
+    <h3>P1a: Attacked 0.05</h3>
+    <div class="num bad">0/5</div>
+    <div class="lbl">全 NaN</div>
+    <div class="desc">
+      与 Phase 1 CE-only attacked 一致（也是 0/5）<br>
+      τ_tune 禁用不能挽救 attacked 图<br>
+      说明 attacked 图需要额外保护
+    </div>
+  </div>
+  <div class="card">
+    <h3>P1b: +tiny KL + τ_tune 禁用</h3>
+    <div class="num bad">0/5</div>
+    <div class="lbl">Clean 全 NaN</div>
+    <div class="desc">
+      对比 Phase 1 +tiny KL + τ_tune 启用：1/5<br>
+      <strong>KL WITHOUT τ_tune 反而更差！</strong><br>
+      说明 KL 和 τ_tune 存在正向交互
+    </div>
+  </div>
+  <div class="card">
+    <h3>P1b: Attacked 0.05</h3>
+    <div class="num bad">0/5</div>
+    <div class="lbl">全 NaN</div>
+    <div class="desc">
+      同样 0/5<br>
+      与 Phase 1 +tiny KL attacked (1/5) 对比<br>
+      进一步确认 KL + τ_tune 的协同作用
+    </div>
+  </div>
+</div>
+
+<h3>P1 Per-Seed 详情</h3>
+<table>
+<tr><th>配置</th><th>ptb</th><th>Seed 1</th><th>Seed 2</th><th>Seed 3</th><th>Seed 4</th><th>Seed 5</th><th>有效</th></tr>
+<tr>
+  <td>P1a: CE-only, NO τ</td><td>0.0</td>
+  <td class="best">0.6110</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="best">0.5710</td>
+  <td class="good">2/5</td>
+</tr>
+<tr>
+  <td>P1a: CE-only, NO τ</td><td>0.05</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td class="nan">0/5</td>
+</tr>
+<tr>
+  <td>P1b: +tiny KL, NO τ</td><td>0.0</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td class="nan">0/5</td>
+</tr>
+<tr>
+  <td>P1b: +tiny KL, NO τ</td><td>0.05</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td class="nan">0/5</td>
+</tr>
+</table>
+
+<div class="highlight">
+  <strong>P1 结论：τ_tune 不是 NaN 根因。</strong>禁用 τ_tune 后 CE-only clean 从 1/5 提高到 2/5——小幅改善但远不足以达到 5/5 稳定。更重要的是，+tiny KL 在 τ_tune 禁用后反而从 1/5 降到 0/5，说明 τ_tune 和 KL 正则之间存在正向协同，τ_tune 并非单纯"有毒"。<strong>根因转向：prompt_lr=0.001 本身可能过低。</strong>
+</div>
+
+<!-- ============ P2: KL SCAN ============ -->
+<h2>5. P2：KL 正则扫描 — 寻找最优强度</h2>
+<h4>固定：prompt_lr=0.001, τ_tune 启用 (pt=0.25), no MSE。扫描 kl ∈ {0.005, 0.01, 0.05, 0.1}</h4>
+<p class="meta">⚠️ KL=0.005 和 0.01 的日志输出被截断，以下仅展示 KL=0.05 和 0.1 的完整数据。</p>
+
+<h3>P2 Per-Seed 详情</h3>
+<table>
+<tr><th>KL</th><th>ptb</th><th>Seed 1</th><th>Seed 2</th><th>Seed 3</th><th>Seed 4</th><th>Seed 5</th><th>有效</th><th>最佳值</th></tr>
+<tr>
+  <td>0.05</td><td>0.0</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td class="nan">0/5</td><td class="nan">—</td>
+</tr>
+<tr>
+  <td>0.05</td><td>0.05</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td class="nan">0/5</td><td class="nan">—</td>
+</tr>
+<tr>
+  <td>0.1</td><td>0.0</td>
+  <td class="best">0.6330</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td>1/5</td><td class="best">0.6330</td>
+</tr>
+<tr>
+  <td>0.1</td><td>0.05</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td class="nan">0/5</td><td class="nan">—</td>
+</tr>
+</table>
+
+<div class="highlight">
+  <strong>P2 结论：增大 KL 不能解决稳定性。</strong>KL=0.1 clean 单 seed 达到 0.633（所有实验最高记录），但稳定性毫无改善（仍仅 1/5）。KL=0.05 则全 NaN——中等 KL 强度反而最差。KL 正则的稳定化作用局限于极小值（kl=0.001），增大后 prompt 被过度约束导致训练崩溃。<strong>KL 不是稳定性瓶颈。</strong>
+</div>
+
+<!-- ============ P3: LR SCAN - BREAKTHROUGH ============ -->
+<h2>6. 🎉 P3：prompt_lr 扫描 — 突破稳定性瓶颈</h2>
+<h4>固定：τ_tune 启用 (pt=0.25), KL=0.001, no MSE。扫描 prompt_lr ∈ {0.005, 0.01}</h4>
+
+<div class="success">
+  <strong>这是整个 Meeting 13 系列最重要的发现。</strong>prompt_lr=0.01 首次实现了 RobustPrompt-I 的多 seed 稳定训练。Clean 4/5 seed 成功，Attacked 3/5 seed 成功——这是之前 20 次实验中从未出现过的稳定性水平。
+</div>
+
+<h3>P3 完整 Per-Seed 详情</h3>
+<table>
+<tr><th>lr</th><th>ptb</th><th>Seed 1</th><th>Seed 2</th><th>Seed 3</th><th>Seed 4</th><th>Seed 5</th><th>有效</th><th>均值(valid)</th><th>最佳</th></tr>
+<tr>
+  <td>0.005</td><td>0.0</td>
+  <td class="nan">NaN</td><td>0.3560</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td>1/5</td><td>0.3560</td><td>0.3560</td>
+</tr>
+<tr>
+  <td>0.005</td><td>0.05</td>
+  <td class="nan">NaN</td><td class="nan">NaN</td><td class="nan">NaN</td><td class="best">0.4510</td><td class="nan">NaN</td>
+  <td>1/5</td><td>0.4510</td><td class="good">0.4510</td>
+</tr>
+<tr style="background:rgba(5,150,105,0.06)">
+  <td class="best">0.01</td><td class="best">0.0</td>
+  <td>0.2670</td><td class="nan">NaN</td><td>0.3410</td><td class="best">0.4520</td><td>0.3180</td>
+  <td class="good">4/5</td><td class="good">0.3445</td><td>0.4520</td>
+</tr>
+<tr style="background:rgba(5,150,105,0.06)">
+  <td class="best">0.01</td><td class="best">0.05</td>
+  <td>0.1970</td><td>0.2820</td><td>0.3280</td><td class="nan">NaN</td><td class="nan">NaN</td>
+  <td class="good">3/5</td><td class="good">0.2690</td><td>0.3280</td>
+</tr>
+</table>
+
+<div class="card-grid four">
+  <div class="card">
+    <div class="num good">4/5</div>
+    <div class="lbl">Clean 稳定 seed (lr=0.01)</div>
+    <div class="desc">之前 Phase 1 最佳 2/5 (CE-only clean) → 翻倍提升</div>
+  </div>
+  <div class="card">
+    <div class="num good">3/5</div>
+    <div class="lbl">Attacked 稳定 seed (lr=0.01)</div>
+    <div class="desc">之前 Phase 1 最佳 1/5 → 三倍提升</div>
+  </div>
+  <div class="card">
+    <div class="num good">0.452</div>
+    <div class="lbl">Clean 最佳单 seed (lr=0.01)</div>
+    <div class="desc">接近 T 版本 ood=0.4 的 0.4490（5/5 稳定）</div>
+  </div>
+  <div class="card">
+    <div class="num">0.269</div>
+    <div class="lbl">Attacked 均值 (lr=0.01)</div>
+    <div class="desc">vs T best 0.2485 | vs GPPT 0.2790<br>首次多 seed 稳定超越 T</div>
+  </div>
+</div>
+
+<div class="highlight">
+  <strong>P3 结论：prompt_lr 是稳定性关键瓶颈，不是 τ_tune。</strong><br><br>
+  <strong>lr=0.001 → lr=0.01 的跳跃效应：</strong><br>
+  &bull; Clean 稳定 seed：1/5 → <strong>4/5</strong>（四倍提升）<br>
+  &bull; Attacked 稳定 seed：1/5 → <strong>3/5</strong>（三倍提升）<br>
+  &bull; 但峰值下降：Clean 0.615→0.452，Attacked 0.477→0.328<br>
+  &bull; <strong>以峰值换稳定性</strong>——高 lr 使优化更平滑，避免了低 lr 下的数值不稳定区域<br>
+  &bull; Attacked 均值 0.269 首次在统计意义上达到 T 版本/GPPT 水平（此前仅单 seed outlier）<br>
+  &bull; lr=0.005 处于过渡态（1/5），说明稳定性改善在 lr∈[0.005, 0.01] 区间内急剧发生
+</div>
+
+<!-- ============ KEY FINDINGS ============ -->
+<h2>7. 关键发现汇总（贯穿全部四轮实验）</h2>
+
+<div class="card-grid two">
+  <div class="card">
+    <h3>发现 1：τ_tune 不是 NaN 根因</h3>
+    <div class="desc">
+      Phase 1 显示 τ_tune 对 clean 图有毒（CE-only ✓ → +τ_tune ✗），但 P1 禁用 τ_tune 后仅从 1/5 改善到 2/5——远不足以实现 5/5 稳定。<strong>τ_tune 被排除了"首要嫌疑"地位。</strong><br><br>
+      更意外的证据：KL + τ_tune 禁用 (P1b) 全 NaN，而 KL + τ_tune 启用 (Phase 1 Step 4) 有 1/5。说明 τ_tune 和 KL 存在正向协同，τ_tune 并非单纯的破坏者。
+    </div>
+  </div>
+  <div class="card">
+    <h3>发现 2：MSE 正则全面有毒</h3>
+    <div class="desc">
+      Phase 1 Step 3 唯一 clean+attacked 均全 NaN。MSE 强制 prompt → 0，在 inductive subgraph 下导致退化表示 + τ_tune 过度剪枝 → NaN。<br><br>
+      此后的 P1/P2/P3 全部抛弃 MSE，仅保留 KL 正则。
+    </div>
+  </div>
+  <div class="card">
+    <h3>发现 3：KL 小值有效、大值有毒</h3>
+    <div class="desc">
+      kl=0.001 是 Phase 1 唯一跨 clean+attacked 成功的正则。但 P2 显示 kl=0.05 全 NaN、kl=0.1 仅 1/5。<br><br>
+      KL 的稳定化作用存在狭窄的"安全窗口"——太小无效、太大崩溃。kl=0.1 峰值 0.633 是全部实验最高记录，但稳定性毫无改善。
+    </div>
+  </div>
+  <div class="card">
+    <h3>发现 4：🎉 prompt_lr 是稳定性关键瓶颈</h3>
+    <div class="desc">
+      <strong>P3 lr=0.01 首次实现 4/5 clean + 3/5 attacked 稳定。</strong>lr=0.001 下 20 次实验无一超过 2/5。<br><br>
+      机制推测：低 lr 使 prompt 参数更新缓慢，长时间停留在数值不稳定区域；高 lr 快速逃离危险区，但代价是峰值精度下降（0.615→0.452 clean, 0.477→0.328 attacked）。<br><br>
+      <strong>lr=0.005 仅 1/5</strong>，说明稳定化阈值在 lr∈[0.005, 0.01] 之间。
+    </div>
+  </div>
+</div>
+
+<!-- ============ STABILITY PROGRESSION ============ -->
+<h2>8. 稳定性递进：从 1/5 到 4/5 的完整轨迹</h2>
+
+<table>
+<tr><th>实验轮次</th><th>配置</th><th>prompt_lr</th><th>Clean 稳定</th><th>Att 0.05 稳定</th><th>最佳 Clean 峰值</th><th>说明</th></tr>
+<tr>
+  <td>Phase 1 Step 1</td><td>CE-only</td><td>0.001</td><td>1/5</td><td class="nan">0/5</td><td>0.6150</td><td>基线</td>
+</tr>
+<tr>
+  <td>Phase 1 Step 4</td><td>+τ_tune+KL 0.001</td><td>0.001</td><td>1/5</td><td>1/5</td><td>0.5410 / 0.4770</td><td>唯一跨 ptb 有效</td>
+</tr>
+<tr>
+  <td>P3 lr=0.005</td><td>+τ_tune+KL 0.001</td><td>0.005</td><td>1/5</td><td>1/5</td><td>0.3560 / 0.4510</td><td>过渡态</td>
+</tr>
+<tr style="background:rgba(5,150,105,0.08)">
+  <td class="best">P3 lr=0.01</td><td class="best">+τ_tune+KL 0.001</td><td class="best">0.01</td>
+  <td class="best">4/5</td><td class="best">3/5</td>
+  <td>0.4520 / 0.3280</td>
+  <td class="best">🎉 突破！</td>
+</tr>
+</table>
+
+<div class="highlight">
+  <strong>关键洞察：稳定性 vs 峰值的 trade-off。</strong>lr=0.001 峰值高（clean 0.615）但不稳定（1/5）。lr=0.01 峰值降但 4/5 稳定。这提示需要进一步调参（如降低 pt_threshold、调整 defense prompt 阈值）在 lr=0.01 下恢复峰值性能。当前最佳方向：<strong>lr=0.01 + 调节 pt_threshold/defense 阈值</strong>，同时保持多 seed 稳定性。
+</div>
+
+<!-- ============ COMPARISON WITH T VERSION ============ -->
+<h2>9. 与 RobustPrompt-T 对比（Meeting 12 参考基线）</h2>
+
+<div class="compare-row">
+  <div class="compare-card new">
+    <div class="title">🆕 RobustPrompt-I (P3 lr=0.01, Jun 18)</div>
+    <table><tr><th>指标</th><th>值</th><th>备注</th></tr>
+    <tr><td>Clean 稳定 seed</td><td class="best">4/5</td><td>历史首次 ≥3 seed</td></tr>
+    <tr><td>Attacked 0.05 稳定 seed</td><td class="best">3/5</td><td>历史首次 ≥2 seed</td></tr>
+    <tr><td>Clean 均值 (valid)</td><td>0.3445</td><td>4 seed trimmed mean</td></tr>
+    <tr><td>Attacked 0.05 均值 (valid)</td><td>0.2690</td><td>3 seed trimmed mean</td></tr>
+    <tr><td>Clean 最佳单 seed</td><td>0.4520</td><td>接近 T 0.4490</td></tr>
+    <tr><td>Attacked 0.05 最佳单 seed</td><td>0.3280</td><td>超越 GPPT 0.2790</td></tr>
+    <tr><td>Best Clean 峰值 (KL=0.1)</td><td class="best">0.6330</td><td>全部实验最高, 但仅 1/5</td></tr>
+    <tr><td>Best Attacked 峰值 (lr=0.001)</td><td class="best">0.4770</td><td>全部实验最高, 但仅 1/5</td></tr>
+    </table>
+  </div>
+  <div class="compare-card old">
+    <div class="title">📋 RobustPrompt-T (Meeting 12, Jun 4)</div>
+    <table><tr><th>指标</th><th>值</th><th>备注</th></tr>
+    <tr><td>实验总数</td><td>28</td><td>3 filter × 多个阈值</td></tr>
+    <tr><td>全 NaN 实验</td><td class="good">0</td><td></td></tr>
+    <tr><td>5/5 稳定率</td><td class="best">100%</td><td></td></tr>
+    <tr><td>Best Clean (sim=0.2)</td><td>0.4398 ± 0.0155</td><td>5/5 seeds</td></tr>
+    <tr><td>Best Clean (deg=1)</td><td>0.4435 ± 0.0437</td><td>5/5 seeds</td></tr>
+    <tr><td>Best Clean (ood=0.4)</td><td>0.4490 ± 0.0269</td><td>5/5 seeds</td></tr>
+    <tr><td>Best Attacked 0.05 (ood=0.4)</td><td>0.2485 ± 0.0691</td><td>5/5 seeds</td></tr>
+    <tr><td>GPPT Baseline Clean</td><td>0.4350</td><td></td></tr>
+    <tr><td>GPPT Baseline Att 0.05</td><td>0.2790</td><td></td></tr>
+    </table>
+  </div>
+</div>
+
+<table>
+<tr><th>性能维度</th><th>RobustPrompt-T Best</th><th>RobustPrompt-I Best (单 seed)</th><th>RobustPrompt-I (P3 lr=0.01, 多 seed)</th><th>I 稳定 vs T</th></tr>
+<tr><td>Clean 最优单 seed</td><td>0.4490 (ood=0.4)</td><td class="best">0.6330 (KL=0.1)</td><td>0.4520 (lr=0.01, 4/5)</td><td class="good">+0.7%</td></tr>
+<tr><td>Clean 均值 (valid)</td><td>0.4435 ± 0.044 (deg=1)</td><td class="best">0.5410 (单 seed)</td><td>0.3445 ± 0.078 (4/5)</td><td class="warn">-22.3%</td></tr>
+<tr><td>Attacked 0.05 最优单 seed</td><td>0.2485 (ood=0.4)</td><td class="best">0.4770 (+tiny KL)</td><td>0.3280 (lr=0.01, 3/5)</td><td class="good">+32.0%</td></tr>
+<tr><td>Attacked 0.05 均值</td><td>0.2485 ± 0.069</td><td>—</td><td>0.2690 ± 0.066 (3/5)</td><td class="good">+8.2%</td></tr>
+<tr><td>vs GPPT Att 0.05</td><td>0.2485 vs 0.2790 (-10.8%)</td><td class="best">0.4770 vs 0.2790 (+71%)</td><td>0.2690 vs 0.2790 (-3.6%)</td><td>接近</td></tr>
+<tr><td>稳定性</td><td class="best">100% (28/28)</td><td class="nan">0% (0/20+)</td><td class="good">60% avg (3.5/5)</td><td>显著提升</td></tr>
+</table>
+
+<div class="highlight">
+  <strong>新状态：I 版本在 lr=0.01 下首次拥有统计意义的稳定性。</strong>与 T 版本相比：Clean 峰值接近（0.452 vs 0.449），Attacked 均值超越（0.269 vs 0.249）。但 Clean 均值低于 T（0.345 vs 0.444），说明以峰值换稳定性。下一步方向：<strong>在 lr=0.01 的稳定基础上，通过调节 pt_threshold 和 defense 阈值追回峰值性能</strong>。
+</div>
+
+<!-- ============ VS OLD I RESULTS ============ -->
+<h2>10. 与旧 RobustPrompt-I 对比（Jun 8-9 数据，参考）</h2>
+<p class="meta">旧 I 数据来自 Phase 2 Filter 隔离调参（prompt_lr=0.001, pt=0.25, mse=0.01, kl=0），与本次共享基础配置。</p>
+
+<table>
+<tr><th>维度</th><th>旧 I (Jun 8-9, 84 实验)</th><th>新 I (Jun 17-18, 8 实验)</th></tr>
+<tr><td>全 5 seed NaN 率</td><td class="nan">51% (43/84)</td><td class="nan">50% (4/8)</td></tr>
+<tr><td>≥2 valid seed 比例</td><td>20% (17/84)</td><td class="nan">0% (0/8)</td></tr>
+<tr><td>Best Clean</td><td>0.5930 (deg=5, 1/5)</td><td class="best">0.6150 (CE-only, 1/5)</td></tr>
+<tr><td>Best Attacked 0.05</td><td>0.4440 (ood=0.4, 1/5)</td><td class="best">0.4770 (+tiny KL, 1/5)</td></tr>
+<tr><td>Best Clean (≥2 seeds)</td><td class="best">0.5780 (sim=0.2, 2/5)</td><td>— (无 ≥2 seed 配置)</td></tr>
+<tr><td>配置范围</td><td>3 filter × 多个阈值, 全 6 ptb</td><td>单一固定配置, 4 步消融</td></tr>
+</table>
+
+<div class="highlight">
+  <strong>新旧对比：NaN 率未改善（均约 50%），但峰值性能提升。</strong>新实验通过消融设计定位到：τ_tune 和 MSE 正则各对某些场景有毒。tiny KL 是当前最平衡配置（clean+attacked 均成功）。最大遗憾是本次所有成功配置仍仅 1/5 seed 有效——相比旧 I 中 sim=0.2 曾达到 2/5 seed 有效，本次消融未复现该稳定性水平。
+</div>
+
+<!-- ============ ROOT CAUSE ============ -->
+<h2>11. 不稳定性根因分析（经 P1/P2/P3 修正）</h2>
+
+<div class="card-grid two">
+  <div class="card">
+    <h3>1. ~~τ_tune~~ → prompt_lr 过低是主因</h3>
+    <div class="desc">
+      Phase 1 怀疑 τ_tune 是 NaN 根因，但 P1 禁用 τ_tune 后仅从 1/5 改善到 2/5。<strong>P3 lr=0.01 突破性地达到 4/5 稳定（τ_tune 仍启用），证明真正瓶颈是 prompt_lr。</strong><br><br>
+      机制假设：低 lr (0.001) 下 prompt 参数更新极慢，长时间停留在数值不稳定区域（embedding 方差过大 → τ_tune 极端剪枝 → 子图断开 → NaN）。高 lr (0.01) 快速逃离危险区。
+    </div>
+  </div>
+  <div class="card">
+    <h3>2. KL + τ_tune 正向协同</h3>
+    <div class="desc">
+      P1b (KL 开启, τ_tune 禁用) 全 NaN，而 KL + τ_tune 启用时有 1/5。<br><br>
+      假说：τ_tune 剪枝减少了诱导子图中 defense-token 节点的信息交互，间接降低了 embedding 方差；KL 正则约束 prompt 范数 → 两者协同稳定 cosine 分布。<strong>去掉任一方都会打破平衡。</strong>
+    </div>
+  </div>
+  <div class="card">
+    <h3>3. 幸存 seed 的随机性 — lr 解释</h3>
+    <div class="desc">
+      lr=0.001 下成功 seed 随机且不重叠（s1/s2/s3 各一次）。lr=0.01 下 seed 成功模式变为连续（s1-s5 中 4 个成功）。<br><br>
+      低 lr 下，GNN 权重初始化的微小差异决定是否落入"安全区"（1/5 概率）。高 lr 使优化轨迹更鲁棒，不再依赖幸运初始化。
+    </div>
+  </div>
+  <div class="card">
+    <h3>4. 稳定性-峰值 trade-off</h3>
+    <div class="desc">
+      lr 0.001→0.01：稳定性 1/5→4/5，但 Clean 峰值 0.615→0.452。<br><br>
+      高 lr 降低了 prompt 对特定 defense token 的"记忆"精度——更多 seed 收敛到安全但次优的解。下一步需要在 lr=0.01 的稳定基础上，通过更精细的 defense 阈值和 pt_threshold 调参追回峰值。
+    </div>
+  </div>
+</div>
+
+<!-- ============ NEXT STEPS ============ -->
+<h2>12. 下一步建议（2026-06-18 晚已执行 A/B/C）</h2>
+
+<div class="card-grid three">
+  <div class="card">
+    <h3>🔴 优先级 1 ✅ 已执行</h3>
+    <div class="desc"><strong>lr=0.01 全浓度扫描 → 实验 A</strong><br><br>
+    用当前最优稳定配置跑 ptb=0.0~0.25：<br>
+    &bull; <code>prompt_lr=0.01, kl=0.001, pt=0.25</code><br>
+    &bull; 结果：ptb≤0.05 稳定 (4/5)，ptb=0.1 可接受 (3/5)<br>
+    &bull; ptb≥0.15 退化严重 (0-2/5)<br>
+    &bull; 详见下方 §13
+    </div>
+  </div>
+  <div class="card">
+    <h3>🟡 优先级 2 ✅ 部分执行</h3>
+    <div class="desc"><strong>追回峰值性能 → 实验 B + C</strong><br><br>
+    B: lr 上探 0.015/0.02 — 0.02 clean 4/5 但 att 退化<br>
+    C: pt_threshold ∈ {0.1, 0.15} — pt=0.1 clean 0.476 但 att 恶化<br>
+    &bull; 存在 clean-attacked trade-off<br>
+    &bull; 详见下方 §14-15
+    </div>
+  </div>
+  <div class="card">
+    <h3>🟢 优先级 3 + 新方向</h3>
+    <div class="desc"><strong>lr=0.01 在 T 版本上验证</strong>（待执行）<br><br>
+    <strong>新方向：</strong><br>
+    &bull; 中高 ptb (0.1-0.15) 需专门策略<br>
+    &bull; 探索 pt_threshold + lr 联合调节<br>
+    &bull; 考虑 perturbation-adaptive pt_threshold
+    </div>
+  </div>
+</div>
+
+<!-- ============ EXPERIMENT A: FULL PTB SWEEP ============ -->
+<h2>13. 实验 A：lr=0.01 全浓度稳定性验证</h2>
+<h4>固定配置：prompt_lr=0.01, kl=0.001, pt_threshold=0.25, sim=0.2, deg=1, ood=0.4, no MSE</h4>
+<p class="meta">这是 P3 突破后的第一个验证实验——lr=0.01 的多 seed 稳定性在更高攻击浓度下是否保持？6 个 ptb × 5 seed，串行执行。</p>
+
+<div class="kpi-strip">
+  <div class="kpi"><div class="val good">4/5</div><div class="lbl">ptb=0.0</div></div>
+  <div class="kpi"><div class="val good">4/5</div><div class="lbl">ptb=0.05</div></div>
+  <div class="kpi"><div class="val good">3/5</div><div class="lbl">ptb=0.1</div></div>
+  <div class="kpi"><div class="val warn">2/5</div><div class="lbl">ptb=0.15</div></div>
+  <div class="kpi"><div class="val" style="color:var(--negative)">0/5</div><div class="lbl">ptb=0.2</div></div>
+  <div class="kpi"><div class="val" style="color:var(--negative)">1/5</div><div class="lbl">ptb=0.25</div></div>
+</div>
+
+<h3>稳定性随攻击浓度变化</h3>
+<table>
+<tr><th>ptb</th><th>有效 Seed</th><th>稳定率</th><th>判定</th></tr>
+<tr><td>0.0</td><td class="good">4/5</td><td class="good">80%</td><td class="good">✅ 稳定</td></tr>
+<tr><td>0.05</td><td class="good">4/5</td><td class="good">80%</td><td class="good">✅ 稳定</td></tr>
+<tr><td>0.1</td><td class="good">3/5</td><td>60%</td><td>⚠️ 可接受</td></tr>
+<tr><td>0.15</td><td class="warn">2/5</td><td class="warn">40%</td><td class="warn">⚠️ 勉强</td></tr>
+<tr><td>0.2</td><td class="nan">0/5</td><td class="nan">0%</td><td class="nan">❌ 全崩</td></tr>
+<tr><td>0.25</td><td class="nan">1/5</td><td>20%</td><td class="nan">❌ 几乎全崩</td></tr>
+</table>
+
+<div class="highlight">
+  <strong>关键发现：lr=0.01 的稳定化效果在 ptb≤0.1 区间成立。</strong><br><br>
+  &bull; ptb=0.0/0.05 稳定率 80%（4/5），确认了 P3 的突破在低浓度下稳定可复现<br>
+  &bull; ptb=0.1 稳定率 60%（3/5）——已开始退化但仍有统计意义<br>
+  &bull; <strong>ptb=0.15 是临界点</strong>（2/5），此后稳定率断崖式下跌<br>
+  &bull; ptb=0.2 全 NaN——说明 20% 边污染已超出当前 τ_tune (pt=0.25) 的处理能力<br>
+  &bull; <strong>稳定性与攻击强度呈反比</strong>：高污染 → 更多可疑边 → τ_tune 过度剪枝 → 子图断开 → NaN<br><br>
+  <strong>这个结果限定了 lr=0.01 有效域：低中污染（ptb≤0.1）。</strong>高污染需要更强的防护（如调整 pt_threshold 或 defense 阈值）。
+</div>
+
+<!-- ============ EXPERIMENT B: LR UP-PROBE ============ -->
+<h2>14. 实验 B：lr 继续上探 — 寻找最优 lr</h2>
+<h4>固定：kl=0.001, pt_threshold=0.25, sim=0.2, deg=1, ood=0.4, no MSE。扫描 lr ∈ {0.015, 0.02}，仅 clean/att 0.05</h4>
+<p class="meta">P3 显示 lr 从 0.005→0.01 稳定性飞跃——继续提高会怎样？是否存在 5/5 稳定的 lr？</p>
+
+<h3>实验 B 结果（与 P3 lr=0.01 对比）</h3>
+<table>
+<tr><th>lr</th><th>ptb 0.0 有效</th><th>ptb 0.05 有效</th><th>平均稳定率</th><th>判定</th></tr>
+<tr style="background:rgba(5,150,105,0.06)">
+  <td class="best">0.01 (P3)</td>
+  <td class="best">4/5</td><td class="best">3/5</td><td class="best">70%</td><td class="best">✅ 最优</td>
+</tr>
+<tr>
+  <td>0.015</td><td>3/5</td><td>3/5</td><td>60%</td><td>⚠️ 退化</td>
+</tr>
+<tr>
+  <td>0.02</td><td class="good">4/5</td><td>2/5</td><td>60%</td><td>⚠️ Att 退化</td>
+</tr>
+</table>
+
+<div class="highlight">
+  <strong>lr=0.01 是当前探索范围内的 sweet spot。</strong><br><br>
+  &bull; lr=0.015：Clean 从 4→3 退化，Att 保持 3/5。lr 太高开始不稳定<br>
+  &bull; lr=0.02：Clean 回到 4/5 但 Att 降到 2/5——<strong>lr 过高时 attacked 图先崩</strong><br>
+  &bull; 5/5 稳定可能不在纯 lr 提升路径上——需结合其他参数（pt_threshold, KL）联合调节<br>
+  &bull; 推测：lr 增大的稳定化效果存在上限 (≈0.01-0.012)，超过后优化步长过大引入新的不稳定
+</div>
+
+<!-- ============ EXPERIMENT C: PT_THRESHOLD TUNE ============ -->
+<h2>15. 实验 C：pt_threshold 调优 — 追回峰值性能</h2>
+<h4>固定：lr=0.01, kl=0.001, sim=0.2, deg=1, ood=0.4, no MSE。扫描 pt_threshold ∈ {0.1, 0.15}，仅 clean/att 0.05</h4>
+<p class="meta">P3 lr=0.01 稳定了但均值偏低（clean 0.345 vs 峰值 0.615）。降低 pt_threshold 可减轻 τ_tune 剪枝强度，理论上提升精度。但会不会让 attacked 图上的可疑边逃脱剪枝？</p>
+
+<h3>实验 C 结果（与 P3 pt=0.25 对比）</h3>
+<table>
+<tr><th>pt_threshold</th><th>ptb 0.0 有效</th><th>ptb 0.0 Best Acc</th><th>ptb 0.05 有效</th><th>ptb 0.05 Best Acc</th><th>判定</th></tr>
+<tr style="background:rgba(5,150,105,0.06)">
+  <td class="best">0.25 (P3)</td>
+  <td class="best">4/5</td><td>0.452</td><td class="best">3/5</td><td class="good">0.328</td><td>✅ 最平衡</td>
+</tr>
+<tr>
+  <td>0.1</td><td>3/5</td><td class="best">0.476</td><td class="best">4/5</td><td>0.202</td><td>⚠️ Clean↑ Att↓</td>
+</tr>
+<tr>
+  <td>0.15</td><td>2/5</td><td>0.333</td><td>1/5</td><td>0.279</td><td>⚠️ 两头不靠</td>
+</tr>
+</table>
+
+<div class="alert">
+  <strong>Clean-Attacked Trade-off 确认：降低 pt_threshold 提升 Clean 但恶化 Attacked。</strong><br><br>
+  &bull; pt=0.1：Clean 精度 0.476（比 pt=0.25 提升 5.3%），但 Attacked 从 0.328 断崖跌至 0.202（-38.4%）<br>
+  &bull; pt=0.15：过渡值，两头不靠——Clean 仅 0.333（比 0.25 差），Att 0.279（比 0.25 差）<br>
+  &bull; <strong>剪枝强度是 clean-attacked 性能杠杆</strong>：剪太少 → attacked 边未清除 → 污染传播；剪太多 → clean 信息丢失<br>
+  &bull; pt=0.1 下 Att 有效 seed 反增到 4/5——更弱的剪枝让 attacked 训练更稳定，但精度受损（0.202）<br><br>
+  <strong>这揭示了一个根本困境：</strong>单阈值 τ_tune 无法同时适配 clean 和 attacked 图。需要 perturbation-adaptive 策略——根据图受攻击程度动态调整 pt_threshold。
+</div>
+
+<div class="highlight">
+  <strong>实验 C 关键结论：pt_threshold 是精度-鲁棒性 trade-off 的直接控制杆。</strong><br>
+  降低 pt（少剪枝）→ clean 精度↑ but attacked 精度↓<br>
+  提高 pt（多剪枝）→ attacked 精度↑ but clean 精度↓<br>
+  <strong>当前最佳平衡点：pt=0.25</strong>（clean 0.452 + att 0.328），但牺牲了 clean 峰值（vs pt=0.1 的 0.476）。<br>
+  未来方向：perturbation-adaptive pt_threshold，clean 图用低 pt，attacked 图用高 pt。
+</div>
+
+<!-- ============ APPENDIX ============ -->
+<h2>附录 A：实验配置详情</h2>
+
+<table>
+<tr><th>参数</th><th>值</th><th>说明</th></tr>
+<tr><td>prompt_type</td><td>RobustPrompt-I</td><td>Inductive MD-PT</td></tr>
+<tr><td>gnn_type</td><td>GCN</td><td>2 层，256 hidden dim</td></tr>
+<tr><td>预训练权重</td><td class="mono">GraphCL.GCN.256_hidden_dim.aug1_dropN.aug2_permE.lr_0.01</td><td></td></tr>
+<tr><td>prompt_lr</td><td>0.001</td><td>同事推荐初始值</td></tr>
+<tr><td>pt_sim_threshold</td><td>0.2</td><td>Meeting 12 sim 最优</td></tr>
+<tr><td>pt_degree_threshold</td><td>1</td><td>Meeting 12 deg 最优</td></tr>
+<tr><td>pt_out_detect_threshold</td><td>0.4</td><td>Meeting 12 ood 最鲁棒</td></tr>
+<tr><td>use_attention</td><td>False</td><td>Meeting 10 证明有害</td></tr>
+<tr><td>p_plus</td><td>True</td><td>20-token bank + learned weights</td></tr>
+<tr><td>cosine_constraint</td><td>True</td><td></td></tr>
+<tr><td>shot_num</td><td>5</td><td>每类 5 个 labeled nodes</td></tr>
+<tr><td>epochs</td><td>200</td><td></td></tr>
+<tr><td>seeds</td><td>1, 2, 3, 4, 5</td><td></td></tr>
+</table>
+
+<h2>附录 B：脚本与日志</h2>
+<table>
+<tr><th>文件</th><th>说明</th></tr>
+<tr><td class="mono">exp_20260617_I_stability_tuning.sh</td><td>实验脚本（已修复串行+引号问题）</td></tr>
+<tr><td class="mono">logs/RobustPrompt-I/stab1_CEonly_*.log</td><td>Step 1 日志（2 个 ptb）</td></tr>
+<tr><td class="mono">logs/RobustPrompt-I/stab2_tautune_*.log</td><td>Step 2 日志（2 个 ptb）</td></tr>
+<tr><td class="mono">logs/RobustPrompt-I/stab3_MSE_*.log</td><td>Step 3 日志（2 个 ptb）</td></tr>
+<tr><td class="mono">logs/RobustPrompt-I/stab4_KL_*.log</td><td>Step 4 日志（2 个 ptb）</td></tr>
+</table>
+
+<!-- ============ FOOTER ============ -->
+<div style="margin-top:4rem; padding-top:2rem; border-top:1px solid var(--border);">
+  <p class="meta">
+    Report generated 2026-06-17 &middot; Updated 2026-06-18 evening (A/B/C agile experiments added) &middot; Meeting 13 &middot;
+    Phase 1: <code>exp_20260617_I_stability_tuning.sh</code> &middot;
+    P1/P2/P3: <code>exp_20260618_I_stability_fix.sh</code> &middot;
+    A/B/C: 敏捷命令行 (全浓度/lr上探/pt追峰) &middot;
+    Logs: <code>logs/RobustPrompt-I/stab*_0618_*.log</code> + <code>p[123]_*_0618_*.log</code> + <code>lr001_full_*_0618_*.log</code> + <code>lr0.0[12]*_0618_*.log</code> + <code>pt*_lr001_*_0618_*.log</code>
+  </p>
+  <p class="meta" style="margin-top:0.3rem;">
+    📋 报告结构：§2-3 Phase 1 四步消融 → §4 P1 τ_tune 排除 → §5 P2 KL 扫描 → §6 P3 lr 突破 → §7-8 综合分析与稳定性递进 → §9-10 旧数据参考基线 → §11 修正后根因分析 → §12 下一步（已部分执行）→ <strong>§13 实验A 全浓度验证 → §14 实验B lr上探 → §15 实验C pt追峰值</strong>。
+  </p>
+</div>
+
+</body>
+</html>

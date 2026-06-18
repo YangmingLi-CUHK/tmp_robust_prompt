@@ -1,0 +1,437 @@
+================================================================================
+        GPromptShield (RobustPrompt-T) 修复与审查报告
+        日期: 2026-05-21
+================================================================================
+
+一、项目背景
+================================================================================
+
+项目目标：构建鲁棒的图提示学习（Robust Graph Prompt Learning）。在 GNN 预训练 +
+Prompt Learning 的范式下，使下游节点分类任务在面对图结构扰动（如 Metattack 边污染）
+时仍保持稳定且可接受的分类性能。
+
+预训练配置：标准 GraphCL，GCN backbone，Cora 数据集
+  aug1=dropN  aug2=permE  ratio=0.3  lr=0.01  epochs=200  hid_dim=256  num_layer=2
+
+核心矛盾（修复前）：
+
+  | Prompt 方法      | Clean Accuracy        | Attacked (Meta_Self-0.05) | 稳定性     |
+  |------------------|-----------------------|---------------------------|------------|
+  | GPPT (baseline)  | 57.1%                 | 27.9%                     | 跨seed稳定  |
+  | RobustPrompt-T   | 27.6% (0.07~0.51)     | 11.4% (0.06~0.14)         | 极不稳定    |
+
+GPPT 验证了数据管线、预训练权重和代码实现正确。但 RobustPrompt-T（即论文中的
+GPromptShield）表现既差又不稳定，与论文 ICLR 2025 报告的水平严重不符。
+
+
+二、需求
+================================================================================
+
+严格根据 GPromptShield 论文 (ICLR 2025, "GPromptShield: Elevating Resilience in
+Graph Prompt Learning Against Adversarial Attacks") 修复项目中的 RobustPrompt-T
+代码，使其发挥应有的防御能力。具体包括：
+
+  1. 修复已知 Bug（out_detect_pt 未实现、attention 输出被覆写）
+  2. 对齐论文中的 Hybrid Multi-Defense Prompt (MD-PT) 架构
+  3. 实现论文中的 τ_tune 动态边剪枝
+  4. 修复默认配置，启用全部防御 prompt 类型
+  5. 确保评估时的 filter 行为与训练一致
+
+
+三、修改详情
+================================================================================
+
+3.1 prompt_graph/prompt/RobustPrompt_T.py — 核心修复（+56/-33 行）
+--------------------------------------------------------------------------------
+
+3.1.1 实现 out_detect_pt 防御 prompt（原 line 231-232 直接 pass）
+
+  原代码：out_detect_pt 分支为空，仅保留接口占位。
+
+  修复后：基于边两端节点特征的 cosine similarity 识别 OOD 边（低相似度 = 可疑对抗边），
+  OOD 边两端节点标记为需要 out_detect_pt，支持 p_plus 和非 p_plus 两种模式。
+
+  具体逻辑：
+    - 对每条边计算端节点特征归一化后的 cosine similarity: e = x_norm[src] · x_norm[dst]
+    - 以 pt_dict['out_detect_pt'] = 0.5 为阈值，cosine ≤ 0.5 的边标记为 OOD 边
+    - OOD 边两端节点去重后得到 node_use_ood_pt
+    - p_plus 模式：用 out_detect_pt_a (Linear) + out_detect_pt_list (20 token bank)
+      为每个受影响节点学习加权组合
+    - 非 p_plus 模式：所有受影响节点共享同一个 prompt_out_detect_pt
+
+3.1.2 修复 Attention 融合机制（原 line 277-282）
+
+  原代码 Bug：
+    g_mutiftpt_output, attn = self.attention_layer(...)
+    g_mutiftpt_output = normalize(g_mutiftpt_record, p=1, dim=2)  ← 直接覆写！
+    g_mutiftpt_final_output = g_mutiftpt_output[:,0,:]
+
+    attention 输出在下一行即被 normalize(INPUT) 覆盖，attention 权重完全无效。
+    同时 key_padding_mask 构造有误（keepdim + squeeze 导致维度错误），
+    node filter 逻辑错误（用 == len(self.pt_keys) 而非检查全部为 padding）。
+
+  修复后：
+    g_mutiftpt_record = g_mutiftpt_record.reshape(N, K, D)  # K=prompt类型数
+    g_mutiftpt_record = torch.cat([readout_token.expand(N,1,D), g_mutiftpt_record], dim=1)
+    key_padding_mask = torch.all(g_mutiftpt_record == padding, dim=-1)  # (N, K+1)
+
+    g_mutiftpt_output, attn = self.attention_layer(
+        g_mutiftpt_record, g_mutiftpt_record, g_mutiftpt_record,
+        key_padding_mask=key_padding_mask
+    )
+    g_mutiftpt_final_output = g_mutiftpt_output[:, 0, :]  # readout token 输出
+
+    # 没有任何防御prompt的节点 → 输出归零，仅保留原始特征 x
+    node_num_pt = (~key_padding_mask[:, 1:]).sum(-1)
+    node_use_no_pt_indices = torch.nonzero(node_num_pt == 0).squeeze(-1)
+    g_mutiftpt_final_output[node_use_no_pt_indices] = padding
+
+  设计原理（对齐论文 Section 4.2 Self-Attention 融合策略）：
+    - 在 K 个 prompt slot 前插入一个可学习的 readout_token
+    - MultiheadAttention(query=key=value=所有slot) 让 readout token 通过 attention
+      自适应地聚合各 slot 的信息
+    - key_padding_mask 为 True 的位置被 attention 忽略（即空 slot 不参与聚合）
+    - 输出取 readout token 位置 ([:,0,:])，作为该节点融合后的最终 prompt
+
+3.1.3 实现 τ_tune 动态边剪枝（原 Tune 方法仅单次 GNN forward）
+
+  原代码：加完 prompt 后单次 GNN forward，无中间剪枝。
+
+  修复后（2026-05-21）：两阶段 GNN forward + filter_module 初筛，尝试对齐论文 Equation 15：
+
+    # Stage 0: 添加 multi-prompt + filter_module 初筛
+    # Stage 1: 第一次 GNN forward + τ_tune 剪枝
+    # Stage 2: 第二次 GNN forward
+
+  ⚠️ 2026-06-03 再次修订（对齐论文原文 Section 4.3）：
+  审查论文原文后发现，filter_module（基于原始特征/AX 余弦的边过滤）为代码额外引入，
+  论文中不存在此组件。论文的 Filtering Tips（degree/similarity/OOD）全部用于节点分选
+  prompt，不用于边剪枝。论文唯一涉及边剪枝的是 τ_tune（Equation 15）。
+
+  最终代码（2026-06-03 对齐论文）：
+
+    # τ_tune 边剪枝（对齐论文 Equation 15）：添加 prompt → GNN forward →
+    # 基于中间 embedding 的 cosine similarity 剪枝 → 剪枝后 GNN forward
+    g_mutiftpt, node_use_each_pt_whole_graph = self.add_muti_pt(graph, device)
+
+    # 第一次 GNN forward 获取中间 embedding（在全图上，无预剪枝）
+    node_emb_intermediate = gnn(g_mutiftpt.x, g_mutiftpt.edge_index)
+
+    # 基于中间 embedding 的 cosine similarity 进行 τ_tune 剪枝
+    edge_sim_intermediate = F.cosine_similarity(
+        node_emb_intermediate[g_mutiftpt.edge_index[0]],
+        node_emb_intermediate[g_mutiftpt.edge_index[1]], dim=1
+    )
+    tune_keep_mask = edge_sim_intermediate >= self.pt_threshold
+    tuned_edge_index = g_mutiftpt.edge_index[:, tune_keep_mask]
+    tuned_g = Data(x=g_mutiftpt.x, edge_index=tuned_edge_index, y=g_mutiftpt.y)
+
+    # 第二次 GNN forward 在剪枝后的图上得到最终 node embedding
+    node_emb = gnn(tuned_g.x, tuned_g.edge_index)
+
+  MSE loss（L_s, 特征平滑性）基于 τ_tune 剪枝后的图计算：
+    loss_mse = F.mse_loss(node_emb[tuned_g.edge_index[0]], node_emb[tuned_g.edge_index[1]])
+
+3.2 prompt_graph/tasker/task.py — 默认配置修复（line 215-234）
+--------------------------------------------------------------------------------
+
+  原配置：
+    muti_defense_pt_dict = {'other_pt': 'all'}   # 仅 other_pt，等价于 GPF
+    use_attention = False                          # attention 未启用
+    cosine_constraint = False                      # 约束 loss 未启用
+    weight_kl = 0.                                 # KL loss 权重为 0
+
+  修复后（对齐论文 GPromptShield 的 Hybrid MD-PT）：
+    muti_defense_pt_dict = {
+        'sim_pt': 0.4,           # 邻居相似度低的节点 → p_s
+        'degree_pt': 2,          # 低度节点 → p_d
+        'out_detect_pt': 0.5,    # OOD 边节点 → p_o
+        'other_pt': 'all',       # 其余节点 → p_e (enhanced prompt)
+    }
+    use_attention = True          # 启用 Self-Attention 融合
+    cosine_constraint = True      # 启用 prompt 正交约束
+    weight_kl = 0.3               # KL 分布对齐 loss 权重
+
+3.3 prompt_graph/evaluation/RobustPromptTranductiveEva.py — 评估一致性修复（2026-06-03 修订）
+--------------------------------------------------------------------------------
+
+  2026-05-21 原修复（已废弃）：
+    认为 eval 应与 train 一致地执行 filter_graph，故修改条件使 filter_mode='original'
+    时也执行 filter_graph。
+
+  2026-06-03 修订（对齐论文）：
+    经审查论文原文，论文在推理时不做任何边剪枝——仅 add_muti_pt + GNN forward。
+    训练时的唯一边剪枝是 τ_tune（无 filter_module）。因此 eval 不应有任何边过滤。
+    同时 filter_graph 方法已注释掉（论文无此组件）。
+
+  最终代码：
+    # 推理时不剪枝（对齐论文）：添加 prompt → GNN forward，不做任何边过滤
+    g_mutiftpt, _ = prompt.add_muti_pt(data, device)
+    out = gnn(g_mutiftpt.x, g_mutiftpt.edge_index)
+
+  注：当前为 transductive（全图）设定，eval 与 train 在同一张全图上操作，
+  不存在 inductive（子图）设定下的 train/eval 图结构不一致问题。
+
+
+四、审查（Review）
+================================================================================
+
+4.1 Attention 功能是否恢复正常？
+--------------------------------------------------------------------------------
+
+  结论：已恢复正常。
+
+  审查要点：
+
+    a) readout token 机制正确
+       - 在 K 个 prompt slot 前插入可学习的 readout_token
+       - MultiheadAttention 使用 batch_first=True，输入形状 (N, K+1, D)
+       - 输出取位置 0（readout token）→ g_mutiftpt_output[:, 0, :]
+       - 这是标准的 readout-token 聚合模式（类比 BERT [CLS]）
+
+    b) key_padding_mask 构造正确
+       - torch.all(g_mutiftpt_record == padding, dim=-1) → 形状 (N, K+1)
+       - True 表示该位置所有特征维度均为零（即空 prompt slot）
+       - PyTorch MultiheadAttention 文档：key_padding_mask 为 True 的位置被忽略
+       - 符合预期：readout token 只 attend 到非空的 prompt slot
+
+    c) 无防御 prompt 节点的兜底处理
+       - node_num_pt = (~key_padding_mask[:, 1:]).sum(-1) 统计非空 slot 数
+       - node_num_pt == 0 的节点：没有任何防御 prompt，readout attention 输出无意义
+       - 设置为 padding（全零），使 final_x = x + 0 = x，退化为原始特征
+       - 这是合理的设计：不需要防御的节点不加 prompt
+
+    d) 与修复前的对比
+       - 修复前：attention 输出被 normalize(INPUT) 覆盖 → attention 从未生效
+       - 修复后：attention 输出正确保留并作为最终 prompt → attention 真正参与融合
+
+4.2 污染图加载是否正确？（数据路径与浓度传递）
+--------------------------------------------------------------------------------
+
+  结论：正确。完整加载链路审查如下。
+
+  当运行参数为 --specified --attack_method Meta_Self-0.25 时：
+
+    Step 1: NodeTask.__init__ → attack_downstream=True
+            → load_shot_attack_data()
+            [node_task.py:70-91]
+
+    Step 2: load_shot_attack_data() → specified=True
+            → load4node_attack_specified_shot_index(
+                'data_attack_fewshot', 'Cora', 'Meta_Self-0.25', shot_num=5, run_split=1
+              )
+            [load4data.py:378-426]
+
+    Step 3: 解析 attack_method
+            atk_type = 'Meta_Self'
+            atk_ptb  = '0.25'
+            [load4data.py:381-382]
+
+    Step 4: 验证 index 存在
+            index_path = './data_attack_fewshot/Cora/shot_5/1/index'
+            检查 train_idx.pt / val_idx.pt / test_idx.pt 是否存在
+            [load4data.py:383-391]
+
+    Step 5: 加载攻击数据
+            path = './data_attack_fewshot/Cora/shot_5/1/'
+            dataset = AttackDataset_specified(
+                root=path, name='Attack-Cora',
+                attackmethod='Meta_Self', ptb_rate='0.25'
+            )
+            [load4data.py:392-393]
+
+    Step 6: AttackDataset_specified 内部
+            raw_dir = './data_attack_fewshot/Cora/shot_5/1/Meta_Self/raw/'
+            加载 Meta_Self_Cora_0.25.pt → 污染后的邻接矩阵
+            加载 Cora_features.npz → 节点特征
+            加载 Cora_labels.npy → 节点标签
+            [attackdata_specified.py:27-28, 54-69]
+
+  浓度参数正确传递：--attack_method Meta_Self-0.25 中的 0.25 会作为 ptb_rate
+  传递给 AttackDataset_specified，从而加载对应的 .pt 文件。
+
+4.3 Train-Test Split 是否与攻击生成管线一致？
+--------------------------------------------------------------------------------
+
+  结论：完全一致。两条路径使用同一套 index 文件，且有运行时断言保护。
+
+  攻击生成管线 (generate_few_shot_attack.py)：
+
+    a) 加载干净图（从 data_pyg 的 AttackDataset）
+    b) 读取 index 文件：./data_attack_fewshot/Cora/shot_5/1/index/train_idx.pt
+    c) 基于 index 构建 train_mask / val_mask / test_mask
+    d) 用 Metattack 在指定 split 下攻击图
+    e) 保存 attacked adj + idx_train.npy / idx_val.npy / idx_test.npy
+
+  下游加载管线 (load4node_attack_specified_shot_index)：
+
+    a) 读取同一 index 文件：./data_attack_fewshot/Cora/shot_5/1/index/train_idx.pt
+    b) AttackDataset_specified.process() 从 raw 目录加载 idx_train.npy 并构建 mask
+    c) 断言校验（load4data.py:398-404）：
+         sorted_train_indices = sort(load from index/train_idx.pt)
+         sorted_attack_train_indices = sort(load from raw/..._idx_train.npy)
+         assert sorted_train_indices == sorted_attack_train_indices
+    d) 断言通过后才返回数据
+
+  关键保证：
+    - generate_few_shot_attack.py 和 load4node_attack_specified_shot_index 读取
+      同一个 index_path 下的 train_idx.pt / val_idx.pt / test_idx.pt
+    - generate_few_shot_attack.py 将 idx 内嵌到攻击数据的 mask 中保存
+    - 加载时做显式断言，确保两边划分完全一致
+    - 如果划分不一致会直接抛异常，不会静默使用错误数据
+
+
+五、服务器运行指令
+================================================================================
+
+环境：conda activate LnL2，工作目录 /home/tony/LnL/DFS_HK2
+
+5.1 干净图实验
+
+CUDA_VISIBLE_DEVICES=0 nohup python MyTask.py \
+  --pre_train_model_path './pre_trained_model_raw/Cora.GraphCL.GCN.256_hidden_dim.aug1_dropN.aug2_permE.lr_0.01.pth' \
+  --task NodeTask --dataset_name Cora --preprocess_method none \
+  --gnn_type GCN --prompt_type RobustPrompt-T --shot_num 5 --run_split 1 \
+  --hid_dim 256 --num_layer 2 --epochs 200 --seed 1 2 3 4 5 \
+  --filter_mode original \
+  > logs/RobustPrompt-T/clean_$(date +%Y%m%d_%H%M%S).log 2>&1 &
+
+5.2 各浓度污染图实验
+
+for ptb in 0.00 0.05 0.10 0.15 0.20 0.25; do
+  CUDA_VISIBLE_DEVICES=0 nohup python MyTask.py \
+    --pre_train_model_path './pre_trained_model_raw/Cora.GraphCL.GCN.256_hidden_dim.aug1_dropN.aug2_permE.lr_0.01.pth' \
+    --task NodeTask --dataset_name Cora --preprocess_method none \
+    --gnn_type GCN --prompt_type RobustPrompt-T --shot_num 5 --run_split 1 \
+    --hid_dim 256 --num_layer 2 --epochs 200 --seed 1 2 3 4 5 \
+    --filter_mode original \
+    --attack_downstream --specified --attack_method Meta_Self-${ptb} \
+    > logs/RobustPrompt-T/attacked_${ptb}_$(date +%Y%m%d_%H%M%S).log 2>&1 &
+done
+
+关键参数说明：
+  --specified         必须加，否则加载默认划分的攻击数据而非指定 shot/split 的数据
+  --attack_method     格式：{攻击方式}-{污染浓度}，如 Meta_Self-0.05
+  --filter_mode       original / neighbor_similarity / hybrid（2026-06-03 注：filter_module 不再用于 RobustPrompt-T 的边剪枝，仅保留参数兼容）
+
+================================================================================
+六、2026-06-03 修订：对齐论文 GPromptShield 原文
+================================================================================
+
+6.1 修订动机
+--------------------------------------------------------------------------------
+
+  2026-05-21 的修复引入了 filter_module（基于原始特征/AX 余弦的边过滤）作为 τ_tune
+  之前的预剪枝步骤。经重新审读论文原文 (GPromptShield, ICLR 2025)，确认此组件为代码
+  额外引入，论文中不存在。具体偏离如下：
+
+  | 组件              | 论文（GPromptShield）          | 2026-05-21 代码       | 偏离性质     |
+  |-------------------|-------------------------------|-----------------------|-------------|
+  | 边剪枝阶段数       | 1（仅 τ_tune, Eq.15）         | 2（filter_module + τ_tune）| 多余       |
+  | filter_module     | 不存在                        | OriginalFilter/NeighborSimilarity/Hybrid | 额外引入 |
+  | Filtering Tips    | 节点分选 prompt（sim/deg/OOD） | 同上 + 误用于边剪枝    | 用途混淆    |
+  | Eval 时剪枝       | 不做剪枝                      | filter_graph 边过滤    | 多余       |
+  | 训练设定           | Inductive（k-hop 子图 batch）  | Transductive（全图）   | 计算效率选择 |
+
+  ★ 关于"训练剪枝、eval 不剪枝"的说明（为什么这不是矛盾）：
+
+  论文 GPromptShield 的防御体系由两部分组成（Section 4）：
+    - Direct Handling（MD-PT）：多防御 prompt，在特征空间直接对抗扰动
+    - Indirect Amplification（IA-PT）：训练策略层面绕过无效信息、放大有效信息
+
+  τ_tune 剪枝（Eq.15）属于 Indirect Amplification 的训练策略。它是一个训练时正则化
+  手段——类似于 Dropout 在训练时随机丢弃神经元但在推理时使用全部神经元。具体而言：
+
+    训练时：GNN₁ forward → 基于中间 embedding 的 cosine similarity 剪掉低相似度边
+           → GNN₂ forward 在剪枝后图上计算 loss → 更新 prompt 参数
+           目的：防止 prompt 在对抗边上过拟合，迫使 prompt 学习不依赖可疑边的鲁棒表示
+
+    推理时：训练好的 prompt 已经具备鲁棒性，直接 add_muti_pt + GNN forward
+           目的：利用全部图结构信息做分类，不做任何边剪枝
+
+  核心直觉：τ_tune 的作用对象是 prompt 参数的学习过程，而非图结构本身。一旦 prompt
+  在"干净"的剪枝环境中学会了鲁棒表示，推理时就可以安全地在全图上使用。反之，如果在
+  eval 时也做剪枝，反而可能误删正常边，损失有用信息——论文从未在推理阶段做剪枝。
+
+  因此，以下两句话同时为真且互不矛盾：
+    (a) 训练时做 τ_tune 边剪枝（对齐论文 Eq.15）
+    (b) 推理时不做任何边剪枝（对齐论文 "After the tuning process, during the evaluation
+        phase, we add the tuned prompt... obtain the classification result"）
+
+6.2 修改内容
+--------------------------------------------------------------------------------
+
+  6.2.1 prompt_graph/prompt/RobustPrompt_T.py — Tune() 方法
+
+    移除 filter_module 初筛边步骤。τ_tune 成为唯一边剪枝：
+
+      修改前：add_muti_pt → filter_module 剪枝 → GNN₁ → τ_tune 二次剪枝 → GNN₂
+      修改后：add_muti_pt → GNN₁（全图,无预剪枝）→ τ_tune 剪枝 → GNN₂
+
+    对齐论文 Equation 15：仅基于中间 GNN embedding 的 cosine similarity 做边剪枝。
+    论文的三个 Filtering Tips（degree/similarity/OOD）全部且仅用于节点分选 prompt，
+    不参与任何边过滤。
+
+  6.2.2 prompt_graph/prompt/RobustPrompt_T.py — filter_graph() 方法
+
+    已注释掉。论文推理路径不存在此方法对应的边过滤操作。
+
+  6.2.3 prompt_graph/evaluation/RobustPromptTranductiveEva.py
+
+    移除 filter_graph 调用。推理流程对齐论文：
+
+      修改前：add_muti_pt → filter_graph 边过滤 → GNN
+      修改后：add_muti_pt → GNN（不做任何边剪枝）
+
+  6.2.4 CLAUDE.md 同步更新
+
+    - 训练流程描述更新为单阶段 τ_tune
+    - 推理流程明确为无剪枝
+    - 已知问题 #1（train/eval τ_tune 不一致）标记为已修复
+    - 新增 transductive vs inductive 设定差异说明
+
+6.3 影响评估
+--------------------------------------------------------------------------------
+
+  - filter_module 参数仍存在于 __init__ 中（向后兼容），但不再参与前向计算
+  - --filter_mode CLI 参数仍保留，不影响 RobustPrompt-T 行为
+  - GPPT 中的 filter_module 用法（_maybe_filter_edge_index）不受影响
+  - τ_tune 剪枝阈值 pt_threshold 的重要性上升——它是唯一控制边剪枝的超参数
+
+================================================================================
+七、2026-06-03 补充：Meeting 10 结果的重要上下文
+================================================================================
+
+⚠️ Meeting 10（2026-05-28）的所有调参实验均在 2026-06-03 对齐论文之前的旧代码上运行。
+
+旧代码训练流程：add_muti_pt → filter_module 边剪枝 → GNN₁ → τ_tune 边剪枝 → GNN₂
+新代码训练流程：add_muti_pt → GNN₁ → τ_tune 边剪枝 → GNN₂（严格对齐论文）
+
+Meeting 10 的所有数据（clean 0.34 / 0.05→0.19 等）反映的是两阶段剪枝（filter_module + τ_tune）
+的行为，不能直接作为论文对齐代码（纯 τ_tune）的性能参考。
+
+论文对齐代码的 baseline 实验待跑（2026-06-03 TODO）。
+
+================================================================================
+八、2026-06-03 补充：Filtering Tips 分选阈值待调
+================================================================================
+
+论文 GPromptShield 的三个 Filtering Tips（Section 4.2）用于节点分选 prompt，各自有阈值参数：
+
+  | 参数名                    | 默认值 | 含义                                           |
+  |---------------------------|--------|------------------------------------------------|
+  | pt_sim_threshold          | 0.4    | 邻居平均 cosine similarity 阈值，≤此值 → sim_pt |
+  | pt_degree_threshold       | 2      | 节点度数阈值，≤此值 → degree_pt                  |
+  | pt_out_detect_threshold   | 0.5    | 边 cosine similarity 阈值，≤此值 → out_detect_pt |
+
+这些阈值直接决定每种 defense prompt 覆盖的节点数量和类型。当前使用的是论文建议的默认值，
+尚未针对 Cora 数据集调优。Meeting 10 未曾扫过这些参数——这是下一步调参的重点方向。
+
+注意区分：
+  - "Filtering Tips 阈值" = 节点分选参数（本节），控制哪些节点获得哪种 defense prompt
+  - "filter_module" = 边剪枝模块（本报告 Section 6 移除的），基于特征 cosine 过滤边
+  两者是完全不同的概念，不要混淆。
+
+================================================================================
+END OF REPORT
+================================================================================

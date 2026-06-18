@@ -6,7 +6,7 @@ from torch.optim import Adam
 import torch
 from torch import nn
 import time
-from prompt_graph.data import load4graph, NodePretrain
+from prompt_graph.data import NodePretrain  # load4graph removed (deprecated 2026-06-16)
 import os
 import torch.nn.functional as F
 from itertools import chain
@@ -201,7 +201,7 @@ class GraphMAE(PreTrain):
             self.graph_list, in_node_feat_dim = NodePretrain(dataname = self.dataset_name, num_parts=200)
             # data = Batch.from_data_list(graph_list)
         elif self.dataset_name in ['MUTAG', 'ENZYMES', 'COLLAB', 'PROTEINS', 'IMDB-BINARY', 'REDDIT-BINARY', 'COX2', 'BZR', 'PTC_MR', 'ogbg-ppa', 'DD']:
-            in_node_feat_dim, _, self.graph_list= load4graph(self.dataset_name,pretrained=True)
+            raise ValueError(f"GraphMAE: dataset '{self.dataset_name}' not supported after 2026-06-16 cleanup. Only Cora/Citeseer/PubMed node datasets.")
             # data = Batch.from_data_list()
         self.input_dim = in_node_feat_dim
         if self.dataset_name == 'ogbg-ppa':

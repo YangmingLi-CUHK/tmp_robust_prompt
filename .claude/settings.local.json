@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl -sL \"https://api.github.com/repos/vercel-labs/skills/contents/skills\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(d['name']\\) for d in data]\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('prompt_graph/prompt/RobustPrompt_T.py', doraise=True\\); print\\('RobustPrompt_T.py OK'\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('prompt_graph/tasker/task.py', doraise=True\\); print\\('task.py OK'\\)\")"
+    ]
+  }
+}
