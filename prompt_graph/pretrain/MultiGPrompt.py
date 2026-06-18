@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from prompt_graph.data import load4graph
+# load4graph removed (non-Cora deprecated 2026-06-16)
 from prompt_graph.prompt import DGI,GraphCL,Lp,AvgReadout, DGIprompt,GraphCLprompt,Lpprompt, GcnLayers
 
 import tqdm
@@ -279,7 +279,8 @@ class GraphPrePrompt(nn.Module):
         super(GraphPrePrompt, self).__init__()
         print(dataset_name)
         # add here
-        n_in, n_out, graph = load4graph(dataset_name)
+        n_in, n_out, graph = None, None, None
+        raise ValueError(f"GraphPrePrompt: dataset '{dataset_name}' not supported after 2026-06-16 cleanup. Only Cora/Citeseer/PubMed node datasets.")
         self.graph_list = graph
         self.loader = self.get_loader()
         self.dataset_name = dataset_name

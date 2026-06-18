@@ -37,7 +37,8 @@ class AttackDataset_specified(InMemoryDataset):
     @property
     def raw_file_names(self):
         self.attack_file = '{}_{}_{}'.format(self.attackmethod, self.name, self.ptb_rate)
-        return ['{}_features'.format(self.name), '{}_lablels'.format(self.name),
+        return ['{}_features.npz'.format(self.name),
+                '{}_labels.npy'.format(self.name),
                 '{}_idx_train.npy'.format(self.attack_file),
                 '{}_idx_val.npy'.format(self.attack_file),
                 '{}_idx_test.npy'.format(self.attack_file),

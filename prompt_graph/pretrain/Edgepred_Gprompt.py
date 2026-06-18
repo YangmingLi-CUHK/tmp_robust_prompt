@@ -4,7 +4,8 @@ from torch.utils.data import DataLoader
 from prompt_graph.model import GAT, GCN, GCov, GIN, GraphSAGE, GraphTransformer
 from prompt_graph.utils import Gprompt_link_loss
 from prompt_graph.utils import edge_index_to_sparse_matrix, prepare_structured_data
-from prompt_graph.data import load4link_prediction_single_graph,load4link_prediction_multi_graph
+# load4link_prediction_* removed (non-Cora LinkTask deprecated 2026-06-16)
+# This module is disabled; Edgepred_Gprompt = None in pretrain/__init__.py
 import time
 from .base import PreTrain
 import os
@@ -16,28 +17,11 @@ class Edgepred_Gprompt(PreTrain):
         self.initialize_gnn(self.input_dim, self.hid_dim) 
         self.graph_pred_linear = torch.nn.Linear(self.hid_dim, self.output_dim).to(self.device)  
 
-    def generate_loader_data(self):    
-        if self.dataset_name in ['PubMed', 'Citeseer', 'Cora_ml', 'Cora' 'Computers', 'Photo','ogbn-arxiv', 'Flickr','Actor', 'Texas', 'Wisconsin']:            
-            self.data, _, _, self.input_dim, self.output_dim = load4link_prediction_single_graph(self.dataset_name)
-            self.adj = edge_index_to_sparse_matrix(self.data.edge_index, self.data.x.shape[0]).to(self.device)
-            data = prepare_structured_data(self.data)
-            if self.dataset_name in['ogbn-arxiv', 'Flickr']:
-                return DataLoader(TensorDataset(data), batch_size = 1024, shuffle=True)
-            else:
-                # 边的batch size可以大一些，这样训练更快 原始 64
-                return DataLoader(TensorDataset(data), batch_size = 4096, shuffle=True)
-        
-        elif self.dataset_name in ['MUTAG', 'ENZYMES', 'COLLAB', 'PROTEINS', 'IMDB-BINARY', 'REDDIT-BINARY', 'COX2', 'BZR', 'PTC_MR', 'ogbg-ppa', 'DD']:
-            self.data, edge_label, edge_index, self.input_dim, self.output_dim = load4link_prediction_multi_graph(self.dataset_name)          
-            self.adj = edge_index_to_sparse_matrix(self.data.edge_index, self.data.x.shape[0]).to(self.device)
-            data = prepare_structured_data(self.data)
-
-            if self.dataset_name in  ['COLLAB', 'IMDB-BINARY', 'REDDIT-BINARY', 'ogbg-ppa', 'DD']:
-                from torch_geometric import loader
-                self.batch_dataloader = loader.DataLoader(self.data.to_data_list(),batch_size=256,shuffle=False)
-                return DataLoader(TensorDataset(data), batch_size=5120000, shuffle=True)
-            else:
-                return DataLoader(TensorDataset(data), batch_size=64, shuffle=True)
+    def generate_loader_data(self):
+        raise RuntimeError(
+            f"Edgepred_Gprompt: dataset '{self.dataset_name}' not supported after 2026-06-16 cleanup. "
+            f"load4link_prediction_* functions were removed. Use GraphCL for pretraining."
+        )
 
 
 

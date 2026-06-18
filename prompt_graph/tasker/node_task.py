@@ -6,7 +6,7 @@ from torch_geometric.data   import Data
 import torch.utils.data as Data1
 from prompt_graph.utils import constraint,  center_embedding, Gprompt_tuning_loss, process, cmd, MLP, train_MLP, get_psu_labels, finetune_answering, get_detector
 from prompt_graph.evaluation import GPPTEva, GNNNodeEva, GpromptEva, MultiGpromptEva, GPFEva, AllInOneEva, RobustPromptInductiveEva, RobustPromptTranductiveEva, GPFTranductiveEva
-from prompt_graph.data import induced_graphs, split_induced_graphs, split_induced_graphs_save_relabel_central_node_and_raw_index, load4node_shot_index, load4node_attack_shot_index, load4node_attack_specified_shot_index
+from prompt_graph.data import induced_graphs, split_induced_graphs, split_induced_graphs_save_relabel_central_node_and_raw_index, load4cora_downstream_clean, load4node_attack_shot_index, load4node_attack_specified_shot_index
 from  easydict  import EasyDict
 
 from .task import BaseTask
@@ -137,8 +137,7 @@ class NodeTask(BaseTask):
 
 
       def load_data(self):
-            self.data, self.dataset = load4node_shot_index(self.dataset_name, preprocess_method = 
-            self.preprocess_method, shot_num = self.shot_num, run_split= self.run_split)
+            self.data, self.dataset = load4cora_downstream_clean(self.dataset_name, shot_num = self.shot_num, run_split= self.run_split)
 
             if self.prompt_type == 'MultiGprompt':
                   self.process_multigprompt_data(self.data)

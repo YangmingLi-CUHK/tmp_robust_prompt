@@ -8,7 +8,7 @@ from scipy.sparse.linalg import eigsh
 import sys
 import torch
 import torch.nn as nn
-from prompt_graph.data import load4node_demo2
+from prompt_graph.data import load4cora_pretrain  # was load4node_demo2 (deprecated 2026-06-16)
 
 def parse_skipgram(fname):
     with open(fname) as f:
@@ -173,7 +173,7 @@ def sample_mask(idx, l):
 
 from torch_geometric.utils import to_scipy_sparse_matrix
 def load_data(dataset):
-    data,_ ,_ = load4node_demo2(dataset)
+    data, _, _ = load4cora_pretrain(dataset)  # was load4node_demo2
 
     # 好像会报错
     # from torch_geometric.utils import contains_self_loops,remove_self_loops
