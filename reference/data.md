@@ -1,6 +1,6 @@
 # 统一数据路径文档
 
-> 最后修改: 2026-06-14 (implementation)
+> 最后修改: 2026-06-19 (二次整理：旧函数注释保留 + Cora LCC 验证)
 > 修改范围: 端到端数据加载链路（预训练 → 下游攻击 → 下游清洁）
 
 ## 统一数据源
@@ -22,10 +22,14 @@
 各浓度的 PyG processed 缓存:
 `data_attack_fewshot/Cora/shot_5/1/Meta_Self/{ptb}_processed/data_Cora_Meta_Self_{ptb}.pt`
 
-## 特征归一化验证结论
+## Cora 数据 LCC 验证（2026-06-19 实测）
+
+- **2708 节点, 5278 无向边, 1433 特征, 7 类**
+- 稀疏邻接矩阵 13264 entries = 5278×2（无向边双向存储） + 2708（自环）
+- 这就是 Planetoid 标准 Cora = **原始 Cora 最大连通子图（LCC）**
+- 原始 Cora 全图 ~19K 节点，Planetoid 版取 LCC 得 2708 节点
 
 通过数值比对验证（2026-06-14, numpy 直接比对 + KDTree 最近邻匹配）:
-
 - Planetoid raw 特征 (ind.cora.allx+tx): bag-of-words counts, row sum 均值 ~9–23
 - Attack_data `cora_features.npz`: **已 L1-归一化**, row sum = 1.0
 - Planetoid 经 NormalizeFeatures → row sum = 1.0
@@ -116,21 +120,23 @@ generate_few_shot_attack.py
 
 ---
 
-## 删除的代码和目录
+## 旧函数保留方式（2026-06-19 更新）
 
-### 从 load4data.py 删除的函数
-以下函数已从 `prompt_graph/data/load4data.py` 中删除。如需恢复，请从 git history (`git log -- prompt_graph/data/load4data.py`) 找回：
+以下函数已从 `prompt_graph/data/load4data.py` 的活跃代码中移除，改为**注释保留**在文件底部。如需恢复，取消注释即可：
+
 - `CustomTUDataset` class
 - `graph_sample_and_save`
 - `load_data4pretrain`
 - `load4graph`
-- `load4node_shot_index` → 替换为 `load4cora_downstream_clean`
+- `load4node_shot_index` → 活跃替代: `load4cora_downstream_clean`
 - `load4node_demo1`
-- `load4node_demo2` → 替换为 `load4cora_pretrain`
+- `load4node_demo2` → 活跃替代: `load4cora_pretrain`
 - `load4link_prediction_single_graph`
 - `load4link_prediction_multi_graph`
 - `node_degree_as_features`
 - `load4link`
+
+同样，`MyTask.py` 中的 GraphTask/LinkTask 分支也已改为注释保留。
 
 ### 从 data_pyg/data_pyg.py 删除的分支
 - Planetoid (Cora, CiteSeer, PubMed, DBLP)

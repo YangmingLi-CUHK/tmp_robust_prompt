@@ -98,6 +98,7 @@ def get_args():
     # GraphCL 预训练专用的数据增强参数
     parser.add_argument('--aug1', type=str, default='dropN', choices=['dropN', 'permE', 'maskN'], help='GraphCL augmentation method 1')
     parser.add_argument('--aug2', type=str, default='permE', choices=['dropN', 'permE', 'maskN'], help='GraphCL augmentation method 2')
+    parser.add_argument('--aug_ratio', type=float, default=None, help='GraphCL augmentation ratio (0.0-1.0). If not set, randomly chosen from {0.1, 0.2, 0.3} per run.')
 
     args = parser.parse_args()
     return args
