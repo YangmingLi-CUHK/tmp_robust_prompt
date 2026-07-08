@@ -1,6 +1,6 @@
 import torch
 from prompt_graph.model import GAT, GCN, GCov, GIN, GraphSAGE, GraphTransformer
-from prompt_graph.prompt import RobustPrompt_GPF, RobustPrompt_GPFplus, RobustPrompt_T, RobustPrompt_I, HeavyPrompt, GPPTPrompt,Gprompt, GPF, GPF_plus
+from prompt_graph.prompt import RobustPrompt_GPF, RobustPrompt_GPFplus, RobustPrompt_T, RobustPrompt_T_NSP, RobustPrompt_I, HeavyPrompt, GPPTPrompt,Gprompt, GPF, GPF_plus
 from prompt_graph.filters import build_filter
 from torch import nn, optim
 # load4graph removed (non-Cora GraphTask deprecated 2026-06-16)
@@ -15,8 +15,8 @@ class BaseTask:
                  # RobustPrompt-T 超参数
                  pt_threshold=0.5, weight_mse=0.1, weight_kl=0.3, weight_constraint=0.2,
                  temperature=1.0, pt_sim_threshold=0.2, pt_degree_threshold=1,
-                 pt_out_detect_threshold=0.4, p_plus=True, use_attention=False,
-                 cosine_constraint=True, prompt_lr=0.01):
+                 pt_out_detect_threshold=0.4, pt_nsp_threshold=0.3, nsp_order=2, p_plus=True, use_attention=False,
+                 cosine_constraint=True, prompt_lr=0.01, prompt_variant='ours'):
         self.pre_train_model_path = pre_train_model_path
         self.pre_train_type = self.return_pre_train_type(pre_train_model_path)
         self.device = torch.device('cuda:'+ str(device) if torch.cuda.is_available() else 'cpu')
@@ -53,10 +53,13 @@ class BaseTask:
         self.pt_sim_threshold       = pt_sim_threshold
         self.pt_degree_threshold    = pt_degree_threshold
         self.pt_out_detect_threshold = pt_out_detect_threshold
+        self.pt_nsp_threshold       = pt_nsp_threshold
+        self.nsp_order              = nsp_order
         self.p_plus                 = p_plus
         self.use_attention          = use_attention
         self.cosine_constraint      = cosine_constraint
         self.prompt_lr              = prompt_lr
+        self.prompt_variant         = prompt_variant
 
         self.initialize_lossfn()
 
@@ -97,7 +100,7 @@ class BaseTask:
         #     self.pg_opi = optim.Adam(filter(lambda p: p.requires_grad, self.prompt.parameters()), lr=0.001, weight_decay= 0.00001)
         #     self.answer_opi = optim.Adam(filter(lambda p: p.requires_grad, self.answering.parameters()), lr=0.001, weight_decay= 0.00001)
         #     print('consider add robust regularization and optimizing strategy')
-        elif self.prompt_type in ['RobustPrompt-GPF', 'RobustPrompt-GPFplus', 'RobustPrompt-T', 'GPF-Tranductive', 'GPF-plus-Tranductive']:
+        elif self.prompt_type in ['RobustPrompt-GPF', 'RobustPrompt-GPFplus', 'RobustPrompt-T', 'RobustPrompt-T-IA', 'RobustPrompt-T-NSP', 'GPF-Tranductive', 'GPF-plus-Tranductive']:
             model_param_group = []
             model_param_group.append({"params": self.prompt.parameters()})
             model_param_group.append({"params": self.answering.parameters()})
@@ -236,7 +239,7 @@ class BaseTask:
                                               weight_kl=self.weight_kl,
                                               weight_constraint=self.weight_constraint,
                                               filter_module=prompt_filter).to(self.device)
-        elif self.prompt_type == 'RobustPrompt-T':
+        elif self.prompt_type in ['RobustPrompt-T', 'RobustPrompt-T-IA']:
             prompt_filter = build_filter(SimpleNamespace(
                 filter_mode=self.filter_mode,
                 filter_sim1_weight=self.filter_sim1_weight,
@@ -244,7 +247,11 @@ class BaseTask:
                 filter_hybrid_alpha=self.filter_hybrid_alpha,
                 pt_threshold=self.pt_threshold,
             ))
-            self.prompt = RobustPrompt_T(self.input_dim,
+            if self.prompt_variant == 'original':
+                from prompt_graph.prompt.RobustPrompt_T_original import RobustPrompt_T as RobustPrompt_T_class
+            else:
+                RobustPrompt_T_class = RobustPrompt_T
+            self.prompt = RobustPrompt_T_class(self.input_dim,
                                             muti_defense_pt_dict={
                                                 'sim_pt': self.pt_sim_threshold,
                                                 'degree_pt': self.pt_degree_threshold,
@@ -260,6 +267,34 @@ class BaseTask:
                                             weight_mse=self.weight_mse,
                                             weight_kl=self.weight_kl,
                                             weight_constraint=self.weight_constraint,
+                                            filter_module=prompt_filter).to(self.device)
+        elif self.prompt_type == 'RobustPrompt-T-NSP':
+            prompt_filter = build_filter(SimpleNamespace(
+                filter_mode=self.filter_mode,
+                filter_sim1_weight=self.filter_sim1_weight,
+                filter_sim2_weight=self.filter_sim2_weight,
+                filter_hybrid_alpha=self.filter_hybrid_alpha,
+                nsp_order=self.nsp_order,
+                pt_threshold=self.pt_threshold,
+            ))
+            self.prompt = RobustPrompt_T_NSP(self.input_dim,
+                                            muti_defense_pt_dict={
+                                                'sim_pt': self.pt_sim_threshold,
+                                                'degree_pt': self.pt_degree_threshold,
+                                                'out_detect_pt': self.pt_out_detect_threshold,
+                                                'nsp_pt': self.pt_nsp_threshold,
+                                                'other_pt': 'all',
+                                            },
+                                            p_plus=self.p_plus,
+                                            use_attention=self.use_attention,
+                                            num_heads=1,
+                                            cosine_constraint=self.cosine_constraint,
+                                            pt_threshold=self.pt_threshold,
+                                            temperature=self.temperature,
+                                            weight_mse=self.weight_mse,
+                                            weight_kl=self.weight_kl,
+                                            weight_constraint=self.weight_constraint,
+                                            nsp_order=self.nsp_order,
                                             filter_module=prompt_filter).to(self.device)
         elif self.prompt_type == 'RobustPrompt-GPF':
             self.prompt = RobustPrompt_GPF(self.input_dim).to(self.device)

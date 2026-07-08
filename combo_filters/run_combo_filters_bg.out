@@ -1,0 +1,98 @@
+nohup: ignoring input
+[2026-06-21 18:13:19] START stable sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.0
+[2026-06-21 18:13:34] DONE  stable sim_deg ptb=0.0 log=logs/combo_filters/stable_sim_deg_sim0.3_deg1_ood-1.0_ptb0.0.log
+[2026-06-21 18:13:34] START stable sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.0
+[2026-06-21 18:13:51] DONE  stable sim_ood ptb=0.0 log=logs/combo_filters/stable_sim_ood_sim0.3_deg-1_ood0.5_ptb0.0.log
+[2026-06-21 18:13:51] START stable deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.0
+[2026-06-21 18:14:06] DONE  stable deg_ood ptb=0.0 log=logs/combo_filters/stable_deg_ood_sim-1.0_deg1_ood0.5_ptb0.0.log
+[2026-06-21 18:14:06] START stable all3 sim=0.3 deg=1 ood=0.5 ptb=0.0
+[2026-06-21 18:14:23] DONE  stable all3 ptb=0.0 log=logs/combo_filters/stable_all3_sim0.3_deg1_ood0.5_ptb0.0.log
+[2026-06-21 18:14:23] START stable sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.05
+[2026-06-21 18:14:38] DONE  stable sim_deg ptb=0.05 log=logs/combo_filters/stable_sim_deg_sim0.3_deg1_ood-1.0_ptb0.05.log
+[2026-06-21 18:14:38] START stable sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.05
+[2026-06-21 18:14:54] DONE  stable sim_ood ptb=0.05 log=logs/combo_filters/stable_sim_ood_sim0.3_deg-1_ood0.5_ptb0.05.log
+[2026-06-21 18:14:54] START stable deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.05
+[2026-06-21 18:15:09] DONE  stable deg_ood ptb=0.05 log=logs/combo_filters/stable_deg_ood_sim-1.0_deg1_ood0.5_ptb0.05.log
+[2026-06-21 18:15:09] START stable all3 sim=0.3 deg=1 ood=0.5 ptb=0.05
+[2026-06-21 18:15:19] DONE  stable all3 ptb=0.05 log=logs/combo_filters/stable_all3_sim0.3_deg1_ood0.5_ptb0.05.log
+[2026-06-21 18:15:19] START stable sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.1
+[2026-06-21 18:15:32] DONE  stable sim_deg ptb=0.1 log=logs/combo_filters/stable_sim_deg_sim0.3_deg1_ood-1.0_ptb0.1.log
+[2026-06-21 18:15:32] START stable sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.1
+[2026-06-21 18:15:47] DONE  stable sim_ood ptb=0.1 log=logs/combo_filters/stable_sim_ood_sim0.3_deg-1_ood0.5_ptb0.1.log
+[2026-06-21 18:15:47] START stable deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.1
+[2026-06-21 18:16:03] DONE  stable deg_ood ptb=0.1 log=logs/combo_filters/stable_deg_ood_sim-1.0_deg1_ood0.5_ptb0.1.log
+[2026-06-21 18:16:03] START stable all3 sim=0.3 deg=1 ood=0.5 ptb=0.1
+[2026-06-21 18:16:18] DONE  stable all3 ptb=0.1 log=logs/combo_filters/stable_all3_sim0.3_deg1_ood0.5_ptb0.1.log
+[2026-06-21 18:16:18] START stable sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.15
+[2026-06-21 18:16:34] DONE  stable sim_deg ptb=0.15 log=logs/combo_filters/stable_sim_deg_sim0.3_deg1_ood-1.0_ptb0.15.log
+[2026-06-21 18:16:34] START stable sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.15
+[2026-06-21 18:16:49] DONE  stable sim_ood ptb=0.15 log=logs/combo_filters/stable_sim_ood_sim0.3_deg-1_ood0.5_ptb0.15.log
+[2026-06-21 18:16:49] START stable deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.15
+[2026-06-21 18:17:04] DONE  stable deg_ood ptb=0.15 log=logs/combo_filters/stable_deg_ood_sim-1.0_deg1_ood0.5_ptb0.15.log
+[2026-06-21 18:17:04] START stable all3 sim=0.3 deg=1 ood=0.5 ptb=0.15
+[2026-06-21 18:17:20] DONE  stable all3 ptb=0.15 log=logs/combo_filters/stable_all3_sim0.3_deg1_ood0.5_ptb0.15.log
+[2026-06-21 18:17:20] START stable sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.2
+[2026-06-21 18:17:36] DONE  stable sim_deg ptb=0.2 log=logs/combo_filters/stable_sim_deg_sim0.3_deg1_ood-1.0_ptb0.2.log
+[2026-06-21 18:17:36] START stable sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.2
+[2026-06-21 18:17:50] DONE  stable sim_ood ptb=0.2 log=logs/combo_filters/stable_sim_ood_sim0.3_deg-1_ood0.5_ptb0.2.log
+[2026-06-21 18:17:50] START stable deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.2
+[2026-06-21 18:18:04] DONE  stable deg_ood ptb=0.2 log=logs/combo_filters/stable_deg_ood_sim-1.0_deg1_ood0.5_ptb0.2.log
+[2026-06-21 18:18:04] START stable all3 sim=0.3 deg=1 ood=0.5 ptb=0.2
+[2026-06-21 18:18:19] DONE  stable all3 ptb=0.2 log=logs/combo_filters/stable_all3_sim0.3_deg1_ood0.5_ptb0.2.log
+[2026-06-21 18:18:19] START stable sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.25
+[2026-06-21 18:18:33] DONE  stable sim_deg ptb=0.25 log=logs/combo_filters/stable_sim_deg_sim0.3_deg1_ood-1.0_ptb0.25.log
+[2026-06-21 18:18:33] START stable sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.25
+[2026-06-21 18:18:50] DONE  stable sim_ood ptb=0.25 log=logs/combo_filters/stable_sim_ood_sim0.3_deg-1_ood0.5_ptb0.25.log
+[2026-06-21 18:18:50] START stable deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.25
+[2026-06-21 18:19:07] DONE  stable deg_ood ptb=0.25 log=logs/combo_filters/stable_deg_ood_sim-1.0_deg1_ood0.5_ptb0.25.log
+[2026-06-21 18:19:07] START stable all3 sim=0.3 deg=1 ood=0.5 ptb=0.25
+[2026-06-21 18:19:22] DONE  stable all3 ptb=0.25 log=logs/combo_filters/stable_all3_sim0.3_deg1_ood0.5_ptb0.25.log
+[2026-06-21 18:19:22] START peak sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.0
+[2026-06-21 18:19:37] DONE  peak sim_deg ptb=0.0 log=logs/combo_filters/peak_sim_deg_sim0.3_deg1_ood-1.0_ptb0.0.log
+[2026-06-21 18:19:37] START peak sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.0
+[2026-06-21 18:19:54] DONE  peak sim_ood ptb=0.0 log=logs/combo_filters/peak_sim_ood_sim0.3_deg-1_ood0.5_ptb0.0.log
+[2026-06-21 18:19:54] START peak deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.0
+[2026-06-21 18:20:10] DONE  peak deg_ood ptb=0.0 log=logs/combo_filters/peak_deg_ood_sim-1.0_deg1_ood0.5_ptb0.0.log
+[2026-06-21 18:20:10] START peak all3 sim=0.3 deg=1 ood=0.5 ptb=0.0
+[2026-06-21 18:20:27] DONE  peak all3 ptb=0.0 log=logs/combo_filters/peak_all3_sim0.3_deg1_ood0.5_ptb0.0.log
+[2026-06-21 18:20:27] START peak sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.05
+[2026-06-21 18:20:42] DONE  peak sim_deg ptb=0.05 log=logs/combo_filters/peak_sim_deg_sim0.3_deg1_ood-1.0_ptb0.05.log
+[2026-06-21 18:20:42] START peak sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.05
+[2026-06-21 18:20:57] DONE  peak sim_ood ptb=0.05 log=logs/combo_filters/peak_sim_ood_sim0.3_deg-1_ood0.5_ptb0.05.log
+[2026-06-21 18:20:57] START peak deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.05
+[2026-06-21 18:21:12] DONE  peak deg_ood ptb=0.05 log=logs/combo_filters/peak_deg_ood_sim-1.0_deg1_ood0.5_ptb0.05.log
+[2026-06-21 18:21:12] START peak all3 sim=0.3 deg=1 ood=0.5 ptb=0.05
+[2026-06-21 18:21:29] DONE  peak all3 ptb=0.05 log=logs/combo_filters/peak_all3_sim0.3_deg1_ood0.5_ptb0.05.log
+[2026-06-21 18:21:29] START peak sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.1
+[2026-06-21 18:21:45] DONE  peak sim_deg ptb=0.1 log=logs/combo_filters/peak_sim_deg_sim0.3_deg1_ood-1.0_ptb0.1.log
+[2026-06-21 18:21:45] START peak sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.1
+[2026-06-21 18:22:01] DONE  peak sim_ood ptb=0.1 log=logs/combo_filters/peak_sim_ood_sim0.3_deg-1_ood0.5_ptb0.1.log
+[2026-06-21 18:22:01] START peak deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.1
+[2026-06-21 18:22:15] DONE  peak deg_ood ptb=0.1 log=logs/combo_filters/peak_deg_ood_sim-1.0_deg1_ood0.5_ptb0.1.log
+[2026-06-21 18:22:15] START peak all3 sim=0.3 deg=1 ood=0.5 ptb=0.1
+[2026-06-21 18:22:31] DONE  peak all3 ptb=0.1 log=logs/combo_filters/peak_all3_sim0.3_deg1_ood0.5_ptb0.1.log
+[2026-06-21 18:22:31] START peak sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.15
+[2026-06-21 18:22:46] DONE  peak sim_deg ptb=0.15 log=logs/combo_filters/peak_sim_deg_sim0.3_deg1_ood-1.0_ptb0.15.log
+[2026-06-21 18:22:46] START peak sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.15
+[2026-06-21 18:23:02] DONE  peak sim_ood ptb=0.15 log=logs/combo_filters/peak_sim_ood_sim0.3_deg-1_ood0.5_ptb0.15.log
+[2026-06-21 18:23:02] START peak deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.15
+[2026-06-21 18:23:18] DONE  peak deg_ood ptb=0.15 log=logs/combo_filters/peak_deg_ood_sim-1.0_deg1_ood0.5_ptb0.15.log
+[2026-06-21 18:23:18] START peak all3 sim=0.3 deg=1 ood=0.5 ptb=0.15
+[2026-06-21 18:23:33] DONE  peak all3 ptb=0.15 log=logs/combo_filters/peak_all3_sim0.3_deg1_ood0.5_ptb0.15.log
+[2026-06-21 18:23:33] START peak sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.2
+[2026-06-21 18:23:47] DONE  peak sim_deg ptb=0.2 log=logs/combo_filters/peak_sim_deg_sim0.3_deg1_ood-1.0_ptb0.2.log
+[2026-06-21 18:23:47] START peak sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.2
+[2026-06-21 18:24:02] DONE  peak sim_ood ptb=0.2 log=logs/combo_filters/peak_sim_ood_sim0.3_deg-1_ood0.5_ptb0.2.log
+[2026-06-21 18:24:02] START peak deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.2
+[2026-06-21 18:24:17] DONE  peak deg_ood ptb=0.2 log=logs/combo_filters/peak_deg_ood_sim-1.0_deg1_ood0.5_ptb0.2.log
+[2026-06-21 18:24:17] START peak all3 sim=0.3 deg=1 ood=0.5 ptb=0.2
+[2026-06-21 18:24:31] DONE  peak all3 ptb=0.2 log=logs/combo_filters/peak_all3_sim0.3_deg1_ood0.5_ptb0.2.log
+[2026-06-21 18:24:31] START peak sim_deg sim=0.3 deg=1 ood=-1.0 ptb=0.25
+[2026-06-21 18:24:45] DONE  peak sim_deg ptb=0.25 log=logs/combo_filters/peak_sim_deg_sim0.3_deg1_ood-1.0_ptb0.25.log
+[2026-06-21 18:24:45] START peak sim_ood sim=0.3 deg=-1 ood=0.5 ptb=0.25
+[2026-06-21 18:25:02] DONE  peak sim_ood ptb=0.25 log=logs/combo_filters/peak_sim_ood_sim0.3_deg-1_ood0.5_ptb0.25.log
+[2026-06-21 18:25:02] START peak deg_ood sim=-1.0 deg=1 ood=0.5 ptb=0.25
+[2026-06-21 18:25:17] DONE  peak deg_ood ptb=0.25 log=logs/combo_filters/peak_deg_ood_sim-1.0_deg1_ood0.5_ptb0.25.log
+[2026-06-21 18:25:17] START peak all3 sim=0.3 deg=1 ood=0.5 ptb=0.25
+[2026-06-21 18:25:33] DONE  peak all3 ptb=0.25 log=logs/combo_filters/peak_all3_sim0.3_deg1_ood0.5_ptb0.25.log
+[2026-06-21 18:25:33] ALL DONE

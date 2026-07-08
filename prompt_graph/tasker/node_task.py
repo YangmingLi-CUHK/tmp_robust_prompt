@@ -21,7 +21,15 @@ from torch_geometric.utils import to_scipy_sparse_matrix
 from torch_geometric.data import Batch, Data
 from tqdm import tqdm
 import copy 
-from project_paths import attack_data_root
+from project_paths import attack_data_root, project_path
+from prompt_graph.utils.edge_anomaly_metrics import (
+      evaluate_edge_detection,
+      evaluate_incident_edge_detection,
+      evaluate_node_detection,
+      fmt_metric,
+      pollution_diff,
+)
+from types import SimpleNamespace
 
 warnings.filterwarnings("ignore")
 
@@ -29,6 +37,7 @@ class NodeTask(BaseTask):
       def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.task_type = 'NodeTask'
+            self.edge_detection_reference = None
 
             if self.attack_downstream:
                   # assert self.attack_method != 'None', 'No specific attacks were designated.'
@@ -96,6 +105,8 @@ class NodeTask(BaseTask):
             else:
                   self.input_dim = self.data.x.shape[1]
                   self.output_dim = self.dataset.num_classes
+
+            self._prepare_edge_detection_reference(data_dir_name)
 
 
 
@@ -173,6 +184,198 @@ class NodeTask(BaseTask):
             else:
                   self.data.to(self.device)
             
+
+      def _load_clean_reference_data(self, data_dir_name):
+            if self.adaptive or not self.attack_method or '-' not in self.attack_method:
+                  return None
+
+            atk_type = self.attack_method.split('-')[0]
+            if self.specified:
+                  from data_attack_fewshot.attackdata_specified import AttackDataset_specified
+
+                  path = project_path(
+                        data_dir_name,
+                        self.dataset_name,
+                        'shot_{}'.format(self.shot_num),
+                        str(self.run_split),
+                  )
+                  dataset = AttackDataset_specified(
+                        root=path,
+                        name='Attack-' + self.dataset_name,
+                        attackmethod=atk_type,
+                        ptb_rate='0.0',
+                  )
+            else:
+                  from data_pyg.data_pyg import get_dataset
+
+                  dataset = get_dataset(
+                        attack_data_root(),
+                        'Attack-' + self.dataset_name,
+                        atk_type,
+                        0.0,
+                  )
+            return dataset[0]
+
+
+      def _prepare_edge_detection_reference(self, data_dir_name):
+            clean_data = self._load_clean_reference_data(data_dir_name)
+            if clean_data is None:
+                  self.edge_detection_reference = None
+                  return
+
+            if clean_data.num_nodes != self.data.num_nodes:
+                  print(
+                        "Pollution Diff | skipped=true | reason=num_nodes_mismatch "
+                        f"| clean_nodes={clean_data.num_nodes} | attack_nodes={self.data.num_nodes}"
+                  )
+                  self.edge_detection_reference = None
+                  return
+
+            diff = pollution_diff(clean_data.edge_index, self.data.edge_index, undirected=True)
+            self.edge_detection_reference = {
+                  "clean_data": clean_data,
+                  "clean_edges": diff["clean_edges"],
+                  "attack_edges": diff["attack_edges"],
+                  "added_edges": diff["added_edges"],
+                  "deleted_edges": diff["deleted_edges"],
+            }
+            print(
+                  "Pollution Diff | "
+                  f"added_edges={len(diff['added_edges'])} | "
+                  f"deleted_edges={len(diff['deleted_edges'])} | "
+                  f"clean_edges={len(diff['clean_edges'])} | "
+                  f"attack_edges={len(diff['attack_edges'])}"
+            )
+
+
+      def _print_edge_detection_metrics(self, source, metrics, extra=None):
+            if metrics is None:
+                  return
+            parts = [
+                  "Edge Detection",
+                  f"source={source}",
+                  f"f1={fmt_metric(metrics.get('f1'))}",
+                  f"tpr={fmt_metric(metrics.get('tpr'))}",
+                  f"tnr={fmt_metric(metrics.get('tnr'))}",
+                  f"balanced_accuracy={fmt_metric(metrics.get('balanced_accuracy'))}",
+                  f"precision={fmt_metric(metrics.get('precision'))}",
+                  f"recall={fmt_metric(metrics.get('recall'))}",
+                  f"tp={metrics.get('tp', 0)}",
+                  f"fp={metrics.get('fp', 0)}",
+                  f"fn={metrics.get('fn', 0)}",
+                  f"tn={metrics.get('tn', 0)}",
+                  f"positives={metrics.get('num_positive', 0)}",
+                  f"predicted={metrics.get('num_predicted', 0)}",
+            ]
+            if extra:
+                  parts.extend(f"{key}={value}" for key, value in extra.items())
+            print(" | ".join(parts))
+
+
+      def _print_tip_detection_metrics(self, tip, node_metrics, edge_metrics):
+            parts = [
+                  "Tip Detection",
+                  f"tip={tip}",
+                  f"node_f1={fmt_metric(node_metrics.get('f1'))}",
+                  f"node_tpr={fmt_metric(node_metrics.get('tpr'))}",
+                  f"node_tnr={fmt_metric(node_metrics.get('tnr'))}",
+                  f"node_balanced_accuracy={fmt_metric(node_metrics.get('balanced_accuracy'))}",
+                  f"node_precision={fmt_metric(node_metrics.get('precision'))}",
+                  f"node_recall={fmt_metric(node_metrics.get('recall'))}",
+                  f"edge_f1={fmt_metric(edge_metrics.get('f1'))}",
+                  f"edge_tpr={fmt_metric(edge_metrics.get('tpr'))}",
+                  f"edge_tnr={fmt_metric(edge_metrics.get('tnr'))}",
+                  f"edge_balanced_accuracy={fmt_metric(edge_metrics.get('balanced_accuracy'))}",
+                  f"edge_precision={fmt_metric(edge_metrics.get('precision'))}",
+                  f"edge_recall={fmt_metric(edge_metrics.get('recall'))}",
+                  f"node_tp={node_metrics.get('tp', 0)}",
+                  f"node_fp={node_metrics.get('fp', 0)}",
+                  f"node_fn={node_metrics.get('fn', 0)}",
+                  f"edge_tp={edge_metrics.get('tp', 0)}",
+                  f"edge_fp={edge_metrics.get('fp', 0)}",
+                  f"edge_fn={edge_metrics.get('fn', 0)}",
+            ]
+            print(" | ".join(parts))
+
+
+      def _report_edge_detection_metrics(self):
+            ref = self.edge_detection_reference
+            if ref is None:
+                  return
+
+            added_edges = ref["added_edges"]
+            if len(added_edges) == 0:
+                  print("Edge Detection | skipped=true | reason=no_added_pollution_edges")
+                  return
+
+            prompt_filter = getattr(self.prompt, "filter_module", None)
+            if prompt_filter is not None:
+                  filter_graph = SimpleNamespace(
+                        x=self.data.x,
+                        edge_index=self.data.edge_index,
+                        num_nodes=self.data.num_nodes,
+                  )
+                  with torch.no_grad():
+                        filter_output = prompt_filter(filter_graph)
+                  filter_metrics = evaluate_edge_detection(
+                        self.data.edge_index,
+                        added_edges,
+                        pred_anomaly_mask=~filter_output["edge_mask"],
+                        anomaly_score=filter_output.get("edge_score", None),
+                  )
+                  self._print_edge_detection_metrics(
+                        "filter_module",
+                        filter_metrics,
+                        {"mode": getattr(prompt_filter, "mode", self.filter_mode)},
+                  )
+
+            gppt_state = getattr(self.prompt, "last_filter_detection", None)
+            if gppt_state is not None:
+                  gppt_metrics = evaluate_edge_detection(
+                        gppt_state["edge_index"],
+                        added_edges,
+                        pred_anomaly_mask=gppt_state.get("pred_anomaly_mask", None),
+                        anomaly_score=gppt_state.get("edge_score", None),
+                  )
+                  self._print_edge_detection_metrics("gppt_filter", gppt_metrics)
+
+            tau_state = getattr(self.prompt, "last_tau_detection", None)
+            if tau_state is not None:
+                  tau_metrics = evaluate_edge_detection(
+                        tau_state["edge_index"],
+                        added_edges,
+                        pred_anomaly_mask=tau_state.get("pred_anomaly_mask", None),
+                        anomaly_score=tau_state.get("edge_score", None),
+                  )
+                  self._print_edge_detection_metrics("tau_tune", tau_metrics)
+
+            tip_state = getattr(self.prompt, "last_tip_detection", None)
+            if tip_state is not None:
+                  node_by_tip = tip_state.get("node_by_tip", {})
+                  for tip in ["sim_pt", "degree_pt", "out_detect_pt"]:
+                        if tip not in node_by_tip:
+                              continue
+                        node_metrics = evaluate_node_detection(
+                              self.data.num_nodes,
+                              added_edges,
+                              node_by_tip.get(tip),
+                        )
+                        edge_metrics = evaluate_incident_edge_detection(
+                              tip_state["edge_index"],
+                              added_edges,
+                              node_by_tip.get(tip),
+                        )
+                        self._print_tip_detection_metrics(tip, node_metrics, edge_metrics)
+
+                  ood_mask = tip_state.get("out_detect_edge_mask", None)
+                  if ood_mask is not None:
+                        ood_metrics = evaluate_edge_detection(
+                              tip_state["edge_index"],
+                              added_edges,
+                              pred_anomaly_mask=ood_mask,
+                              anomaly_score=tip_state.get("out_detect_edge_score", None),
+                        )
+                        self._print_edge_detection_metrics("out_detect_pt_edges", ood_metrics)
 
                   
 
@@ -535,7 +738,7 @@ class NodeTask(BaseTask):
 
 
 
-            if self.prompt_type in ['RobustPrompt-GPF','RobustPrompt-GPFplus']: #,'GPF'，'All-in-one',
+            if self.prompt_type in ['RobustPrompt-GPF','RobustPrompt-GPFplus','RobustPrompt-T-IA']:
                   # 利用shot的标签训练一个pseudo label分类器
                   print("don't use structure")
                   idx_train  = self.data.train_mask.nonzero().squeeze().cpu()
@@ -562,10 +765,19 @@ class NodeTask(BaseTask):
                   acc = train_MLP(pseudo_model, epochs, optimizer, pseudo_train_loader, pseudo_val_loader, pseudo_test_loader, loss, self.device)
                   print('Accuracy:%f' % acc)
                   print('Train Pseudo Model Done !')
-                   # 对于'RobustPrompt_GPF','RobustPrompt_GPFplus'扩展没有被扰动的部分（扩展伪标签）
+                   # 扩展伪标签
                   logits = pseudo_model(self.data.x.to(self.device)).cpu()
                   pseudo_labels = self.data.y.clone()
-                  idx_train_regenerate, pseudo_labels = get_psu_labels(logits, pseudo_labels, idx_train, idx_test, k=k, append_idx=True) # 7 * 80 = 560 or + 7 = 630    1 shot
+                  idx_train_regenerate, pseudo_labels = get_psu_labels(logits, pseudo_labels, idx_train, idx_test, k=k, append_idx=True)
+                  print(f'IA-PT: train nodes expanded {len(idx_train)} -> {len(idx_train_regenerate)}')
+
+                  # 对 RobustPrompt-T-IA：扩展 data.train_mask / data.y，让 Tune() 自动使用扩展标签
+                  if self.prompt_type == 'RobustPrompt-T-IA':
+                      self._saved_train_mask = self.data.train_mask.clone()
+                      self._saved_y = self.data.y.clone()
+                      self.data.train_mask = torch.zeros(self.data.num_nodes, dtype=torch.bool)
+                      self.data.train_mask[idx_train_regenerate] = True
+                      self.data.y[idx_train_regenerate] = pseudo_labels[idx_train_regenerate]
 
 
 
@@ -680,7 +892,7 @@ class NodeTask(BaseTask):
                   elif self.prompt_type == 'RobustPrompt-I':
                         loss = self.RobustPromptInductiveTrainSynchro(train_loader)
                         # val_acc, F1    = RobustPromptInductiveEva(val_loader,  'Val',  pseudo_model, self.prompt, self.gnn, self.answering, self.output_dim, self.device)
-                  elif self.prompt_type == 'RobustPrompt-T':
+                  elif self.prompt_type in ['RobustPrompt-T', 'RobustPrompt-T-IA', 'RobustPrompt-T-NSP']:
                         loss = self.RobustPromptTranductivetrain(self.data)
                         # test_acc, F1    = RobustPromptTranductiveEva(self.data, self.data.val_mask,  self.gnn, self.prompt, self.answering, self.output_dim, self.device)
                   elif self.prompt_type in ['RobustPrompt-GPF', 'RobustPrompt-GPFplus']:
@@ -710,6 +922,13 @@ class NodeTask(BaseTask):
             # print(self.data)
 
             
+            # IA-PT: 训练完成，恢复原始 train_mask / y，确保评估使用真实标签
+            if hasattr(self, '_saved_train_mask') and self._saved_train_mask is not None:
+                self.data.train_mask = self._saved_train_mask
+                self.data.y = self._saved_y
+                self._saved_train_mask = None
+                self._saved_y = None
+
             import math
             test_acc = float('nan')
             if not math.isnan(loss):
@@ -735,7 +954,7 @@ class NodeTask(BaseTask):
                   # add by ssh 
                   elif self.prompt_type == 'RobustPrompt-I':
                         test_acc, F1    = RobustPromptInductiveEva(test_loader, self.gnn, self.prompt, self.answering, self.output_dim, self.device)
-                  elif self.prompt_type == 'RobustPrompt-T':
+                  elif self.prompt_type in ['RobustPrompt-T', 'RobustPrompt-T-IA', 'RobustPrompt-T-NSP']:
                         test_acc, F1    = RobustPromptTranductiveEva(self.data, self.data.test_mask,  self.gnn, self.prompt, self.answering, self.output_dim, self.device)
                   elif self.prompt_type in ['RobustPrompt-GPF', 'RobustPrompt-GPFplus']:
                         # 直接用GPF的评估方式就行
@@ -743,6 +962,7 @@ class NodeTask(BaseTask):
 
                   # print(f"Final True Accuracy: {test_acc:.4f} | Macro F1 Score: {f1:.4f} | AUROC: {roc:.4f} | AUPRC: {prc:.4f}" )
                   print(f"Final True Accuracy: {test_acc:.4f} | Macro F1 Score: {F1:.4f}" )
+                  self._report_edge_detection_metrics()
                   print("best_loss",  batch_best_loss)     
             return test_acc.cpu().numpy() if isinstance(test_acc, torch.Tensor) else test_acc
 

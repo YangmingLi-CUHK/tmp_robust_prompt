@@ -180,8 +180,10 @@ class GraphMAELoss(nn.Module):
         return chain(*[self.encoder_to_decoder.parameters(), self.decoder.parameters()])
 
 class GraphMAE(PreTrain):
-    def __init__(self, *args, hid_dim = 16, mask_rate=0.75, drop_edge_rate=0.0, replace_rate=0.1, loss_fn='sce', alpha_l=2, **kwargs):    # hid_dim=16
+    def __init__(self, *args, hid_dim = 16, mask_rate=0.75, drop_edge_rate=0.0, replace_rate=0.1, loss_fn='sce', alpha_l=2, lr=None, **kwargs):    # hid_dim=16
         super().__init__(*args, **kwargs)
+        if lr is not None:
+            self.learning_rate = lr
         self.graph_dataloader = self.load_graph_data()
         self.graph_n_feat_dim = self.input_dim
         self.hid_dim = hid_dim # 这里如果不self的话用的是pretrain里默认的hid_dim

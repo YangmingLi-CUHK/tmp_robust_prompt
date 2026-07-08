@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting 15 — Summary (combo_filters_v2_safe)</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; font-size: 12px; line-height:1.5; }
+  .container { max-width: 1300px; margin:0 auto; padding: 28px 16px; }
+  header { margin-bottom: 24px; border-bottom: 1.5px solid #2563eb; padding-bottom: 12px; }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header .meta { font-size: 10px; color: #888; margin-top: 3px; }
+  h2 { font-size: 14px; font-weight: 600; margin: 28px 0 10px; color: #333; }
+  h3 { font-size: 13px; font-weight: 600; margin: 20px 0 8px; color: #444; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0 14px; font-variant-numeric: tabular-nums; }
+  table.data-table thead th { background: #f5f5f5; font-weight: 600; text-align: center; padding: 4px 6px; border-bottom: 1.5px solid #ddd; white-space: nowrap; }
+  table.data-table tbody td { text-align: center; padding: 3px 6px; border-bottom: 1px solid #eee; }
+  table.data-table tbody tr:nth-child(even) { background: #fafafa; }
+  .section-single { }
+  .section-combo { background: #f0f4ff; }
+  .section-baseline { background: #fef9e7; font-weight: 600; }
+  .na { color: #bbb; font-style: italic; }
+  .note { font-size: 10px; color: #999; margin-top: 2px; }
+  .seed-detail { font-size: 10px; color: #777; font-family: 'SF Mono', 'Consolas', monospace; margin: 2px 0; }
+  details { margin: 6px 0 12px; }
+  details summary { font-size: 11px; color: #555; cursor: pointer; }
+  hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Meeting 15 &mdash; RobustPrompt-T Summary (Peak Backbone Only, combo_filters_v2_safe)</h1>
+  <div class="meta">
+    Generated: 2026-07-02 20:52 &nbsp;|&nbsp; Cora / Meta_Self / 5-shot split-1 &nbsp;|&nbsp;
+    Peak BB: permE-maskN, lr=0.001, r=0.3 &nbsp;|&nbsp;
+    Accuracy = mean &plusmn; std across all 5 seeds
+  </div>
+</header>
+
+<h2>1. Accuracy Across All Models and Perturbation Levels</h2>
+<p class="note">
+  Each cell: <strong>mean &plusmn; std</strong> (all 5 seeds included, no min-removal).
+  <span style="background:#f0f4ff">&nbsp;Blue&nbsp;</span> = combo from <code>combo_filters_v2_safe</code>,
+  <span style="background:#fef9e7">&nbsp;Yellow&nbsp;</span> = baseline.
+  <code>—</code> = no data. Combo rows use results from <code>combo_filters_v2_safe</code>.
+</p>
+<table class="data-table">
+<thead><tr><th>Model</th><th>0.00</th><th>0.05</th><th>0.10</th><th>0.15</th><th>0.20</th><th>0.25</th></tr></thead>
+<tbody>
+<tr><td>sim_pt=0.2</td><td>0.6281&plusmn;0.0171</td><td>0.1918&plusmn;0.0138</td><td>0.0834&plusmn;0.0211</td><td>0.0897&plusmn;0.0173</td><td>0.0777&plusmn;0.0164</td><td>0.0644&plusmn;0.0104</td></tr>
+<tr><td>sim_pt=0.3</td><td>0.6216&plusmn;0.0135</td><td>0.1551&plusmn;0.0278</td><td>0.1667&plusmn;0.0104</td><td>0.1349&plusmn;0.0156</td><td>0.1070&plusmn;0.0077</td><td>0.0978&plusmn;0.0105</td></tr>
+<tr><td>sim_pt=0.4</td><td>0.5852&plusmn;0.0225</td><td>0.1764&plusmn;0.0175</td><td>0.1382&plusmn;0.0173</td><td>0.1262&plusmn;0.0100</td><td>0.0830&plusmn;0.0113</td><td>0.0799&plusmn;0.0081</td></tr>
+<tr><td>sim_pt=0.5</td><td>0.5723&plusmn;0.0311</td><td>0.2426&plusmn;0.0258</td><td>0.1546&plusmn;0.0299</td><td>0.1143&plusmn;0.0214</td><td>0.1100&plusmn;0.0082</td><td>0.0527&plusmn;0.0114</td></tr>
+<tr><td>sim_pt=0.6</td><td>0.5697&plusmn;0.0125</td><td>0.2546&plusmn;0.0156</td><td>0.1580&plusmn;0.0232</td><td>0.1237&plusmn;0.0145</td><td>0.1006&plusmn;0.0164</td><td>0.0551&plusmn;0.0084</td></tr>
+<tr><td>degree_pt=1</td><td><strong>0.6582&plusmn;0.0311</strong></td><td>0.2444&plusmn;0.0365</td><td>0.1571&plusmn;0.0298</td><td>0.1329&plusmn;0.0188</td><td>0.0738&plusmn;0.0148</td><td>0.0449&plusmn;0.0079</td></tr>
+<tr><td>degree_pt=2</td><td>0.5440&plusmn;0.0138</td><td>0.2345&plusmn;0.0116</td><td>0.1488&plusmn;0.0175</td><td>0.1176&plusmn;0.0335</td><td>0.0842&plusmn;0.0057</td><td>0.0665&plusmn;0.0145</td></tr>
+<tr><td>degree_pt=3</td><td>0.5082&plusmn;0.0259</td><td>0.2619&plusmn;0.0209</td><td>0.1325&plusmn;0.0384</td><td>0.0950&plusmn;0.0113</td><td>0.0709&plusmn;0.0045</td><td>0.0518&plusmn;0.0084</td></tr>
+<tr><td>degree_pt=5</td><td>0.5934&plusmn;0.0284</td><td>0.2724&plusmn;0.0278</td><td>0.1153&plusmn;0.0138</td><td>0.0851&plusmn;0.0150</td><td>0.0753&plusmn;0.0086</td><td>0.0700&plusmn;0.0225</td></tr>
+<tr><td>out_detect_pt=0.3</td><td>0.6238&plusmn;0.0147</td><td>0.2224&plusmn;0.0252</td><td>0.1579&plusmn;0.0265</td><td>0.1254&plusmn;0.0125</td><td>0.0762&plusmn;0.0106</td><td>0.0487&plusmn;0.0163</td></tr>
+<tr><td>out_detect_pt=0.4</td><td>0.6270&plusmn;0.0307</td><td>0.2748&plusmn;0.0222</td><td>0.1721&plusmn;0.0213</td><td>0.1109&plusmn;0.0228</td><td>0.1000&plusmn;0.0145</td><td>0.0577&plusmn;0.0180</td></tr>
+<tr><td>out_detect_pt=0.5</td><td>0.6352&plusmn;0.0322</td><td><strong>0.2786&plusmn;0.0359</strong></td><td>0.1530&plusmn;0.0421</td><td>0.1295&plusmn;0.0094</td><td>0.1037&plusmn;0.0155</td><td>0.0642&plusmn;0.0297</td></tr>
+<tr><td>out_detect_pt=0.6</td><td>0.6405&plusmn;0.0279</td><td>0.2594&plusmn;0.0054</td><td>0.1603&plusmn;0.0253</td><td><strong>0.1425&plusmn;0.0212</strong></td><td>0.0969&plusmn;0.0157</td><td>0.0599&plusmn;0.0183</td></tr>
+<tr><td>out_detect_pt=0.7</td><td>0.6409&plusmn;0.0346</td><td>0.2751&plusmn;0.0290</td><td>0.1636&plusmn;0.0216</td><td>0.1212&plusmn;0.0112</td><td>0.0996&plusmn;0.0154</td><td>0.0484&plusmn;0.0167</td></tr>
+<tr class="section-combo"><td>all3 (s=0.3, d=1, o=0.5)</td><td>0.5197&plusmn;0.0142</td><td>0.1892&plusmn;0.0090</td><td>0.1752&plusmn;0.0218</td><td>0.0917&plusmn;0.0167</td><td>0.0914&plusmn;0.0103</td><td>0.0779&plusmn;0.0085</td></tr>
+<tr class="section-combo"><td>deg+ood (s=-1.0, d=1, o=0.5)</td><td>0.4566&plusmn;0.0342</td><td>0.2520&plusmn;0.0182</td><td><strong>0.1899&plusmn;0.0356</strong></td><td>0.1111&plusmn;0.0201</td><td>0.0899&plusmn;0.0070</td><td>0.0590&plusmn;0.0059</td></tr>
+<tr class="section-combo"><td>sim+deg (s=0.3, d=1, o=-1.0)</td><td>0.5081&plusmn;0.0221</td><td>0.1660&plusmn;0.0158</td><td>0.1712&plusmn;0.0159</td><td>0.1123&plusmn;0.0158</td><td><strong>0.1160&plusmn;0.0096</strong></td><td><strong>0.1029&plusmn;0.0108</strong></td></tr>
+<tr class="section-combo"><td>sim+ood (s=0.3, d=-1, o=0.5)</td><td>0.5197&plusmn;0.0142</td><td>0.1908&plusmn;0.0100</td><td>0.1753&plusmn;0.0220</td><td>0.0919&plusmn;0.0169</td><td>0.0914&plusmn;0.0103</td><td>0.0775&plusmn;0.0091</td></tr>
+
+<tr class="section-baseline"><td>GPPT</td><td>0.6578</td><td>0.2151</td><td>0.1740</td><td>0.0785</td><td>0.1071</td><td>0.0681</td></tr>
+</tbody></table>
+<!-- BEGIN CONFUSION SUMMARY -->
+<h2>2. 7-Class Confusion Matrix Summary</h2>
+<p class="note">
+  Parsed from <code>combo_filters_v2_safe</code> logs. Per-class values are mean &plusmn; std across 5 seeds; matrix counts in the expandable section are summed across the same 5 seeds. Rows=true class, cols=predicted class.
+</p>
+<h3>2.A Per-Class Accuracy and Dominant Error Direction</h3>
+<table class="data-table">
+<thead><tr><th>Combo</th><th>ptb</th><th>Acc</th><th>Macro-F1</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th><th>Worst</th><th>Top Error</th></tr></thead>
+<tbody>
+<tr class="section-combo"><td>all3 (s=0.3, d=1, o=0.5)</td><td>0.00</td><td>0.5197&plusmn;0.0142</td><td>0.5144&plusmn;0.0065</td><td>0.3923&plusmn;0.0463</td><td>0.7173&plusmn;0.1899</td><td>0.4753&plusmn;0.0329</td><td>0.5260&plusmn;0.0537</td><td>0.5499&plusmn;0.0615</td><td>0.4765&plusmn;0.0964</td><td>0.6076&plusmn;0.1847</td><td>C0 (0.3923)</td><td>C3-&gt;C1 (554)</td></tr>
+<tr class="section-combo"><td>all3 (s=0.3, d=1, o=0.5)</td><td>0.05</td><td>0.1892&plusmn;0.0090</td><td>0.2049&plusmn;0.0131</td><td>0.3699&plusmn;0.0175</td><td>0.2157&plusmn;0.0276</td><td>0.3543&plusmn;0.0311</td><td>0.0106&plusmn;0.0005</td><td>0.0222&plusmn;0.0027</td><td>0.2333&plusmn;0.0414</td><td>0.5658&plusmn;0.0601</td><td>C3 (0.0106)</td><td>C3-&gt;C6 (2377)</td></tr>
+<tr class="section-combo"><td>all3 (s=0.3, d=1, o=0.5)</td><td>0.10</td><td>0.1752&plusmn;0.0218</td><td>0.1776&plusmn;0.0256</td><td>0.2539&plusmn;0.0448</td><td>0.2168&plusmn;0.1559</td><td>0.3586&plusmn;0.0727</td><td>0.0126&plusmn;0.0042</td><td>0.0132&plusmn;0.0055</td><td>0.4924&plusmn;0.0497</td><td>0.1494&plusmn;0.0783</td><td>C3 (0.0126)</td><td>C3-&gt;C6 (1688)</td></tr>
+<tr class="section-combo"><td>all3 (s=0.3, d=1, o=0.5)</td><td>0.15</td><td>0.0917&plusmn;0.0167</td><td>0.0820&plusmn;0.0127</td><td>0.1128&plusmn;0.0155</td><td>0.0178&plusmn;0.0147</td><td>0.1715&plusmn;0.0721</td><td>0.0153&plusmn;0.0090</td><td>0.0206&plusmn;0.0035</td><td>0.3735&plusmn;0.1181</td><td>0.0050&plusmn;0.0025</td><td>C6 (0.0050)</td><td>C3-&gt;C5 (1352)</td></tr>
+<tr class="section-combo"><td>all3 (s=0.3, d=1, o=0.5)</td><td>0.20</td><td>0.0914&plusmn;0.0104</td><td>0.0756&plusmn;0.0078</td><td>0.0590&plusmn;0.0397</td><td>0.0209&plusmn;0.0047</td><td>0.2307&plusmn;0.0693</td><td>0.0224&plusmn;0.0197</td><td>0.0085&plusmn;0.0020</td><td>0.3409&plusmn;0.0404</td><td>0.0152&plusmn;0.0177</td><td>C4 (0.0085)</td><td>C3-&gt;C5 (1579)</td></tr>
+<tr class="section-combo"><td>all3 (s=0.3, d=1, o=0.5)</td><td>0.25</td><td>0.0779&plusmn;0.0085</td><td>0.0577&plusmn;0.0057</td><td>0.0635&plusmn;0.0204</td><td>0.0115&plusmn;0.0051</td><td>0.1065&plusmn;0.0403</td><td>0.0161&plusmn;0.0106</td><td>0.0063&plusmn;0.0021</td><td>0.4151&plusmn;0.0485</td><td>0.0139&plusmn;0.0152</td><td>C4 (0.0063)</td><td>C3-&gt;C5 (1951)</td></tr>
+<tr class="section-combo"><td>deg+ood (s=-1.0, d=1, o=0.5)</td><td>0.00</td><td>0.4566&plusmn;0.0342</td><td>0.4679&plusmn;0.0383</td><td>0.4256&plusmn;0.0364</td><td>0.4628&plusmn;0.0464</td><td>0.5408&plusmn;0.0451</td><td>0.3915&plusmn;0.0735</td><td>0.3683&plusmn;0.0370</td><td>0.4500&plusmn;0.1316</td><td>0.8367&plusmn;0.0334</td><td>C4 (0.3683)</td><td>C3-&gt;C6 (1112)</td></tr>
+<tr class="section-combo"><td>deg+ood (s=-1.0, d=1, o=0.5)</td><td>0.05</td><td>0.2520&plusmn;0.0182</td><td>0.2393&plusmn;0.0205</td><td>0.4122&plusmn;0.1419</td><td>0.7016&plusmn;0.0491</td><td>0.4790&plusmn;0.0599</td><td>0.0268&plusmn;0.0068</td><td>0.0121&plusmn;0.0091</td><td>0.5227&plusmn;0.1315</td><td>0.0240&plusmn;0.0025</td><td>C4 (0.0121)</td><td>C3-&gt;C1 (1734)</td></tr>
+<tr class="section-combo"><td>deg+ood (s=-1.0, d=1, o=0.5)</td><td>0.10</td><td>0.1899&plusmn;0.0356</td><td>0.1621&plusmn;0.0278</td><td>0.3429&plusmn;0.2040</td><td>0.0492&plusmn;0.0091</td><td>0.4581&plusmn;0.0762</td><td>0.0170&plusmn;0.0011</td><td>0.0037&plusmn;0.0013</td><td>0.5932&plusmn;0.0545</td><td>0.0000&plusmn;0.0000</td><td>C6 (0.0000)</td><td>C3-&gt;C0 (1489)</td></tr>
+<tr class="section-combo"><td>deg+ood (s=-1.0, d=1, o=0.5)</td><td>0.15</td><td>0.1111&plusmn;0.0201</td><td>0.0892&plusmn;0.0169</td><td>0.1058&plusmn;0.0146</td><td>0.0251&plusmn;0.0077</td><td>0.2661&plusmn;0.0710</td><td>0.0440&plusmn;0.0164</td><td>0.0011&plusmn;0.0021</td><td>0.3719&plusmn;0.1204</td><td>0.0000&plusmn;0.0000</td><td>C6 (0.0000)</td><td>C3-&gt;C0 (1177)</td></tr>
+<tr class="section-combo"><td>deg+ood (s=-1.0, d=1, o=0.5)</td><td>0.20</td><td>0.0898&plusmn;0.0070</td><td>0.0661&plusmn;0.0054</td><td>0.0070&plusmn;0.0037</td><td>0.0555&plusmn;0.0108</td><td>0.2930&plusmn;0.0261</td><td>0.0464&plusmn;0.0146</td><td>0.0010&plusmn;0.0013</td><td>0.2273&plusmn;0.0527</td><td>0.0013&plusmn;0.0025</td><td>C4 (0.0010)</td><td>C3-&gt;C5 (1210)</td></tr>
+<tr class="section-combo"><td>deg+ood (s=-1.0, d=1, o=0.5)</td><td>0.25</td><td>0.0590&plusmn;0.0060</td><td>0.0458&plusmn;0.0063</td><td>0.0083&plusmn;0.0026</td><td>0.0503&plusmn;0.0122</td><td>0.1151&plusmn;0.0309</td><td>0.0415&plusmn;0.0021</td><td>0.0021&plusmn;0.0010</td><td>0.2076&plusmn;0.0695</td><td>0.0063&plusmn;0.0000</td><td>C4 (0.0021)</td><td>C3-&gt;C5 (1620)</td></tr>
+<tr class="section-combo"><td>sim+deg (s=0.3, d=1, o=-1.0)</td><td>0.00</td><td>0.5081&plusmn;0.0221</td><td>0.4992&plusmn;0.0159</td><td>0.3897&plusmn;0.0436</td><td>0.7623&plusmn;0.1532</td><td>0.4758&plusmn;0.0499</td><td>0.5560&plusmn;0.0905</td><td>0.4639&plusmn;0.0482</td><td>0.4046&plusmn;0.1444</td><td>0.5684&plusmn;0.0942</td><td>C0 (0.3897)</td><td>C3-&gt;C1 (832)</td></tr>
+<tr class="section-combo"><td>sim+deg (s=0.3, d=1, o=-1.0)</td><td>0.05</td><td>0.1660&plusmn;0.0158</td><td>0.1899&plusmn;0.0160</td><td>0.3660&plusmn;0.0523</td><td>0.2000&plusmn;0.0553</td><td>0.2758&plusmn;0.0617</td><td>0.0101&plusmn;0.0014</td><td>0.0296&plusmn;0.0169</td><td>0.2371&plusmn;0.0833</td><td>0.4025&plusmn;0.0926</td><td>C3 (0.0101)</td><td>C3-&gt;C6 (2669)</td></tr>
+<tr class="section-combo"><td>sim+deg (s=0.3, d=1, o=-1.0)</td><td>0.10</td><td>0.1712&plusmn;0.0159</td><td>0.1795&plusmn;0.0172</td><td>0.3000&plusmn;0.0512</td><td>0.2032&plusmn;0.0962</td><td>0.3607&plusmn;0.0530</td><td>0.0093&plusmn;0.0026</td><td>0.0148&plusmn;0.0064</td><td>0.3644&plusmn;0.0729</td><td>0.2342&plusmn;0.0448</td><td>C3 (0.0093)</td><td>C3-&gt;C6 (1760)</td></tr>
+<tr class="section-combo"><td>sim+deg (s=0.3, d=1, o=-1.0)</td><td>0.15</td><td>0.1123&plusmn;0.0158</td><td>0.1025&plusmn;0.0164</td><td>0.1583&plusmn;0.0329</td><td>0.0880&plusmn;0.1067</td><td>0.1430&plusmn;0.0768</td><td>0.0139&plusmn;0.0040</td><td>0.0211&plusmn;0.0103</td><td>0.4439&plusmn;0.1657</td><td>0.0987&plusmn;0.0819</td><td>C3 (0.0139)</td><td>C3-&gt;C6 (1442)</td></tr>
+<tr class="section-combo"><td>sim+deg (s=0.3, d=1, o=-1.0)</td><td>0.20</td><td>0.1160&plusmn;0.0096</td><td>0.1045&plusmn;0.0091</td><td>0.0776&plusmn;0.0410</td><td>0.1340&plusmn;0.0393</td><td>0.2914&plusmn;0.0475</td><td>0.0191&plusmn;0.0104</td><td>0.0137&plusmn;0.0082</td><td>0.3659&plusmn;0.1076</td><td>0.0342&plusmn;0.0255</td><td>C4 (0.0137)</td><td>C3-&gt;C5 (1233)</td></tr>
+<tr class="section-combo"><td>sim+deg (s=0.3, d=1, o=-1.0)</td><td>0.25</td><td>0.1029&plusmn;0.0108</td><td>0.0715&plusmn;0.0073</td><td>0.0468&plusmn;0.0191</td><td>0.0178&plusmn;0.0150</td><td>0.1677&plusmn;0.0665</td><td>0.0317&plusmn;0.0271</td><td>0.0085&plusmn;0.0020</td><td>0.5311&plusmn;0.0081</td><td>0.0050&plusmn;0.0025</td><td>C6 (0.0050)</td><td>C3-&gt;C5 (2173)</td></tr>
+<tr class="section-combo"><td>sim+ood (s=0.3, d=-1, o=0.5)</td><td>0.00</td><td>0.5197&plusmn;0.0142</td><td>0.5144&plusmn;0.0065</td><td>0.3923&plusmn;0.0463</td><td>0.7173&plusmn;0.1899</td><td>0.4753&plusmn;0.0329</td><td>0.5260&plusmn;0.0537</td><td>0.5499&plusmn;0.0615</td><td>0.4765&plusmn;0.0964</td><td>0.6076&plusmn;0.1847</td><td>C0 (0.3923)</td><td>C3-&gt;C1 (554)</td></tr>
+<tr class="section-combo"><td>sim+ood (s=0.3, d=-1, o=0.5)</td><td>0.05</td><td>0.1908&plusmn;0.0100</td><td>0.2067&plusmn;0.0146</td><td>0.3757&plusmn;0.0196</td><td>0.2115&plusmn;0.0231</td><td>0.3608&plusmn;0.0307</td><td>0.0106&plusmn;0.0005</td><td>0.0216&plusmn;0.0026</td><td>0.2401&plusmn;0.0488</td><td>0.5582&plusmn;0.0549</td><td>C3 (0.0106)</td><td>C3-&gt;C6 (2366)</td></tr>
+<tr class="section-combo"><td>sim+ood (s=0.3, d=-1, o=0.5)</td><td>0.10</td><td>0.1753&plusmn;0.0220</td><td>0.1778&plusmn;0.0259</td><td>0.2539&plusmn;0.0448</td><td>0.2168&plusmn;0.1559</td><td>0.3570&plusmn;0.0716</td><td>0.0126&plusmn;0.0042</td><td>0.0132&plusmn;0.0055</td><td>0.4955&plusmn;0.0468</td><td>0.1506&plusmn;0.0795</td><td>C3 (0.0126)</td><td>C3-&gt;C6 (1691)</td></tr>
+<tr class="section-combo"><td>sim+ood (s=0.3, d=-1, o=0.5)</td><td>0.15</td><td>0.0919&plusmn;0.0169</td><td>0.0819&plusmn;0.0131</td><td>0.1115&plusmn;0.0158</td><td>0.0157&plusmn;0.0115</td><td>0.1710&plusmn;0.0776</td><td>0.0150&plusmn;0.0091</td><td>0.0206&plusmn;0.0035</td><td>0.3803&plusmn;0.1226</td><td>0.0050&plusmn;0.0025</td><td>C6 (0.0050)</td><td>C3-&gt;C5 (1354)</td></tr>
+<tr class="section-combo"><td>sim+ood (s=0.3, d=-1, o=0.5)</td><td>0.20</td><td>0.0914&plusmn;0.0104</td><td>0.0756&plusmn;0.0078</td><td>0.0590&plusmn;0.0397</td><td>0.0209&plusmn;0.0047</td><td>0.2307&plusmn;0.0693</td><td>0.0224&plusmn;0.0197</td><td>0.0085&plusmn;0.0020</td><td>0.3409&plusmn;0.0404</td><td>0.0152&plusmn;0.0177</td><td>C4 (0.0085)</td><td>C3-&gt;C5 (1579)</td></tr>
+<tr class="section-combo"><td>sim+ood (s=0.3, d=-1, o=0.5)</td><td>0.25</td><td>0.0775&plusmn;0.0091</td><td>0.0575&plusmn;0.0059</td><td>0.0641&plusmn;0.0201</td><td>0.0115&plusmn;0.0051</td><td>0.1048&plusmn;0.0411</td><td>0.0164&plusmn;0.0105</td><td>0.0063&plusmn;0.0021</td><td>0.4121&plusmn;0.0525</td><td>0.0139&plusmn;0.0152</td><td>C4 (0.0063)</td><td>C3-&gt;C5 (1950)</td></tr>
+</tbody></table>
+<details>
+<summary>Aggregated 7&times;7 confusion matrices for all combo rows (click to expand)</summary>
+<h3>all3 (s=0.3, d=1, o=0.5)</h3>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.00 &nbsp; Overall: 6257/12040 (52.0%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">612</td><td>247</td><td>1</td><td>39</td><td>137</td><td>7</td><td>517</td></tr>
+<tr><td>C1</td><td>14</td><td style="color:#047857;font-weight:700;">685</td><td>8</td><td>19</td><td>0</td><td>35</td><td>194</td></tr>
+<tr><td>C2</td><td>2</td><td>542</td><td style="color:#047857;font-weight:700;">884</td><td>25</td><td>0</td><td>229</td><td>178</td></tr>
+<tr><td>C3</td><td>188</td><td>554</td><td>0</td><td style="color:#047857;font-weight:700;">1925</td><td>465</td><td>47</td><td>481</td></tr>
+<tr><td>C4</td><td>247</td><td>206</td><td>0</td><td>153</td><td style="color:#047857;font-weight:700;">1042</td><td>18</td><td>229</td></tr>
+<tr><td>C5</td><td>36</td><td>324</td><td>5</td><td>11</td><td>20</td><td style="color:#047857;font-weight:700;">629</td><td>295</td></tr>
+<tr><td>C6</td><td>19</td><td>215</td><td>4</td><td>8</td><td>7</td><td>57</td><td style="color:#047857;font-weight:700;">480</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.05 &nbsp; Overall: 2278/12040 (18.9%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">577</td><td>126</td><td>28</td><td>0</td><td>184</td><td>37</td><td>608</td></tr>
+<tr><td>C1</td><td>415</td><td style="color:#047857;font-weight:700;">206</td><td>18</td><td>4</td><td>29</td><td>10</td><td>273</td></tr>
+<tr><td>C2</td><td>354</td><td>331</td><td style="color:#047857;font-weight:700;">659</td><td>149</td><td>43</td><td>102</td><td>222</td></tr>
+<tr><td>C3</td><td>439</td><td>665</td><td>21</td><td style="color:#047857;font-weight:700;">39</td><td>90</td><td>29</td><td>2377</td></tr>
+<tr><td>C4</td><td>401</td><td>433</td><td>10</td><td>34</td><td style="color:#047857;font-weight:700;">42</td><td>27</td><td>948</td></tr>
+<tr><td>C5</td><td>178</td><td>97</td><td>221</td><td>105</td><td>172</td><td style="color:#047857;font-weight:700;">308</td><td>239</td></tr>
+<tr><td>C6</td><td>156</td><td>8</td><td>8</td><td>4</td><td>158</td><td>9</td><td style="color:#047857;font-weight:700;">447</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.10 &nbsp; Overall: 2109/12040 (17.5%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">396</td><td>129</td><td>73</td><td>23</td><td>295</td><td>510</td><td>134</td></tr>
+<tr><td>C1</td><td>236</td><td style="color:#047857;font-weight:700;">207</td><td>32</td><td>12</td><td>73</td><td>316</td><td>79</td></tr>
+<tr><td>C2</td><td>121</td><td>18</td><td style="color:#047857;font-weight:700;">667</td><td>405</td><td>102</td><td>423</td><td>124</td></tr>
+<tr><td>C3</td><td>368</td><td>756</td><td>29</td><td style="color:#047857;font-weight:700;">46</td><td>73</td><td>700</td><td>1688</td></tr>
+<tr><td>C4</td><td>284</td><td>459</td><td>6</td><td>35</td><td style="color:#047857;font-weight:700;">25</td><td>383</td><td>703</td></tr>
+<tr><td>C5</td><td>206</td><td>9</td><td>104</td><td>171</td><td>100</td><td style="color:#047857;font-weight:700;">650</td><td>80</td></tr>
+<tr><td>C6</td><td>47</td><td>6</td><td>112</td><td>11</td><td>262</td><td>234</td><td style="color:#047857;font-weight:700;">118</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.15 &nbsp; Overall: 1104/12040 (9.2%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">176</td><td>24</td><td>265</td><td>94</td><td>363</td><td>575</td><td>63</td></tr>
+<tr><td>C1</td><td>148</td><td style="color:#047857;font-weight:700;">17</td><td>84</td><td>43</td><td>120</td><td>514</td><td>29</td></tr>
+<tr><td>C2</td><td>115</td><td>36</td><td style="color:#047857;font-weight:700;">319</td><td>354</td><td>265</td><td>707</td><td>64</td></tr>
+<tr><td>C3</td><td>366</td><td>440</td><td>52</td><td style="color:#047857;font-weight:700;">56</td><td>104</td><td>1352</td><td>1290</td></tr>
+<tr><td>C4</td><td>315</td><td>389</td><td>14</td><td>21</td><td style="color:#047857;font-weight:700;">39</td><td>577</td><td>540</td></tr>
+<tr><td>C5</td><td>91</td><td>5</td><td>225</td><td>141</td><td>358</td><td style="color:#047857;font-weight:700;">493</td><td>7</td></tr>
+<tr><td>C6</td><td>2</td><td>0</td><td>173</td><td>19</td><td>354</td><td>238</td><td style="color:#047857;font-weight:700;">4</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.20 &nbsp; Overall: 1101/12040 (9.1%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">92</td><td>48</td><td>424</td><td>153</td><td>272</td><td>549</td><td>22</td></tr>
+<tr><td>C1</td><td>54</td><td style="color:#047857;font-weight:700;">20</td><td>234</td><td>103</td><td>125</td><td>405</td><td>14</td></tr>
+<tr><td>C2</td><td>106</td><td>100</td><td style="color:#047857;font-weight:700;">429</td><td>501</td><td>108</td><td>557</td><td>59</td></tr>
+<tr><td>C3</td><td>386</td><td>512</td><td>95</td><td style="color:#047857;font-weight:700;">82</td><td>59</td><td>1579</td><td>947</td></tr>
+<tr><td>C4</td><td>314</td><td>522</td><td>44</td><td>57</td><td style="color:#047857;font-weight:700;">16</td><td>484</td><td>458</td></tr>
+<tr><td>C5</td><td>70</td><td>9</td><td>406</td><td>159</td><td>224</td><td style="color:#047857;font-weight:700;">450</td><td>2</td></tr>
+<tr><td>C6</td><td>3</td><td>5</td><td>229</td><td>23</td><td>262</td><td>256</td><td style="color:#047857;font-weight:700;">12</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.25 &nbsp; Overall: 938/12040 (7.8%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">99</td><td>30</td><td>492</td><td>74</td><td>200</td><td>649</td><td>16</td></tr>
+<tr><td>C1</td><td>54</td><td style="color:#047857;font-weight:700;">11</td><td>271</td><td>67</td><td>82</td><td>461</td><td>9</td></tr>
+<tr><td>C2</td><td>123</td><td>101</td><td style="color:#047857;font-weight:700;">198</td><td>703</td><td>70</td><td>610</td><td>55</td></tr>
+<tr><td>C3</td><td>337</td><td>484</td><td>99</td><td style="color:#047857;font-weight:700;">59</td><td>48</td><td>1951</td><td>682</td></tr>
+<tr><td>C4</td><td>309</td><td>425</td><td>49</td><td>52</td><td style="color:#047857;font-weight:700;">12</td><td>774</td><td>274</td></tr>
+<tr><td>C5</td><td>138</td><td>6</td><td>331</td><td>111</td><td>183</td><td style="color:#047857;font-weight:700;">548</td><td>3</td></tr>
+<tr><td>C6</td><td>15</td><td>2</td><td>252</td><td>17</td><td>198</td><td>295</td><td style="color:#047857;font-weight:700;">11</td></tr>
+</tbody></table>
+<h3>deg+ood (s=-1.0, d=1, o=0.5)</h3>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.00 &nbsp; Overall: 5498/12040 (45.7%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">664</td><td>82</td><td>2</td><td>18</td><td>60</td><td>6</td><td>728</td></tr>
+<tr><td>C1</td><td>25</td><td style="color:#047857;font-weight:700;">442</td><td>25</td><td>5</td><td>0</td><td>25</td><td>433</td></tr>
+<tr><td>C2</td><td>2</td><td>282</td><td style="color:#047857;font-weight:700;">1006</td><td>21</td><td>0</td><td>278</td><td>271</td></tr>
+<tr><td>C3</td><td>480</td><td>26</td><td>7</td><td style="color:#047857;font-weight:700;">1433</td><td>559</td><td>43</td><td>1112</td></tr>
+<tr><td>C4</td><td>686</td><td>27</td><td>0</td><td>43</td><td style="color:#047857;font-weight:700;">698</td><td>3</td><td>438</td></tr>
+<tr><td>C5</td><td>33</td><td>37</td><td>88</td><td>5</td><td>16</td><td style="color:#047857;font-weight:700;">594</td><td>547</td></tr>
+<tr><td>C6</td><td>24</td><td>16</td><td>5</td><td>5</td><td>5</td><td>74</td><td style="color:#047857;font-weight:700;">661</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.05 &nbsp; Overall: 3034/12040 (25.2%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">643</td><td>568</td><td>126</td><td>8</td><td>138</td><td>68</td><td>9</td></tr>
+<tr><td>C1</td><td>18</td><td style="color:#047857;font-weight:700;">670</td><td>149</td><td>4</td><td>41</td><td>64</td><td>9</td></tr>
+<tr><td>C2</td><td>14</td><td>480</td><td style="color:#047857;font-weight:700;">891</td><td>69</td><td>19</td><td>374</td><td>13</td></tr>
+<tr><td>C3</td><td>980</td><td>1734</td><td>83</td><td style="color:#047857;font-weight:700;">98</td><td>76</td><td>58</td><td>631</td></tr>
+<tr><td>C4</td><td>380</td><td>1169</td><td>36</td><td>89</td><td style="color:#047857;font-weight:700;">23</td><td>30</td><td>168</td></tr>
+<tr><td>C5</td><td>43</td><td>155</td><td>316</td><td>77</td><td>38</td><td style="color:#047857;font-weight:700;">690</td><td>1</td></tr>
+<tr><td>C6</td><td>248</td><td>289</td><td>87</td><td>14</td><td>90</td><td>43</td><td style="color:#047857;font-weight:700;">19</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.10 &nbsp; Overall: 2286/12040 (19.0%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">535</td><td>44</td><td>58</td><td>40</td><td>108</td><td>765</td><td>10</td></tr>
+<tr><td>C1</td><td>430</td><td style="color:#047857;font-weight:700;">47</td><td>32</td><td>19</td><td>44</td><td>380</td><td>3</td></tr>
+<tr><td>C2</td><td>114</td><td>2</td><td style="color:#047857;font-weight:700;">852</td><td>472</td><td>21</td><td>383</td><td>16</td></tr>
+<tr><td>C3</td><td>1489</td><td>952</td><td>18</td><td style="color:#047857;font-weight:700;">62</td><td>61</td><td>734</td><td>344</td></tr>
+<tr><td>C4</td><td>693</td><td>679</td><td>2</td><td>55</td><td style="color:#047857;font-weight:700;">7</td><td>398</td><td>61</td></tr>
+<tr><td>C5</td><td>81</td><td>0</td><td>132</td><td>267</td><td>57</td><td style="color:#047857;font-weight:700;">783</td><td>0</td></tr>
+<tr><td>C6</td><td>83</td><td>3</td><td>58</td><td>21</td><td>92</td><td>533</td><td style="color:#047857;font-weight:700;">0</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.15 &nbsp; Overall: 1338/12040 (11.1%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">165</td><td>32</td><td>253</td><td>238</td><td>64</td><td>802</td><td>6</td></tr>
+<tr><td>C1</td><td>78</td><td style="color:#047857;font-weight:700;">24</td><td>145</td><td>171</td><td>33</td><td>500</td><td>4</td></tr>
+<tr><td>C2</td><td>92</td><td>44</td><td style="color:#047857;font-weight:700;">495</td><td>862</td><td>11</td><td>339</td><td>17</td></tr>
+<tr><td>C3</td><td>1177</td><td>943</td><td>56</td><td style="color:#047857;font-weight:700;">161</td><td>46</td><td>967</td><td>310</td></tr>
+<tr><td>C4</td><td>578</td><td>632</td><td>33</td><td>77</td><td style="color:#047857;font-weight:700;">2</td><td>486</td><td>87</td></tr>
+<tr><td>C5</td><td>9</td><td>6</td><td>451</td><td>323</td><td>40</td><td style="color:#047857;font-weight:700;">491</td><td>0</td></tr>
+<tr><td>C6</td><td>2</td><td>5</td><td>349</td><td>123</td><td>40</td><td>271</td><td style="color:#047857;font-weight:700;">0</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.20 &nbsp; Overall: 1082/12040 (9.0%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">11</td><td>136</td><td>698</td><td>135</td><td>47</td><td>526</td><td>7</td></tr>
+<tr><td>C1</td><td>7</td><td style="color:#047857;font-weight:700;">53</td><td>456</td><td>96</td><td>32</td><td>306</td><td>5</td></tr>
+<tr><td>C2</td><td>48</td><td>107</td><td style="color:#047857;font-weight:700;">545</td><td>876</td><td>23</td><td>240</td><td>21</td></tr>
+<tr><td>C3</td><td>588</td><td>874</td><td>148</td><td style="color:#047857;font-weight:700;">170</td><td>41</td><td>1210</td><td>629</td></tr>
+<tr><td>C4</td><td>260</td><td>859</td><td>82</td><td>109</td><td style="color:#047857;font-weight:700;">2</td><td>427</td><td>156</td></tr>
+<tr><td>C5</td><td>6</td><td>30</td><td>739</td><td>212</td><td>31</td><td style="color:#047857;font-weight:700;">300</td><td>2</td></tr>
+<tr><td>C6</td><td>4</td><td>12</td><td>556</td><td>102</td><td>33</td><td>82</td><td style="color:#047857;font-weight:700;">1</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.25 &nbsp; Overall: 710/12040 (5.9%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">13</td><td>67</td><td>1097</td><td>103</td><td>82</td><td>198</td><td>0</td></tr>
+<tr><td>C1</td><td>8</td><td style="color:#047857;font-weight:700;">48</td><td>582</td><td>36</td><td>48</td><td>227</td><td>6</td></tr>
+<tr><td>C2</td><td>51</td><td>179</td><td style="color:#047857;font-weight:700;">214</td><td>1121</td><td>52</td><td>224</td><td>19</td></tr>
+<tr><td>C3</td><td>436</td><td>351</td><td>284</td><td style="color:#047857;font-weight:700;">152</td><td>36</td><td>1620</td><td>781</td></tr>
+<tr><td>C4</td><td>271</td><td>790</td><td>134</td><td>99</td><td style="color:#047857;font-weight:700;">4</td><td>457</td><td>140</td></tr>
+<tr><td>C5</td><td>10</td><td>51</td><td>724</td><td>209</td><td>49</td><td style="color:#047857;font-weight:700;">274</td><td>3</td></tr>
+<tr><td>C6</td><td>6</td><td>108</td><td>538</td><td>50</td><td>67</td><td>16</td><td style="color:#047857;font-weight:700;">5</td></tr>
+</tbody></table>
+<h3>sim+deg (s=0.3, d=1, o=-1.0)</h3>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.00 &nbsp; Overall: 6118/12040 (50.8%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">608</td><td>276</td><td>2</td><td>40</td><td>101</td><td>8</td><td>525</td></tr>
+<tr><td>C1</td><td>9</td><td style="color:#047857;font-weight:700;">728</td><td>5</td><td>22</td><td>0</td><td>44</td><td>147</td></tr>
+<tr><td>C2</td><td>4</td><td>616</td><td style="color:#047857;font-weight:700;">885</td><td>26</td><td>0</td><td>171</td><td>158</td></tr>
+<tr><td>C3</td><td>169</td><td>832</td><td>1</td><td style="color:#047857;font-weight:700;">2035</td><td>247</td><td>81</td><td>295</td></tr>
+<tr><td>C4</td><td>220</td><td>344</td><td>0</td><td>242</td><td style="color:#047857;font-weight:700;">879</td><td>20</td><td>190</td></tr>
+<tr><td>C5</td><td>33</td><td>444</td><td>10</td><td>17</td><td>20</td><td style="color:#047857;font-weight:700;">534</td><td>262</td></tr>
+<tr><td>C6</td><td>17</td><td>264</td><td>1</td><td>11</td><td>7</td><td>41</td><td style="color:#047857;font-weight:700;">449</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.05 &nbsp; Overall: 1999/12040 (16.6%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">571</td><td>68</td><td>26</td><td>0</td><td>356</td><td>61</td><td>478</td></tr>
+<tr><td>C1</td><td>249</td><td style="color:#047857;font-weight:700;">191</td><td>61</td><td>6</td><td>41</td><td>46</td><td>361</td></tr>
+<tr><td>C2</td><td>156</td><td>257</td><td style="color:#047857;font-weight:700;">513</td><td>137</td><td>40</td><td>138</td><td>619</td></tr>
+<tr><td>C3</td><td>411</td><td>358</td><td>35</td><td style="color:#047857;font-weight:700;">37</td><td>109</td><td>41</td><td>2669</td></tr>
+<tr><td>C4</td><td>298</td><td>190</td><td>62</td><td>29</td><td style="color:#047857;font-weight:700;">56</td><td>66</td><td>1194</td></tr>
+<tr><td>C5</td><td>172</td><td>29</td><td>140</td><td>34</td><td>236</td><td style="color:#047857;font-weight:700;">313</td><td>396</td></tr>
+<tr><td>C6</td><td>155</td><td>17</td><td>2</td><td>1</td><td>247</td><td>50</td><td style="color:#047857;font-weight:700;">318</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.10 &nbsp; Overall: 2061/12040 (17.1%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">468</td><td>205</td><td>49</td><td>15</td><td>414</td><td>265</td><td>144</td></tr>
+<tr><td>C1</td><td>313</td><td style="color:#047857;font-weight:700;">194</td><td>43</td><td>6</td><td>124</td><td>198</td><td>77</td></tr>
+<tr><td>C2</td><td>106</td><td>22</td><td style="color:#047857;font-weight:700;">671</td><td>319</td><td>82</td><td>455</td><td>205</td></tr>
+<tr><td>C3</td><td>483</td><td>769</td><td>32</td><td style="color:#047857;font-weight:700;">34</td><td>103</td><td>479</td><td>1760</td></tr>
+<tr><td>C4</td><td>346</td><td>409</td><td>10</td><td>38</td><td style="color:#047857;font-weight:700;">28</td><td>317</td><td>747</td></tr>
+<tr><td>C5</td><td>205</td><td>27</td><td>146</td><td>118</td><td>157</td><td style="color:#047857;font-weight:700;">481</td><td>186</td></tr>
+<tr><td>C6</td><td>75</td><td>15</td><td>97</td><td>6</td><td>319</td><td>93</td><td style="color:#047857;font-weight:700;">185</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.15 &nbsp; Overall: 1352/12040 (11.2%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">247</td><td>47</td><td>230</td><td>86</td><td>380</td><td>476</td><td>94</td></tr>
+<tr><td>C1</td><td>176</td><td style="color:#047857;font-weight:700;">84</td><td>104</td><td>55</td><td>158</td><td>339</td><td>39</td></tr>
+<tr><td>C2</td><td>127</td><td>104</td><td style="color:#047857;font-weight:700;">266</td><td>440</td><td>202</td><td>554</td><td>167</td></tr>
+<tr><td>C3</td><td>432</td><td>526</td><td>48</td><td style="color:#047857;font-weight:700;">51</td><td>118</td><td>1043</td><td>1442</td></tr>
+<tr><td>C4</td><td>316</td><td>327</td><td>24</td><td>56</td><td style="color:#047857;font-weight:700;">40</td><td>512</td><td>620</td></tr>
+<tr><td>C5</td><td>105</td><td>37</td><td>165</td><td>186</td><td>157</td><td style="color:#047857;font-weight:700;">586</td><td>84</td></tr>
+<tr><td>C6</td><td>10</td><td>4</td><td>172</td><td>18</td><td>311</td><td>197</td><td style="color:#047857;font-weight:700;">78</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.20 &nbsp; Overall: 1397/12040 (11.6%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">121</td><td>110</td><td>384</td><td>107</td><td>367</td><td>448</td><td>23</td></tr>
+<tr><td>C1</td><td>66</td><td style="color:#047857;font-weight:700;">128</td><td>240</td><td>84</td><td>171</td><td>254</td><td>12</td></tr>
+<tr><td>C2</td><td>59</td><td>177</td><td style="color:#047857;font-weight:700;">542</td><td>358</td><td>141</td><td>514</td><td>69</td></tr>
+<tr><td>C3</td><td>335</td><td>814</td><td>109</td><td style="color:#047857;font-weight:700;">70</td><td>93</td><td>1233</td><td>1006</td></tr>
+<tr><td>C4</td><td>266</td><td>633</td><td>45</td><td>62</td><td style="color:#047857;font-weight:700;">26</td><td>434</td><td>429</td></tr>
+<tr><td>C5</td><td>70</td><td>41</td><td>344</td><td>158</td><td>219</td><td style="color:#047857;font-weight:700;">483</td><td>5</td></tr>
+<tr><td>C6</td><td>3</td><td>18</td><td>182</td><td>14</td><td>322</td><td>224</td><td style="color:#047857;font-weight:700;">27</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.25 &nbsp; Overall: 1239/12040 (10.3%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">73</td><td>23</td><td>459</td><td>69</td><td>204</td><td>727</td><td>5</td></tr>
+<tr><td>C1</td><td>39</td><td style="color:#047857;font-weight:700;">17</td><td>268</td><td>61</td><td>77</td><td>486</td><td>7</td></tr>
+<tr><td>C2</td><td>78</td><td>71</td><td style="color:#047857;font-weight:700;">312</td><td>454</td><td>74</td><td>832</td><td>39</td></tr>
+<tr><td>C3</td><td>243</td><td>424</td><td>107</td><td style="color:#047857;font-weight:700;">116</td><td>46</td><td>2173</td><td>551</td></tr>
+<tr><td>C4</td><td>261</td><td>293</td><td>48</td><td>79</td><td style="color:#047857;font-weight:700;">16</td><td>1022</td><td>176</td></tr>
+<tr><td>C5</td><td>114</td><td>8</td><td>297</td><td>87</td><td>110</td><td style="color:#047857;font-weight:700;">701</td><td>3</td></tr>
+<tr><td>C6</td><td>13</td><td>3</td><td>195</td><td>13</td><td>207</td><td>355</td><td style="color:#047857;font-weight:700;">4</td></tr>
+</tbody></table>
+<h3>sim+ood (s=0.3, d=-1, o=0.5)</h3>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.00 &nbsp; Overall: 6257/12040 (52.0%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">612</td><td>247</td><td>1</td><td>39</td><td>137</td><td>7</td><td>517</td></tr>
+<tr><td>C1</td><td>14</td><td style="color:#047857;font-weight:700;">685</td><td>8</td><td>19</td><td>0</td><td>35</td><td>194</td></tr>
+<tr><td>C2</td><td>2</td><td>542</td><td style="color:#047857;font-weight:700;">884</td><td>25</td><td>0</td><td>229</td><td>178</td></tr>
+<tr><td>C3</td><td>188</td><td>554</td><td>0</td><td style="color:#047857;font-weight:700;">1925</td><td>465</td><td>47</td><td>481</td></tr>
+<tr><td>C4</td><td>247</td><td>206</td><td>0</td><td>154</td><td style="color:#047857;font-weight:700;">1042</td><td>18</td><td>228</td></tr>
+<tr><td>C5</td><td>36</td><td>324</td><td>5</td><td>11</td><td>20</td><td style="color:#047857;font-weight:700;">629</td><td>295</td></tr>
+<tr><td>C6</td><td>19</td><td>215</td><td>4</td><td>8</td><td>7</td><td>57</td><td style="color:#047857;font-weight:700;">480</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.05 &nbsp; Overall: 2297/12040 (19.1%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">586</td><td>121</td><td>28</td><td>0</td><td>188</td><td>37</td><td>600</td></tr>
+<tr><td>C1</td><td>421</td><td style="color:#047857;font-weight:700;">202</td><td>18</td><td>4</td><td>30</td><td>10</td><td>270</td></tr>
+<tr><td>C2</td><td>357</td><td>314</td><td style="color:#047857;font-weight:700;">671</td><td>156</td><td>42</td><td>103</td><td>217</td></tr>
+<tr><td>C3</td><td>452</td><td>664</td><td>21</td><td style="color:#047857;font-weight:700;">39</td><td>89</td><td>29</td><td>2366</td></tr>
+<tr><td>C4</td><td>408</td><td>430</td><td>11</td><td>35</td><td style="color:#047857;font-weight:700;">41</td><td>28</td><td>942</td></tr>
+<tr><td>C5</td><td>175</td><td>93</td><td>220</td><td>109</td><td>171</td><td style="color:#047857;font-weight:700;">317</td><td>235</td></tr>
+<tr><td>C6</td><td>157</td><td>8</td><td>8</td><td>4</td><td>163</td><td>9</td><td style="color:#047857;font-weight:700;">441</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.10 &nbsp; Overall: 2111/12040 (17.5%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">396</td><td>128</td><td>73</td><td>23</td><td>295</td><td>511</td><td>134</td></tr>
+<tr><td>C1</td><td>237</td><td style="color:#047857;font-weight:700;">207</td><td>31</td><td>12</td><td>73</td><td>317</td><td>78</td></tr>
+<tr><td>C2</td><td>122</td><td>18</td><td style="color:#047857;font-weight:700;">664</td><td>409</td><td>103</td><td>419</td><td>125</td></tr>
+<tr><td>C3</td><td>367</td><td>753</td><td>29</td><td style="color:#047857;font-weight:700;">46</td><td>72</td><td>702</td><td>1691</td></tr>
+<tr><td>C4</td><td>283</td><td>459</td><td>6</td><td>35</td><td style="color:#047857;font-weight:700;">25</td><td>384</td><td>703</td></tr>
+<tr><td>C5</td><td>202</td><td>9</td><td>104</td><td>168</td><td>103</td><td style="color:#047857;font-weight:700;">654</td><td>80</td></tr>
+<tr><td>C6</td><td>46</td><td>6</td><td>111</td><td>11</td><td>264</td><td>233</td><td style="color:#047857;font-weight:700;">119</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.15 &nbsp; Overall: 1107/12040 (9.2%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">174</td><td>24</td><td>261</td><td>94</td><td>364</td><td>580</td><td>63</td></tr>
+<tr><td>C1</td><td>144</td><td style="color:#047857;font-weight:700;">15</td><td>83</td><td>43</td><td>120</td><td>520</td><td>30</td></tr>
+<tr><td>C2</td><td>116</td><td>36</td><td style="color:#047857;font-weight:700;">318</td><td>341</td><td>267</td><td>718</td><td>64</td></tr>
+<tr><td>C3</td><td>363</td><td>437</td><td>50</td><td style="color:#047857;font-weight:700;">55</td><td>106</td><td>1354</td><td>1295</td></tr>
+<tr><td>C4</td><td>311</td><td>390</td><td>14</td><td>21</td><td style="color:#047857;font-weight:700;">39</td><td>578</td><td>542</td></tr>
+<tr><td>C5</td><td>92</td><td>5</td><td>220</td><td>135</td><td>359</td><td style="color:#047857;font-weight:700;">502</td><td>7</td></tr>
+<tr><td>C6</td><td>2</td><td>0</td><td>168</td><td>19</td><td>359</td><td>238</td><td style="color:#047857;font-weight:700;">4</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.20 &nbsp; Overall: 1101/12040 (9.1%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">92</td><td>48</td><td>424</td><td>153</td><td>272</td><td>549</td><td>22</td></tr>
+<tr><td>C1</td><td>54</td><td style="color:#047857;font-weight:700;">20</td><td>233</td><td>104</td><td>125</td><td>405</td><td>14</td></tr>
+<tr><td>C2</td><td>106</td><td>100</td><td style="color:#047857;font-weight:700;">429</td><td>501</td><td>108</td><td>557</td><td>59</td></tr>
+<tr><td>C3</td><td>386</td><td>512</td><td>95</td><td style="color:#047857;font-weight:700;">82</td><td>59</td><td>1579</td><td>947</td></tr>
+<tr><td>C4</td><td>314</td><td>522</td><td>44</td><td>57</td><td style="color:#047857;font-weight:700;">16</td><td>484</td><td>458</td></tr>
+<tr><td>C5</td><td>70</td><td>9</td><td>406</td><td>159</td><td>224</td><td style="color:#047857;font-weight:700;">450</td><td>2</td></tr>
+<tr><td>C6</td><td>3</td><td>5</td><td>229</td><td>23</td><td>262</td><td>256</td><td style="color:#047857;font-weight:700;">12</td></tr>
+</tbody></table>
+<h4 style="font-size:11px;margin:10px 0 4px;color:#555;">ptb=0.25 &nbsp; Overall: 933/12040 (7.7%)</h4>
+<table class="data-table" style="font-size:10px;margin-bottom:10px;">
+<thead><tr><th>true\pred</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td style="color:#047857;font-weight:700;">100</td><td>29</td><td>493</td><td>75</td><td>201</td><td>647</td><td>15</td></tr>
+<tr><td>C1</td><td>56</td><td style="color:#047857;font-weight:700;">11</td><td>272</td><td>66</td><td>85</td><td>456</td><td>9</td></tr>
+<tr><td>C2</td><td>123</td><td>101</td><td style="color:#047857;font-weight:700;">195</td><td>712</td><td>70</td><td>604</td><td>55</td></tr>
+<tr><td>C3</td><td>340</td><td>484</td><td>99</td><td style="color:#047857;font-weight:700;">60</td><td>48</td><td>1950</td><td>679</td></tr>
+<tr><td>C4</td><td>309</td><td>427</td><td>49</td><td>52</td><td style="color:#047857;font-weight:700;">12</td><td>777</td><td>269</td></tr>
+<tr><td>C5</td><td>138</td><td>6</td><td>327</td><td>116</td><td>186</td><td style="color:#047857;font-weight:700;">544</td><td>3</td></tr>
+<tr><td>C6</td><td>15</td><td>2</td><td>249</td><td>17</td><td>202</td><td>294</td><td style="color:#047857;font-weight:700;">11</td></tr>
+</tbody></table>
+</details>
+<!-- END CONFUSION SUMMARY -->
+
+<details>
+<summary>Per-model seed details (click to expand)</summary>
+<div class="seed-detail"><strong>sim_pt=0.2:</strong> ptb=0.00: [0.6084, 0.6150, 0.6254, 0.6341, 0.6574]; ptb=0.05: [0.1728, 0.1794, 0.1939, 0.2043, 0.2085]; ptb=0.10: [0.0552, 0.0727, 0.0735, 0.1047, 0.1109]; ptb=0.15: [0.0610, 0.0835, 0.0918, 0.0993, 0.1130]; ptb=0.20: [0.0590, 0.0635, 0.0760, 0.0851, 0.1047]; ptb=0.25: [0.0544, 0.0561, 0.0586, 0.0714, 0.0814]</div>
+<div class="seed-detail"><strong>sim_pt=0.3:</strong> ptb=0.00: [0.6038, 0.6092, 0.6225, 0.6346, 0.6379]; ptb=0.05: [0.1196, 0.1341, 0.1549, 0.1665, 0.2002]; ptb=0.10: [0.1524, 0.1640, 0.1645, 0.1678, 0.1848]; ptb=0.15: [0.1105, 0.1283, 0.1333, 0.1462, 0.1561]; ptb=0.20: [0.0959, 0.1009, 0.1096, 0.1109, 0.1175]; ptb=0.25: [0.0822, 0.0880, 0.1059, 0.1063, 0.1067]</div>
+<div class="seed-detail"><strong>sim_pt=0.4:</strong> ptb=0.00: [0.5681, 0.5710, 0.5710, 0.5880, 0.6279]; ptb=0.05: [0.1549, 0.1595, 0.1777, 0.1881, 0.2018]; ptb=0.10: [0.1146, 0.1308, 0.1354, 0.1429, 0.1674]; ptb=0.15: [0.1146, 0.1146, 0.1287, 0.1346, 0.1387]; ptb=0.20: [0.0648, 0.0801, 0.0822, 0.0885, 0.0993]; ptb=0.25: [0.0677, 0.0735, 0.0822, 0.0876, 0.0885]</div>
+<div class="seed-detail"><strong>sim_pt=0.5:</strong> ptb=0.00: [0.5424, 0.5436, 0.5698, 0.5777, 0.6279]; ptb=0.05: [0.2018, 0.2243, 0.2562, 0.2583, 0.2724]; ptb=0.10: [0.1163, 0.1308, 0.1495, 0.1790, 0.1973]; ptb=0.15: [0.0968, 0.1026, 0.1030, 0.1134, 0.1557]; ptb=0.20: [0.0951, 0.1096, 0.1109, 0.1146, 0.1196]; ptb=0.25: [0.0436, 0.0473, 0.0478, 0.0494, 0.0752]</div>
+<div class="seed-detail"><strong>sim_pt=0.6:</strong> ptb=0.00: [0.5552, 0.5635, 0.5635, 0.5748, 0.5914]; ptb=0.05: [0.2342, 0.2471, 0.2500, 0.2608, 0.2807]; ptb=0.10: [0.1167, 0.1561, 0.1582, 0.1752, 0.1840]; ptb=0.15: [0.1100, 0.1121, 0.1217, 0.1238, 0.1507]; ptb=0.20: [0.0868, 0.0889, 0.0972, 0.0980, 0.1321]; ptb=0.25: [0.0432, 0.0469, 0.0598, 0.0615, 0.0640]</div>
+<div class="seed-detail"><strong>degree_pt=1:</strong> ptb=0.00: [0.6017, 0.6620, 0.6640, 0.6661, 0.6973]; ptb=0.05: [0.1998, 0.2276, 0.2326, 0.2529, 0.3090]; ptb=0.10: [0.1130, 0.1391, 0.1532, 0.1890, 0.1910]; ptb=0.15: [0.1096, 0.1138, 0.1354, 0.1470, 0.1586]; ptb=0.20: [0.0602, 0.0615, 0.0660, 0.0826, 0.0988]; ptb=0.25: [0.0341, 0.0411, 0.0419, 0.0511, 0.0565]</div>
+<div class="seed-detail"><strong>degree_pt=2:</strong> ptb=0.00: [0.5224, 0.5386, 0.5449, 0.5494, 0.5648]; ptb=0.05: [0.2193, 0.2280, 0.2292, 0.2463, 0.2496]; ptb=0.10: [0.1246, 0.1375, 0.1445, 0.1682, 0.1694]; ptb=0.15: [0.0689, 0.0976, 0.1125, 0.1483, 0.1607]; ptb=0.20: [0.0781, 0.0814, 0.0839, 0.0934]; ptb=0.25: [0.0399, 0.0669, 0.0669, 0.0789, 0.0801]</div>
+<div class="seed-detail"><strong>degree_pt=3:</strong> ptb=0.00: [0.4659, 0.5042, 0.5058, 0.5195, 0.5457]; ptb=0.05: [0.2276, 0.2504, 0.2674, 0.2778, 0.2861]; ptb=0.10: [0.0831, 0.0943, 0.1449, 0.1545, 0.1856]; ptb=0.15: [0.0760, 0.0909, 0.0984, 0.0997, 0.1100]; ptb=0.20: [0.0669, 0.0677, 0.0694, 0.0710, 0.0793]; ptb=0.25: [0.0419, 0.0436, 0.0507, 0.0610, 0.0619]</div>
+<div class="seed-detail"><strong>degree_pt=5:</strong> ptb=0.00: [0.5548, 0.5818, 0.5822, 0.6100, 0.6383]; ptb=0.05: [0.2180, 0.2795, 0.2795, 0.2911, 0.2940]; ptb=0.10: [0.0930, 0.1055, 0.1242, 0.1246, 0.1292]; ptb=0.15: [0.0664, 0.0698, 0.0909, 0.0918, 0.1067]; ptb=0.20: [0.0635, 0.0718, 0.0723, 0.0801, 0.0889]; ptb=0.25: [0.0461, 0.0573, 0.0660, 0.0685, 0.1121]</div>
+<div class="seed-detail"><strong>out_detect_pt=0.3:</strong> ptb=0.00: [0.6001, 0.6200, 0.6225, 0.6321, 0.6445]; ptb=0.05: [0.1836, 0.2139, 0.2147, 0.2483, 0.2517]; ptb=0.10: [0.1121, 0.1699, 0.1744, 0.1752]; ptb=0.15: [0.1030, 0.1250, 0.1258, 0.1333, 0.1400]; ptb=0.20: [0.0561, 0.0752, 0.0810, 0.0839, 0.0847]; ptb=0.25: [0.0349, 0.0353, 0.0403, 0.0552, 0.0777]</div>
+<div class="seed-detail"><strong>out_detect_pt=0.4:</strong> ptb=0.00: [0.5839, 0.5959, 0.6466, 0.6520, 0.6566]; ptb=0.05: [0.2533, 0.2596, 0.2658, 0.2799, 0.3156]; ptb=0.10: [0.1441, 0.1487, 0.1844, 0.1877, 0.1956]; ptb=0.15: [0.0723, 0.1030, 0.1117, 0.1308, 0.1366]; ptb=0.20: [0.0764, 0.0922, 0.1034, 0.1100, 0.1179]; ptb=0.25: [0.0365, 0.0378, 0.0610, 0.0718, 0.0814]</div>
+<div class="seed-detail"><strong>out_detect_pt=0.5:</strong> ptb=0.00: [0.5901, 0.6026, 0.6541, 0.6645, 0.6645]; ptb=0.05: [0.2371, 0.2413, 0.2803, 0.3036, 0.3306]; ptb=0.10: [0.0897, 0.1354, 0.1557, 0.1649, 0.2193]; ptb=0.15: [0.1175, 0.1213, 0.1316, 0.1329, 0.1441]; ptb=0.20: [0.0839, 0.0939, 0.0984, 0.1154, 0.1271]; ptb=0.25: [0.0328, 0.0349, 0.0552, 0.0943, 0.1038]</div>
+<div class="seed-detail"><strong>out_detect_pt=0.6:</strong> ptb=0.00: [0.6005, 0.6142, 0.6537, 0.6632, 0.6707]; ptb=0.05: [0.2537, 0.2546, 0.2575, 0.2633, 0.2679]; ptb=0.10: [0.1262, 0.1445, 0.1516, 0.1877, 0.1914]; ptb=0.15: [0.1109, 0.1370, 0.1395, 0.1483, 0.1769]; ptb=0.20: [0.0660, 0.1005, 0.1038, 0.1059, 0.1084]; ptb=0.25: [0.0399, 0.0453, 0.0561, 0.0669, 0.0914]</div>
+<div class="seed-detail"><strong>out_detect_pt=0.7:</strong> ptb=0.00: [0.5955, 0.6038, 0.6586, 0.6649, 0.6815]; ptb=0.05: [0.2463, 0.2554, 0.2712, 0.2728, 0.3297]; ptb=0.10: [0.1412, 0.1453, 0.1537, 0.1811, 0.1968]; ptb=0.15: [0.1076, 0.1184, 0.1200, 0.1387]; ptb=0.20: [0.0785, 0.0918, 0.0963, 0.1067, 0.1246]; ptb=0.25: [0.0324, 0.0382, 0.0436, 0.0478, 0.0801]</div>
+<div class="seed-detail"><strong>GPPT:</strong> ptb=0.00: [0.6578, 0.6578, 0.6578, 0.6578, 0.6578]; ptb=0.05: [0.2151, 0.2151, 0.2151, 0.2151, 0.2151]; ptb=0.10: [0.1740, 0.1740, 0.1740, 0.1740, 0.1740]; ptb=0.15: [0.0785, 0.0785, 0.0785, 0.0785, 0.0785]; ptb=0.20: [0.1071, 0.1071, 0.1071, 0.1071, 0.1071]; ptb=0.25: [0.0681, 0.0681, 0.0681, 0.0681, 0.0681]</div>
+<div class="seed-detail"><strong>GCL:</strong> ptb=0.00: [0.6262]; ptb=0.05: [0.2072]; ptb=0.10: [0.1802]; ptb=0.15: [0.1362]; ptb=0.20: [0.1271]; ptb=0.25: [0.1204]</div>
+<div class="seed-detail"><strong>all3 (s=0.3, d=1, o=0.5):</strong> ptb=0.00: [0.5287, 0.4983, 0.5108, 0.5212, 0.5395]; ptb=0.05: [0.1757, 0.1898, 0.1831, 0.1973, 0.2002]; ptb=0.10: [0.1337, 0.1786, 0.1815, 0.1981, 0.1840]; ptb=0.15: [0.0772, 0.1067, 0.0951, 0.0681, 0.1113]; ptb=0.20: [0.1026, 0.1026, 0.0789, 0.0930, 0.0801]; ptb=0.25: [0.0793, 0.0847, 0.0660, 0.0706, 0.0889]</div>
+<div class="seed-detail"><strong>deg+ood (s=-1.0, d=1, o=0.5):</strong> ptb=0.00: [0.3916, 0.4705, 0.4560, 0.4763, 0.4888]; ptb=0.05: [0.2600, 0.2292, 0.2313, 0.2728, 0.2666]; ptb=0.10: [0.1449, 0.1674, 0.1736, 0.2272, 0.2363]; ptb=0.15: [0.0963, 0.1175, 0.0955, 0.0984, 0.1478]; ptb=0.20: [0.0955, 0.0930, 0.0959, 0.0876, 0.0772]; ptb=0.25: [0.0573, 0.0581, 0.0698, 0.0581, 0.0515]</div>
+<div class="seed-detail"><strong>sim+deg (s=0.3, d=1, o=-1.0):</strong> ptb=0.00: [0.4767, 0.5311, 0.5353, 0.4967, 0.5008]; ptb=0.05: [0.1549, 0.1860, 0.1586, 0.1470, 0.1836]; ptb=0.10: [0.1694, 0.1964, 0.1503, 0.1794, 0.1603]; ptb=0.15: [0.0947, 0.1408, 0.1159, 0.1034, 0.1067]; ptb=0.20: [0.1175, 0.1275, 0.1200, 0.1167, 0.0984]; ptb=0.25: [0.0955, 0.1175, 0.0993, 0.0889, 0.1134]</div>
+<div class="seed-detail"><strong>sim+ood (s=0.3, d=-1, o=0.5):</strong> ptb=0.00: [0.5287, 0.4983, 0.5108, 0.5212, 0.5395]; ptb=0.05: [0.1757, 0.1898, 0.1860, 0.1973, 0.2051]; ptb=0.10: [0.1337, 0.1786, 0.1811, 0.1993, 0.1840]; ptb=0.15: [0.0772, 0.1109, 0.0951, 0.0681, 0.1084]; ptb=0.20: [0.1026, 0.1026, 0.0789, 0.0930, 0.0801]; ptb=0.25: [0.0793, 0.0847, 0.0644, 0.0702, 0.0889]</div>
+</details>
+
+</div>
+</body>
+</html>

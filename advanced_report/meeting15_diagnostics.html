@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting 15 — Pipeline Diagnostics</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; font-size: 12px; line-height:1.6; }
+  .container { max-width: 1100px; margin:0 auto; padding: 28px 20px; }
+  header { margin-bottom: 28px; border-bottom: 1.5px solid #2563eb; padding-bottom: 14px; }
+  header h1 { font-size: 20px; font-weight: 700; }
+  header .meta { font-size: 10px; color: #888; margin-top: 4px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 36px 0 14px; color: #1a1a1a; border-bottom: 1px solid #e0e0e0; padding-bottom: 6px; }
+  h3 { font-size: 13px; font-weight: 600; margin: 22px 0 8px; color: #333; }
+  .finding { background: #fef9e7; border-left: 3px solid #d97706; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  .finding strong { color: #92400e; }
+  .good { background: #f0fdf4; border-left: 3px solid #059669; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  .bad { background: #fef2f2; border-left: 3px solid #dc2626; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 8px 0 16px; font-variant-numeric: tabular-nums; }
+  table.data-table thead th { background: #f5f5f5; font-weight: 600; text-align: center; padding: 5px 8px; border-bottom: 1.5px solid #ddd; white-space: nowrap; }
+  table.data-table tbody td { text-align: center; padding: 4px 8px; border-bottom: 1px solid #eee; }
+  table.data-table tbody tr:nth-child(even) { background: #fafafa; }
+  .code { font-family: 'SF Mono', 'Consolas', monospace; background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  .highlight { background: #fef3c7; padding: 1px 3px; }
+  .note { font-size: 10px; color: #999; margin-top: 2px; }
+  .bar-cell { font-family: monospace; white-space: pre; }
+  hr { border: none; border-top: 1px solid #eee; margin: 28px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Meeting 15 — Pipeline Diagnostics Report</h1>
+  <div class="meta">Generated: 2026-07-04 &nbsp;|&nbsp; Cora / Meta_Self / 5-shot split-1 &nbsp;|&nbsp; Peak BB: permE-maskN lr=0.001 r=0.3 seed=1</div>
+</header>
+
+<!-- ============================================================ -->
+<h2>1. Data Provenance: Train / Test Split &amp; Paths</h2>
+
+<h3>1.1 Split Index Location</h3>
+<table class="data-table">
+<thead><tr><th>File</th><th>Path</th></tr></thead>
+<tbody>
+<tr><td style="text-align:left"><span class="code">train_idx.pt</span></td><td style="text-align:left"><span class="code">data_attack_fewshot/Cora/shot_5/1/index/train_idx.pt</span></td></tr>
+<tr><td style="text-align:left"><span class="code">val_idx.pt</span></td><td style="text-align:left"><span class="code">data_attack_fewshot/Cora/shot_5/1/index/val_idx.pt</span></td></tr>
+<tr><td style="text-align:left"><span class="code">test_idx.pt</span></td><td style="text-align:left"><span class="code">data_attack_fewshot/Cora/shot_5/1/index/test_idx.pt</span></td></tr>
+</tbody></table>
+
+<h3>1.2 Per-Class Distribution (Cora, 2708 nodes)</h3>
+<table class="data-table">
+<thead><tr><th>Class</th><th>Total Nodes</th><th>Train (5-shot)</th><th>Val</th><th>Test</th></tr></thead>
+<tbody>
+<tr><td>C0 (Case Based)</td><td>351</td><td>5</td><td>26</td><td>320</td></tr>
+<tr><td>C1 (Genetic Algorithms)</td><td>217</td><td>5</td><td>16</td><td>196</td></tr>
+<tr><td>C2 (Neural Networks)</td><td>418</td><td>5</td><td>32</td><td>381</td></tr>
+<tr><td>C3 (Probabilistic Methods)</td><td>818</td><td>5</td><td>62</td><td>751</td></tr>
+<tr><td>C4 (Reinforcement Learning)</td><td>426</td><td>5</td><td>33</td><td>388</td></tr>
+<tr><td>C5 (Rule Learning)</td><td>298</td><td>5</td><td>23</td><td>270</td></tr>
+<tr><td>C6 (Theory)</td><td>180</td><td>5</td><td>13</td><td>162</td></tr>
+</tbody></table>
+
+<h3>1.3 Split Consistency Across Pipeline</h3>
+<div class="good">
+  <strong>Confirmed:</strong> Pretraining &rarr; Attack Generation &rarr; Downstream Prompt Learning all use the identical <span class="code">data_attack_fewshot/Cora/shot_5/1/index/</span> split.<br>
+  <span class="code">load4node_attack_specified_shot_index()</span> (line 250) asserts <span class="code">sorted_train_indices == sorted_attack_train_indices</span> at runtime.<br>
+  The entire graph (<span class="code">x</span>, <span class="code">edge_index</span>) is visible to all stages (Transductive setting). Only <span class="code">y</span> visibility differs: 35 train labels vs. 0 for val/test.
+</div>
+
+<h3>1.4 Graph Authenticity</h3>
+<div class="good">
+  <strong>Project clean graph = Genuine Planetoid Cora.</strong> Jaccard similarity: 1.0000 (5278/5278 undirected edges identical). Features and labels also match. No pre-existing pollution.
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>2. Attack Pollution Drill-Down</h2>
+
+<h3>2.1 Training Node Neighborhood Corruption</h3>
+<p class="note">Fraction of each class's 5 training nodes' neighbors that are attack edges (not original clean edges).</p>
+<table class="data-table">
+<thead><tr><th>Class</th><th>ptb=0.05</th><th>ptb=0.10</th><th>ptb=0.15</th><th>ptb=0.20</th><th>ptb=0.25</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td>47%</td><td>56%</td><td>65%</td><td>86%</td><td>99%</td></tr>
+<tr><td>C1</td><td>49%</td><td>70%</td><td>83%</td><td>90%</td><td>94%</td></tr>
+<tr><td>C2</td><td>48%</td><td>60%</td><td>72%</td><td>79%</td><td>91%</td></tr>
+<tr style="background:#fef2f2;"><td><strong>C3</strong></td><td><strong>80%</strong></td><td><strong>96%</strong></td><td><strong>99%</strong></td><td><strong>100%</strong></td><td><strong>100%</strong></td></tr>
+<tr style="background:#fef2f2;"><td><strong>C4</strong></td><td><strong>92%</strong></td><td><strong>99%</strong></td><td><strong>100%</strong></td><td><strong>100%</strong></td><td><strong>100%</strong></td></tr>
+<tr><td>C5</td><td>69%</td><td>79%</td><td>84%</td><td>86%</td><td>97%</td></tr>
+<tr style="background:#fef2f2;"><td><strong>C6</strong></td><td><strong>78%</strong></td><td><strong>97%</strong></td><td><strong>99%</strong></td><td><strong>100%</strong></td><td><strong>100%</strong></td></tr>
+</tbody></table>
+
+<div class="bad">
+  <strong>C4 at ptb=0.15:</strong> all 176 neighbors of C4 training nodes are attack edges. Zero clean neighbors remain. The GNN's 2-hop aggregation for these training nodes receives 100% attacker-controlled signal.<br>
+  <strong>C3/C6 at ptb=0.20:</strong> both reach 100% attack neighbor saturation.
+</div>
+
+<h3>2.2 Primary Attack Channel: C3 &harr; C6</h3>
+<table class="data-table">
+<thead><tr><th>ptb</th><th>#1 Pair</th><th>#2 Pair</th><th>#3 Pair</th><th>Total Added</th></tr></thead>
+<tbody>
+<tr><td>0.05</td><td>C3&ndash;C4: 37</td><td>C3&ndash;C6: 28</td><td>C2&ndash;C3: 24</td><td>312</td></tr>
+<tr><td>0.10</td><td><strong>C3&ndash;C6: 98</strong></td><td>C3&ndash;C4: 58</td><td>C2&ndash;C3: 45</td><td>610</td></tr>
+<tr><td>0.15</td><td><strong>C3&ndash;C6: 155</strong></td><td>C3&ndash;C4: 83</td><td>C2&ndash;C3: 71</td><td>919</td></tr>
+<tr><td>0.20</td><td><strong>C3&ndash;C6: 191</strong></td><td>C3&ndash;C4: 110</td><td>C2&ndash;C3: 101</td><td>1218</td></tr>
+<tr><td>0.25</td><td><strong>C3&ndash;C6: 232</strong></td><td>C2&ndash;C3: 142</td><td>C3&ndash;C4: 127</td><td>1507</td></tr>
+</tbody></table>
+
+<div class="finding">
+  <strong>Meta_Self surgically targets cross-class edges.</strong> At every ptb level, C3&harr;C6 is the #1 or #2 attack channel.
+  C3 (818 nodes, largest class) is used as an attack hub: its nodes are connected via attack edges to training nodes of other classes,
+  maximizing the distortion of GNN aggregation. The attack exploits class size imbalance &mdash;
+  connecting many C3 nodes to a few C6 training nodes is disproportionately effective.
+</div>
+
+<h3>2.3 Attack Concentration on Training Nodes</h3>
+<div class="finding">
+  <strong>The attack is not uniformly distributed.</strong> Of 312 added edges at ptb=0.05, the vast majority are incident to the 35 training nodes.
+  This is by design: Meta_Self optimizes the adjacency to maximize training loss. The 5-shot setting (only 35 targets) makes this
+  extremely efficient: a small absolute budget concentrated on 35 nodes produces catastrophic local corruption.
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>3. Confusion Matrix Analysis</h2>
+
+<h3>3.1 All3 Combo: Per-Class Accuracy Collapse</h3>
+<table class="data-table">
+<thead><tr><th>ptb</th><th>Overall</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th><th>Worst</th><th>Dominant Error</th></tr></thead>
+<tbody>
+<tr><td>0.00</td><td>0.520</td><td>0.392</td><td>0.717</td><td>0.475</td><td>0.526</td><td>0.550</td><td>0.477</td><td>0.608</td><td>C0</td><td>C3&rarr;C1 (554)</td></tr>
+<tr><td>0.05</td><td>0.189</td><td>0.370</td><td>0.216</td><td>0.354</td><td><strong>0.011</strong></td><td>0.022</td><td>0.233</td><td>0.566</td><td><strong>C3</strong></td><td><strong>C3&rarr;C6 (2377)</strong></td></tr>
+<tr><td>0.10</td><td>0.175</td><td>0.254</td><td>0.217</td><td>0.359</td><td><strong>0.013</strong></td><td>0.013</td><td>0.492</td><td>0.149</td><td><strong>C3</strong></td><td>C3&rarr;C6 (1688)</td></tr>
+<tr><td>0.15</td><td>0.092</td><td>0.113</td><td>0.018</td><td>0.172</td><td><strong>0.015</strong></td><td>0.021</td><td>0.374</td><td><strong>0.005</strong></td><td><strong>C6</strong></td><td>C3&rarr;C5 (1352)</td></tr>
+<tr><td>0.20</td><td>0.091</td><td>0.059</td><td>0.021</td><td>0.231</td><td>0.022</td><td><strong>0.009</strong></td><td>0.341</td><td>0.015</td><td><strong>C4</strong></td><td>C3&rarr;C5 (1579)</td></tr>
+<tr><td>0.25</td><td>0.078</td><td>0.064</td><td>0.012</td><td>0.107</td><td>0.016</td><td><strong>0.006</strong></td><td>0.415</td><td>0.014</td><td><strong>C4</strong></td><td>C3&rarr;C5 (1951)</td></tr>
+</tbody></table>
+
+<div class="bad">
+  <strong>Class 3 is systematically annihilated.</strong> At ptb=0.05 (only 6.3% actual pollution), C3 per-class accuracy drops to 1.1%.
+  The primary misclassification direction follows the attack channel: C3&rarr;C6 (2377 samples misclassified at ptb=0.05),
+  directly matching the #1 attack edge pair C3&harr;C6. As ptb increases, the dominant error shifts C3&rarr;C5,
+  matching the rising C3&harr;C5 attack edges.
+</div>
+
+<div class="finding">
+  <strong>Causality confirmed:</strong> The confusion matrix is a direct readout of the attack edge class-class connectivity.
+  Classes connected by the most attack edges show the highest misclassification rates in exactly those directions.
+  There is no "mystery" in the confusion matrix &mdash; it is a faithful reflection of which class pairs Metattack chose to bridge.
+</div>
+
+<h3>3.2 Even Clean Graph Has Large Class Gap</h3>
+<div class="finding">
+  Even at ptb=0.00, C0 accuracy is only 39.2% vs. C6 at 60.8% &mdash; a 21-point gap. This is not an attack artifact;
+  it reflects the inherent difficulty of few-shot classification on Cora with a frozen GNN backbone.
+  The pretrained embeddings are not equally discriminative for all classes. C0 (Case Based) and C4 (Reinforcement Learning)
+  are inherently harder to separate in the GraphCL embedding space.
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>4. generate_few_shot_attack: Budget Inflation</h2>
+
+<h3>4.1 The Formula</h3>
+<div class="code" style="padding:8px 12px; margin:8px 0; font-size:12px;">
+  perturbations = int(args.ptb_rate * (adj.sum() // 2))<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= int(ptb_rate &times; 6632)
+</div>
+<p class="note"><span class="code">adj.sum() = 2&times;5278 (undirected edges) + 2708 (self-loops) = 13264</span>. Divided by 2 = 6632.</p>
+
+<h3>4.2 Budget vs. Intuition</h3>
+<table class="data-table">
+<thead><tr><th>Nominal ptb</th><th>Budget = ptb &times; 6632</th><th>Actual Mods</th><th>Match?</th><th>Effective Rate (mod/5278)</th><th>Inflation</th></tr></thead>
+<tbody>
+<tr><td>0.05</td><td>331.6</td><td>312+19=331</td><td>&#10003; exact</td><td><strong>6.3%</strong></td><td>+25.7%</td></tr>
+<tr><td>0.10</td><td>663.2</td><td>610+53=663</td><td>&#10003; exact</td><td><strong>12.6%</strong></td><td>+25.7%</td></tr>
+<tr><td>0.15</td><td>994.8</td><td>919+75=994</td><td>&#10003; exact</td><td><strong>18.8%</strong></td><td>+25.7%</td></tr>
+<tr><td>0.20</td><td>1326.4</td><td>1218+108=1326</td><td>&#10003; exact</td><td><strong>25.1%</strong></td><td>+25.7%</td></tr>
+<tr><td>0.25</td><td>1658.0</td><td>1507+151=1658</td><td>&#10003; exact</td><td><strong>31.4%</strong></td><td>+25.7%</td></tr>
+</tbody></table>
+
+<div class="bad">
+  <strong>Root cause:</strong> <span class="code">adj.sum() // 2 = 6632</span> overcounts the true undirected edge count (5278) by 1354
+  because self-loops (2708) are included in <span class="code">adj.sum()</span> and contribute 1354 extra to the budget denominator.
+  Every nominal ptb_rate is inflated by a factor of <strong>6632/5278 = 1.257</strong>.<br><br>
+  <strong>Fix (if desired):</strong> replace <span class="code">adj.sum()//2</span> with <span class="code">data.edge_index.shape[1]//2</span>
+  (removes self-loops before counting, using PyG edge_index which already excludes self-loops at that point).
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<hr>
+
+<!-- ============================================================ -->
+<h2>5. Train / Test Split Quality Audit</h2>
+
+<h3>5.1 Degree Coverage: Unbiased</h3>
+<p class="note">Training nodes span degree=1 (0th percentile) to degree=34 (98.5th percentile). Mean train degree 8.9 vs. global mean 7.8. Only C2 shows mild high-degree bias (avg 16.8 vs class avg 8.7) due to two very central nodes (n657 d=24, n1103 d=34).</p>
+
+<table class="data-table">
+<thead><tr><th>Class</th><th>Class Avg Deg</th><th>Train Nodes (degree)</th><th>Train Avg Deg</th><th>Bias</th></tr></thead>
+<tbody>
+<tr><td>C0</td><td>8.7</td><td style="text-align:left">n456(d20), n1174(d12), n2059(d12), n2200(d6), n2511(d2)</td><td>10.4</td><td>OK</td></tr>
+<tr><td>C1</td><td>9.5</td><td style="text-align:left">n1251(d10), n1571(d2), n1624(d34), n2170(d4), n2255(d2)</td><td>10.4</td><td>OK</td></tr>
+<tr style="background:#fef9e7;"><td><strong>C2</strong></td><td>8.7</td><td style="text-align:left">n111(d12), n326(d6), n657(d24), n1103(d34), n1762(d8)</td><td><strong>16.8</strong></td><td><strong>HIGH</strong></td></tr>
+<tr><td>C3</td><td>6.9</td><td style="text-align:left">n13(d4), n232(d10), n960(d6), n1315(d4), n2310(d4)</td><td>5.6</td><td>OK</td></tr>
+<tr><td>C4</td><td>7.5</td><td style="text-align:left">n39(d14), n1021(d2), n2043(d4), n2261(d4), n2434(d10)</td><td>6.8</td><td>OK</td></tr>
+<tr><td>C5</td><td>7.3</td><td style="text-align:left">n479(d4), n728(d10), n1953(d6), n2407(d6), n2537(d4)</td><td>6.0</td><td>OK</td></tr>
+<tr><td>C6</td><td>7.3</td><td style="text-align:left">n499(d4), n539(d6), n1916(d6), n2015(d6), n2395(d10)</td><td>6.4</td><td>OK</td></tr>
+</tbody></table>
+
+<h3>5.2 Training Node Homophily: Extremely Pure Clusters</h3>
+<table class="data-table">
+<thead><tr><th>Class</th><th>Same-Class Nbrs</th><th>Total Nbrs</th><th>% Same</th><th>Risk</th></tr></thead>
+<tbody>
+<tr style="background:#fef2f2;"><td><strong>C2</strong></td><td>42</td><td>42</td><td><strong>100.0%</strong></td><td>MAX &mdash; pure C2 bubble, any cross-class edge is catastrophic</td></tr>
+<tr><td>C0</td><td>23</td><td>26</td><td>88.5%</td><td>High</td></tr>
+<tr><td>C5</td><td>13</td><td>15</td><td>86.7%</td><td>High</td></tr>
+<tr><td>C3</td><td>12</td><td>14</td><td>85.7%</td><td>High</td></tr>
+<tr><td>C4</td><td>14</td><td>17</td><td>82.4%</td><td>Moderate</td></tr>
+<tr><td>C1</td><td>21</td><td>26</td><td>80.8%</td><td>Moderate</td></tr>
+<tr style="background:#fef2f2;"><td><strong>C6</strong></td><td>10</td><td>16</td><td><strong>62.5%</strong></td><td>VULNERABLE &mdash; naturally mixed neighborhood</td></tr>
+</tbody></table>
+
+<div class="finding">
+  <strong>Cora global intra-class edge rate: 81.0%.</strong> Most training nodes exceed this rate, meaning they sit in
+  pure same-class clusters. This is ideal for clean-graph GNN learning, but it also makes them perfect Metattack targets:
+  adding a single cross-class edge to a node whose neighbors were 100% same-class creates maximum gradient signal.
+</div>
+
+<h3>5.3 Problematic Training Nodes</h3>
+<table class="data-table">
+<thead><tr><th>Node</th><th>Class</th><th>Degree</th><th>Same-Class %</th><th>Issue</th></tr></thead>
+<tbody>
+<tr style="background:#fef2f2;"><td>n1021</td><td>C4</td><td>1</td><td>0%</td><td>Only neighbor is C3 &mdash; isolated from own class</td></tr>
+<tr style="background:#fef2f2;"><td>n2015</td><td>C6</td><td>3</td><td>0%</td><td>Neighbors: C0, C2, C5 &mdash; zero own-class signal</td></tr>
+<tr style="background:#fef2f2;"><td>n2170</td><td>C1</td><td>2</td><td>0%</td><td>Both neighbors are C0</td></tr>
+<tr style="background:#fef9e7;"><td>n1103</td><td>C2</td><td>34</td><td>100%</td><td>Ultra-central, 98.5th percentile &mdash; dominates C2 training</td></tr>
+</tbody></table>
+
+<div class="finding">
+  <strong>~4 of 35 training nodes are in unfavorable positions.</strong> In 5-shot (5 nodes/class), one bad node costs
+  20% of the training signal for that class. C6 is doubly vulnerable: lowest homophily + two problematic training nodes.
+</div>
+
+<h3>5.4 Zero Intra-Train Connectivity</h3>
+<div class="bad">
+  <strong>35 training nodes share only 1 edge among them</strong> (a single C2&ndash;C2 link). All other class pairs have zero
+  edges connecting training nodes of the same class. This means GNN message passing cannot propagate label signals
+  between training nodes of the same class &mdash; each training node learns in complete isolation from its class peers.
+  This is inherent to the 5-shot split on Cora, not a split quality issue.
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>6. Budget Fix Applied (2026-07-04)</h2>
+
+<div class="code" style="padding:8px 12px; margin:8px 0; font-size:12px;">
+  <strong>Before:</strong> perturbations = int(args.ptb_rate * (adj.sum() // 2))<br>
+  <strong>After:</strong>&nbsp; edge_count = (adj.sum() - adj.shape[0]) // 2<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;perturbations = int(args.ptb_rate * edge_count)
+</div>
+
+<table class="data-table">
+<thead><tr><th>ptb</th><th>Old Budget</th><th>Old Rate</th><th>New Budget</th><th>New Rate</th></tr></thead>
+<tbody>
+<tr><td>0.05</td><td>331</td><td>6.3%</td><td>263</td><td><strong>5.0%</strong></td></tr>
+<tr><td>0.10</td><td>663</td><td>12.6%</td><td>527</td><td><strong>10.0%</strong></td></tr>
+<tr><td>0.15</td><td>994</td><td>18.8%</td><td>791</td><td><strong>15.0%</strong></td></tr>
+<tr><td>0.20</td><td>1326</td><td>25.1%</td><td>1055</td><td><strong>20.0%</strong></td></tr>
+<tr><td>0.25</td><td>1658</td><td>31.4%</td><td>1319</td><td><strong>25.0%</strong></td></tr>
+</tbody></table>
+
+<div class="good">
+  <strong>New budget exactly matches nominal ptb_rate.</strong> Self-loops no longer contribute to the perturbation
+  allowance. Regenerate all <span class="code">Meta_Self_Cora_*.pt</span> files to apply.
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>7. The GCL Paradox: Why Linear Probe Wins at High ptb</h2>
+
+<h3>5.1 Accuracy at ptb &ge; 0.20 (Peak Backbone)</h3>
+<table class="data-table">
+<thead><tr><th>Method</th><th>ptb=0.20</th><th>ptb=0.25</th><th>Uses Graph Structure in Training?</th></tr></thead>
+<tbody>
+<tr style="background:#f0fdf4;"><td><strong>GCL (Linear Probe)</strong></td><td><strong>0.1271</strong></td><td><strong>0.1204</strong></td><td>No &mdash; only trains linear classifier on frozen embeddings</td></tr>
+<tr><td>GPPT</td><td>0.1071</td><td>0.0681</td><td>Yes &mdash; prompt tokens trained via edge similarities</td></tr>
+<tr><td>Best RobustPrompt-T (single filter)</td><td>0.1100 (sim=0.5)</td><td>0.0978 (sim=0.3)</td><td>Yes &mdash; defense prompts + &tau;_tune edge pruning</td></tr>
+<tr><td>Best RobustPrompt-T (combo v2)</td><td>0.1160 (sim+deg)</td><td>0.1029 (sim+deg)</td><td>Yes &mdash; multi-filter defense</td></tr>
+</tbody></table>
+
+<h3>5.2 Why This Happens</h3>
+
+<div class="finding">
+  <strong>GCL Linear Probe training: <span class="code">Linear(embedding) &rarr; class</span>.</strong><br>
+  The linear classifier has only 1799 parameters (256&times;7+7). It is trained on 35 labeled node embeddings
+  produced by the frozen GNN. The training signal is: "given this frozen 256-dim vector, predict the class."
+  <strong>No graph edges are involved in the classifier's learning.</strong> The graph is only used during the GNN forward pass
+  to produce embeddings &mdash; and the GNN was pretrained on the clean graph via GraphCL, so its aggregation weights
+  encode clean-graph structural patterns.
+</div>
+
+<div class="bad">
+  <strong>GPPT / RobustPrompt-T training: <span class="code">prompt(GNN(prompted_x, attacked_edge_index), attacked_edge_index) &rarr; class</span>.</strong><br>
+  GPPT learns prompt tokens by computing similarity between node embeddings along graph edges.
+  RobustPrompt-T adds defense prompts selected by graph-structural heuristics and prunes edges via &tau;_tune.
+  <strong>Both methods use graph edges as part of their learning signal.</strong> At ptb &ge; 0.20,
+  25&ndash;31% of these edges are attacker-controlled. The model fits the noise.
+</div>
+
+<div class="good">
+  <strong>The paradox resolved:</strong> At high ptb, <em>any method that learns from graph structure during downstream training is worse than a method that ignores it.</em><br><br>
+  This is a fundamental limitation of the Transductive Few-Shot Prompt Learning paradigm under structural attack:
+  the graph is the only source of additional information beyond the 35 labels, but when the graph is
+  heavily corrupted, it becomes a liability rather than an asset. The linear probe's "ignorance" of structure
+  becomes a feature, not a bug.<br><br>
+  <strong>Implication:</strong> For ptb &ge; 0.20 on Cora with 5-shot, no graph-based prompt method can be expected to beat a
+  simple linear probe. The attack has destroyed too much of the structural signal that prompt tuning relies on.
+  The defense problem shifts from "how to identify and remove attack edges" to "whether to use the graph at all."
+</div>
+
+</div>
+</body>
+</html>

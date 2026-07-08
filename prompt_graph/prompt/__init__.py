@@ -11,6 +11,7 @@ from .MultiGPrompt import weighted_feature, weighted_prompt, downstreamprompt, f
 from .RobustPrompt_I        import RobustPrompt_I
 from .RobustPrompt_I_Test   import RobustPrompt_I_Test, LightPrompt
 from .RobustPrompt_T        import RobustPrompt_T
+from .RobustPrompt_T_NSP    import RobustPrompt_T_NSP
 from .RobustPrompt_GPF      import RobustPrompt_GPF, RobustPrompt_GPFplus
 
 from .GPF import GPF, GPF_plus

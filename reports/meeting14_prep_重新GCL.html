@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting 14 前置 — GraphCL 预训练权重评估 (含 aug_ratio)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fdfae7;
+  --primary: #1e2bfa;
+  --text: #111;
+  --text-muted: #6b6b6b;
+  --text-light: #9a9a9a;
+  --accent-light: rgba(30,43,250,0.08);
+  --border: rgba(30,43,250,0.2);
+  --card-bg: rgba(30,43,250,0.04);
+  --positive: #059669;
+  --negative: #dc2626;
+  --warn: #d97706;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Inter', 'Noto Sans SC', sans-serif;
+  padding: 3vw 4vw 6vh; max-width: 1300px; margin: 0 auto;
+}
+h1 { font-family:'Space Grotesk','Noto Sans SC',sans-serif; font-weight:700; font-size:clamp(32px,4vw,52px); letter-spacing:-0.02em; margin-bottom:0.15em; }
+h2 { font-family:'Space Grotesk','Noto Sans SC',sans-serif; font-weight:600; font-size:clamp(22px,2.5vw,34px); letter-spacing:-0.02em; margin:2.5rem 0 1rem; padding-bottom:0.4rem; border-bottom:1px solid var(--border); }
+h3 { font-family:'Space Grotesk','Noto Sans SC',sans-serif; font-weight:500; font-size:clamp(16px,1.5vw,20px); margin:1.5rem 0 0.6rem; }
+.accent-line { width:60px; height:4px; background:var(--primary); border-radius:2px; margin-bottom:1rem; }
+.meta { font-family:'Space Grotesk',sans-serif; font-size:13px; color:var(--text-light); letter-spacing:0.05em; }
+.tags { display:flex; gap:8px; flex-wrap:wrap; margin:0.6rem 0 1.2rem; }
+.tag { background:var(--accent-light); color:var(--primary); padding:0.3rem 0.8rem; border-radius:100px; font-family:'Space Grotesk',sans-serif; font-weight:500; font-size:11px; }
+
+.card-grid { display:grid; gap:1.2rem; margin:1rem 0 2rem; }
+.card-grid.two { grid-template-columns:1fr 1fr; }
+.card-grid.three { grid-template-columns:repeat(3,1fr); }
+.card-grid.four { grid-template-columns:repeat(4,1fr); }
+.card {
+  background:var(--card-bg); border:1.5px solid var(--border);
+  border-radius:14px; padding:1.4rem 1.5rem;
+}
+.card h3 { margin:0 0 0.6rem; }
+.card .num { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(28px,3vw,36px); color:var(--primary); line-height:1; }
+.card .num.good { color:var(--positive); }
+.card .lbl { font-family:'Inter',sans-serif; font-weight:600; font-size:14px; color:var(--text); margin-top:0.2rem; }
+.card .desc { font-size:13px; color:var(--text-muted); margin-top:0.3rem; line-height:1.5; }
+
+.kpi-strip {
+  display:flex; gap:2rem;
+  background:var(--card-bg); border:1.5px solid var(--border);
+  border-radius:14px; padding:1.5rem 2rem; margin:1.2rem 0 2rem;
+}
+.kpi { flex:1; text-align:center; }
+.kpi .val { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(24px,2.5vw,36px); color:var(--primary); }
+.kpi .lbl { font-size:13px; color:var(--text-muted); margin-top:0.2rem; }
+
+.tbl-wrap { overflow-x:auto; margin:1.2rem 0 2rem; }
+table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
+thead th {
+  font-family:'Space Grotesk',sans-serif; font-weight:600;
+  font-size:10px; letter-spacing:0.06em; text-transform:uppercase;
+  color:var(--text-muted); text-align:left; padding:0.6rem 0.7rem;
+  border-bottom:2px solid var(--border);
+}
+tbody td { padding:0.45rem 0.7rem; border-bottom:1px solid rgba(30,43,250,0.08); }
+tbody tr:hover { background:var(--accent-light); }
+tr.highlight { background:rgba(5,150,105,0.08); }
+tr.highlight td:first-child { color:var(--positive); font-weight:600; }
+.num-col { text-align:right; font-family:'Space Grotesk',sans-serif; font-weight:500; }
+.code { font-family:'Space Grotesk',monospace; font-size:11px; background:var(--accent-light); padding:0.1rem 0.4rem; border-radius:3px; }
+
+.callout {
+  background:var(--accent-light); border-left:3px solid var(--primary);
+  padding:1rem 1.4rem; border-radius:0 10px 10px 0;
+  margin:1.2rem 0 2rem; font-size:14px; line-height:1.6;
+}
+.callout strong { color:var(--primary); }
+
+summary { cursor:pointer; font-family:'Space Grotesk',sans-serif; font-weight:500; font-size:14px; color:var(--primary); padding:0.5rem 0; }
+details { margin:1rem 0; }
+</style>
+</head>
+<body>
+
+<h1>Meeting 14 前置 — GraphCL 预训练权重评估 (v2, 含 aug_ratio)</h1>
+<div class="accent-line"></div>
+
+<div class="meta">2026-06-19 &nbsp;|&nbsp; 数据集: Cora &nbsp;|&nbsp; GNN: GCN (2层, hid_dim=256) &nbsp;|&nbsp; 评估: LogisticRegression 线性探测 &nbsp;|&nbsp; epochs=200, 无早停</div>
+
+<div class="tags">
+  <span class="tag">GraphCL</span><span class="tag">5-seed</span><span class="tag">aug_ratio 受控</span><span class="tag">275 checkpoints</span>
+</div>
+
+<h2>1. 概览</h2>
+
+<div class="kpi-strip">
+  <div class="kpi"><div class="val">275</div><div class="lbl">评估 checkpoint 数</div></div>
+  <div class="kpi"><div class="val good">0.6262</div><div class="lbl">最高 Test Acc</div></div>
+  <div class="kpi"><div class="val">0.5424</div><div class="lbl">最佳组均值</div></div>
+  <div class="kpi"><div class="val">3 × 3 × 3 × 3 × 5</div><div class="lbl">超参网格 (aug1×aug2×lr×ratio×seed)</div></div>
+</div>
+
+<div class="card-grid three">
+  <div class="card">
+    <h3>lr 分布</h3>
+    <div class="num" style="font-size:22px;">0.001</div><div class="lbl">135 checkpoints (9组合×3ratio×5seed) — 占据 Top 大部分</div>
+    <div class="num" style="font-size:22px;">0.002</div><div class="lbl">135 checkpoints (9组合×3ratio×5seed) — 偶有尖峰</div>
+    <div class="num" style="font-size:22px;">0.01</div><div class="lbl">5 checkpoints (仅 dropN+permE, ratio=None 旧权重)</div>
+  </div>
+  <div class="card">
+    <h3>ratio 分布</h3>
+    <div class="num" style="font-size:22px;">0.3</div><div class="lbl">90 checkpoints — Top-1 来自 ratio=0.3</div>
+    <div class="num" style="font-size:22px;">0.2</div><div class="lbl">90 checkpoints — Top-3 0.6076</div>
+    <div class="num" style="font-size:22px;">0.1</div><div class="lbl">90 checkpoints — Top-2 0.6092 (lr=0.002 特例)</div>
+  </div>
+  <div class="card">
+    <h3>与上一轮对比</h3>
+    <div class="desc">上一轮 (无 aug_ratio 控制): 最高 0.5963, 最佳组均值 0.5493<br>
+    本轮 (aug_ratio 受控): 最高 <strong>0.6262</strong>, 最佳组均值 <strong>0.5424</strong><br>
+    单点峰值突破但组均值略降 — ratio 引入额外方差，但也打开了更高的上限。</div>
+  </div>
+</div>
+
+<div class="callout">
+  <strong>数据说明：</strong>超参网格 aug1 (3) × aug2 (3) × lr (3) × ratio (3) × seed (5) = 405 组。
+  实际产出 275 个 checkpoint。缺失 130 个：lr=0.01 下仅 dropN+permE 有旧权重（ratio=None，未被本轮覆盖），
+  lr=0.01 的其余 8 组合 × 3 ratio × 5 seed = 120 个 + lr=0.01 dropN+permE 的新 ratio 版本 15 个未跑。
+  <strong>训练：epochs=200，无早停</strong>（patience=99999）。
+</div>
+
+<h2>2. Top-30 单一 Checkpoint</h2>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Rank</th><th>Test Acc</th><th>Val Acc</th><th>Aug1</th><th>Aug2</th><th>LR</th><th>Ratio</th><th>Seed</th></tr></thead>
+<tbody>
+
+<tr class="highlight"><td>1</td><td class="num-col">0.6262</td><td class="num-col">0.6000</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr class="highlight"><td>2</td><td class="num-col">0.6092</td><td class="num-col">0.5774</td><td>permE</td><td>permE</td><td>0.002</td><td>0.1</td><td>1</td></tr>
+<tr class="highlight"><td>3</td><td class="num-col">0.6076</td><td class="num-col">0.6038</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>3</td></tr>
+<tr><td>4</td><td class="num-col">0.5993</td><td class="num-col">0.5811</td><td>permE</td><td>permE</td><td>0.001</td><td>0.1</td><td>4</td></tr>
+<tr><td>5</td><td class="num-col">0.5972</td><td class="num-col">0.5736</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr><td>6</td><td class="num-col">0.5918</td><td class="num-col">0.5509</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.2</td><td>2</td></tr>
+<tr><td>7</td><td class="num-col">0.5872</td><td class="num-col">0.5623</td><td>permE</td><td>permE</td><td>0.001</td><td>0.3</td><td>3</td></tr>
+<tr><td>8</td><td class="num-col">0.5851</td><td class="num-col">0.5623</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>9</td><td class="num-col">0.5839</td><td class="num-col">0.5585</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>10</td><td class="num-col">0.5835</td><td class="num-col">0.5472</td><td>permE</td><td>permE</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>11</td><td class="num-col">0.5822</td><td class="num-col">0.5660</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.1</td><td>1</td></tr>
+<tr><td>12</td><td class="num-col">0.5810</td><td class="num-col">0.5245</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>13</td><td class="num-col">0.5797</td><td class="num-col">0.5698</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.2</td><td>1</td></tr>
+<tr><td>14</td><td class="num-col">0.5772</td><td class="num-col">0.5321</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>3</td></tr>
+<tr><td>15</td><td class="num-col">0.5768</td><td class="num-col">0.5811</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>16</td><td class="num-col">0.5756</td><td class="num-col">0.5132</td><td>permE</td><td>permE</td><td>0.001</td><td>0.3</td><td>4</td></tr>
+<tr><td>17</td><td class="num-col">0.5731</td><td class="num-col">0.5774</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+<tr><td>18</td><td class="num-col">0.5731</td><td class="num-col">0.5585</td><td>permE</td><td>permE</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+<tr><td>19</td><td class="num-col">0.5727</td><td class="num-col">0.5019</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>3</td></tr>
+<tr><td>20</td><td class="num-col">0.5727</td><td class="num-col">0.5321</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>3</td></tr>
+<tr><td>21</td><td class="num-col">0.5718</td><td class="num-col">0.5132</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.3</td><td>1</td></tr>
+<tr><td>22</td><td class="num-col">0.5689</td><td class="num-col">0.5472</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>23</td><td class="num-col">0.5669</td><td class="num-col">0.5057</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>4</td></tr>
+<tr><td>24</td><td class="num-col">0.5664</td><td class="num-col">0.5660</td><td>permE</td><td>permE</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr><td>25</td><td class="num-col">0.5660</td><td class="num-col">0.5208</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>26</td><td class="num-col">0.5660</td><td class="num-col">0.5736</td><td>permE</td><td>permE</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>27</td><td class="num-col">0.5656</td><td class="num-col">0.5057</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.1</td><td>1</td></tr>
+<tr><td>28</td><td class="num-col">0.5631</td><td class="num-col">0.5547</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>29</td><td class="num-col">0.5610</td><td class="num-col">0.5660</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr><td>30</td><td class="num-col">0.5606</td><td class="num-col">0.5472</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+
+</tbody>
+</table>
+</div>
+
+<h2>3. 按超参组聚合 (mean ± std, 跨 5 seeds)</h2>
+
+<div class="callout">
+  <strong>聚合方式：</strong>同一 aug1×aug2×lr×ratio 组合的 5 个 seed 取 test acc 均值与标准差，按均值降序排列。仅列出 ≥4 seeds 的组。
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Rank</th><th>Mean Acc</th><th>Std</th><th>Aug1</th><th>Aug2</th><th>LR</th><th>Ratio</th><th>#Seeds</th><th>Min – Max</th></tr></thead>
+<tbody>
+
+<tr class="highlight"><td>1</td><td class="num-col">0.5424</td><td class="num-col">0.0416</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.2</td><td>5</td><td class="num-col">0.4929 – 0.5689</td></tr>
+<tr class="highlight"><td>2</td><td class="num-col">0.5414</td><td class="num-col">0.0173</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.2</td><td>5</td><td class="num-col">0.5008 – 0.5602</td></tr>
+<tr class="highlight"><td>3</td><td class="num-col">0.5396</td><td class="num-col">0.0198</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>5</td><td class="num-col">0.5021 – 0.5374</td></tr>
+<tr><td>4</td><td class="num-col">0.5395</td><td class="num-col">0.0293</td><td>permE</td><td>permE</td><td>0.001</td><td>0.1</td><td>5</td><td class="num-col">0.4327 – 0.5993</td></tr>
+<tr><td>5</td><td class="num-col">0.5370</td><td class="num-col">0.0336</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.3</td><td>5</td><td class="num-col">0.4061 – 0.6262</td></tr>
+<tr><td>6</td><td class="num-col">0.5368</td><td class="num-col">0.0285</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.3</td><td>5</td><td class="num-col">0.4880 – 0.5768</td></tr>
+<tr><td>7</td><td class="num-col">0.5361</td><td class="num-col">0.0257</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.2</td><td>5</td><td class="num-col">0.4614 – 0.5918</td></tr>
+<tr><td>8</td><td class="num-col">0.5354</td><td class="num-col">0.0278</td><td>permE</td><td>permE</td><td>0.001</td><td>0.3</td><td>5</td><td class="num-col">0.5203 – 0.5872</td></tr>
+<tr><td>9</td><td class="num-col">0.5332</td><td class="num-col">0.0245</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>5</td><td class="num-col">0.4855 – 0.5316</td></tr>
+<tr><td>10</td><td class="num-col">0.5319</td><td class="num-col">0.0206</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>5</td><td class="num-col">0.4680 – 0.5727</td></tr>
+<tr><td>11</td><td class="num-col">0.5311</td><td class="num-col">0.0272</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.1</td><td>5</td><td class="num-col">0.5037 – 0.5822</td></tr>
+<tr><td>12</td><td class="num-col">0.5295</td><td class="num-col">0.0212</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.1</td><td>5</td><td class="num-col">0.5216 – 0.5656</td></tr>
+<tr><td>13</td><td class="num-col">0.5288</td><td class="num-col">0.0209</td><td>permE</td><td>permE</td><td>0.001</td><td>0.2</td><td>5</td><td class="num-col">0.4282 – 0.5835</td></tr>
+<tr><td>14</td><td class="num-col">0.5276</td><td class="num-col">0.0322</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.3</td><td>5</td><td class="num-col">0.4950 – 0.5972</td></tr>
+<tr><td>15</td><td class="num-col">0.5268</td><td class="num-col">0.0385</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>5</td><td class="num-col">0.4294 – 0.6076</td></tr>
+<tr><td>16</td><td class="num-col">0.5248</td><td class="num-col">0.0219</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.3</td><td>5</td><td class="num-col">0.4875 – 0.5403</td></tr>
+<tr><td>17</td><td class="num-col">0.5230</td><td class="num-col">0.0445</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.1</td><td>5</td><td class="num-col">0.4282 – 0.5548</td></tr>
+<tr><td>18</td><td class="num-col">0.5209</td><td class="num-col">0.0230</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>5</td><td class="num-col">0.4327 – 0.5727</td></tr>
+<tr><td>19</td><td class="num-col">0.5187</td><td class="num-col">0.0260</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.2</td><td>5</td><td class="num-col">0.4157 – 0.5851</td></tr>
+<tr><td>20</td><td class="num-col">0.5168</td><td class="num-col">0.0453</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.1</td><td>5</td><td class="num-col">0.4103 – 0.5241</td></tr>
+
+</tbody>
+</table>
+</div>
+
+<h2>4. 分层分析</h2>
+
+<h3>4.1 按学习率</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>LR</th><th>#Combos</th><th>#CKPT</th><th>Mean of Group Means</th><th>Best Single</th><th>Worst Single</th></tr></thead>
+<tbody>
+<tr><td><strong>0.001</strong></td><td class="num-col">27</td><td class="num-col">135</td><td class="num-col good">0.5145</td><td class="num-col good">0.6262</td><td class="num-col">0.4061</td></tr>
+<tr><td>0.002</td><td class="num-col">27</td><td class="num-col">135</td><td class="num-col">0.4612</td><td class="num-col">0.6092</td><td class="num-col">0.3401</td></tr>
+<tr><td>0.01</td><td class="num-col">1</td><td class="num-col">5</td><td class="num-col">0.4234</td><td class="num-col">0.4871</td><td class="num-col">0.3883</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card-grid two" style="margin-top:0.5rem;">
+  <div class="card">
+    <h3>lr=0.001 (27 组合)</h3>
+    <div class="num" style="font-size:22px;">均值 0.515</div>
+    <div class="desc">27 组中 23 组均值 > 0.50。显著优于 lr=0.002。<br>Top-30 中 23 个来自 lr=0.001。</div>
+  </div>
+  <div class="card">
+    <h3>lr=0.002 (27 组合)</h3>
+    <div class="num" style="font-size:22px;">均值 0.461</div>
+    <div class="desc">整体弱于 lr=0.001，但有个别尖峰 (permE/permE/0.1/seed1=0.6092, dropN/permE/0.2/seed1=0.5797)。<br>方差更大（seed 间 max-min 差距大），稳定性差。</div>
+  </div>
+</div>
+
+<h3>4.2 按 aug_ratio (仅 lr=0.001)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Ratio</th><th>#Combos</th><th>Mean of Group Means</th><th>Best Single</th></tr></thead>
+<tbody>
+<tr><td><strong>0.3</strong></td><td class="num-col">9</td><td class="num-col good">0.5270</td><td class="num-col good">0.6262</td></tr>
+<tr><td><strong>0.2</strong></td><td class="num-col">9</td><td class="num-col good">0.5300</td><td class="num-col">0.6076</td></tr>
+<tr><td>0.1</td><td class="num-col">9</td><td class="num-col">0.5173</td><td class="num-col">0.5993</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card-grid two" style="margin-top:0.5rem;">
+  <div class="card">
+    <h3>ratio=0.2 → 最稳定</h3>
+    <div class="desc">组均值最高 (0.5300)，跨组合方差最小。Top-10 组中 ratio=0.2 占 3 席，且 std 普遍低。</div>
+  </div>
+  <div class="card">
+    <h3>ratio=0.3 → 单点最高</h3>
+    <div class="desc">产生了 Top-1 (0.6262) 和 Top-5 (0.5972)，但 std 较大。permE/maskN/0.3/seed1 的 0.6262 是所有 checkpoint 的历史最高。</div>
+  </div>
+</div>
+
+<h3>4.3 按 aug1 (仅 lr=0.001, ratio=0.2+0.3)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Aug1</th><th>Mean Acc (6 combos)</th><th>Best Combo</th><th>Best Mean</th></tr></thead>
+<tbody>
+<tr><td><strong>permE</strong></td><td class="num-col good">0.5364</td><td>permE/dropN/0.2</td><td class="num-col">0.5424</td></tr>
+<tr><td>dropN</td><td class="num-col">0.5317</td><td>dropN/permE/0.2</td><td class="num-col">0.5414</td></tr>
+<tr><td>maskN</td><td class="num-col">0.5290</td><td>maskN/permE/0.3</td><td class="num-col">0.5368</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="callout" style="margin-top:1.5rem;">
+  <strong>下游实验推荐：</strong><br><br>
+  <strong>方案A（稳定优先）：</strong> <span class="code">permE/dropN/lr=0.001/ratio=0.2/seed=1</span> — 组均值 0.5424 ± 0.0416，seed=1 单点 0.5689<br>
+  <strong>方案B（峰值优先）：</strong> <span class="code">permE/maskN/lr=0.001/ratio=0.3/seed=1</span> — 单点 0.6262（历史最高）但该组 std=0.0336<br>
+  <strong>方案C（上一轮推荐延续）：</strong> <span class="code">dropN/permE/lr=0.001/ratio=0.2/seed=4</span> — 组均值 0.5414 ± 0.0173（std 最小），seed=4 单点 0.5602<br><br>
+  建议用 A/B/C 三个 backbone 各跑一轮下游，对比 RobustPrompt-T 的稳定性差异。
+</div>
+
+<h2>5. 完整排名 (275 checkpoints)</h2>
+
+<details>
+<summary>点击展开全部 275 条</summary>
+<div class="tbl-wrap" style="max-height:600px; overflow-y:auto;">
+<table>
+<thead><tr><th>Rank</th><th>Test Acc</th><th>Val Acc</th><th>Aug1</th><th>Aug2</th><th>LR</th><th>Ratio</th><th>Seed</th></tr></thead>
+<tbody>
+
+<tr class="highlight"><td>1</td><td class="num-col">0.6262</td><td class="num-col">0.6000</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr class="highlight"><td>2</td><td class="num-col">0.6092</td><td class="num-col">0.5774</td><td>permE</td><td>permE</td><td>0.002</td><td>0.1</td><td>1</td></tr>
+<tr class="highlight"><td>3</td><td class="num-col">0.6076</td><td class="num-col">0.6038</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>3</td></tr>
+<tr><td>4</td><td class="num-col">0.5993</td><td class="num-col">0.5811</td><td>permE</td><td>permE</td><td>0.001</td><td>0.1</td><td>4</td></tr>
+<tr><td>5</td><td class="num-col">0.5972</td><td class="num-col">0.5736</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr><td>6</td><td class="num-col">0.5918</td><td class="num-col">0.5509</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.2</td><td>2</td></tr>
+<tr><td>7</td><td class="num-col">0.5872</td><td class="num-col">0.5623</td><td>permE</td><td>permE</td><td>0.001</td><td>0.3</td><td>3</td></tr>
+<tr><td>8</td><td class="num-col">0.5851</td><td class="num-col">0.5623</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>9</td><td class="num-col">0.5839</td><td class="num-col">0.5585</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>10</td><td class="num-col">0.5835</td><td class="num-col">0.5472</td><td>permE</td><td>permE</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>11</td><td class="num-col">0.5822</td><td class="num-col">0.5660</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.1</td><td>1</td></tr>
+<tr><td>12</td><td class="num-col">0.5810</td><td class="num-col">0.5245</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>13</td><td class="num-col">0.5797</td><td class="num-col">0.5698</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.2</td><td>1</td></tr>
+<tr><td>14</td><td class="num-col">0.5772</td><td class="num-col">0.5321</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>3</td></tr>
+<tr><td>15</td><td class="num-col">0.5768</td><td class="num-col">0.5811</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>16</td><td class="num-col">0.5756</td><td class="num-col">0.5132</td><td>permE</td><td>permE</td><td>0.001</td><td>0.3</td><td>4</td></tr>
+<tr><td>17</td><td class="num-col">0.5731</td><td class="num-col">0.5774</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+<tr><td>18</td><td class="num-col">0.5731</td><td class="num-col">0.5585</td><td>permE</td><td>permE</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+<tr><td>19</td><td class="num-col">0.5727</td><td class="num-col">0.5019</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>3</td></tr>
+<tr><td>20</td><td class="num-col">0.5727</td><td class="num-col">0.5321</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>3</td></tr>
+<tr><td>21</td><td class="num-col">0.5718</td><td class="num-col">0.5132</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.3</td><td>1</td></tr>
+<tr><td>22</td><td class="num-col">0.5689</td><td class="num-col">0.5472</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>23</td><td class="num-col">0.5669</td><td class="num-col">0.5057</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>4</td></tr>
+<tr><td>24</td><td class="num-col">0.5664</td><td class="num-col">0.5660</td><td>permE</td><td>permE</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr><td>25</td><td class="num-col">0.5660</td><td class="num-col">0.5208</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>26</td><td class="num-col">0.5660</td><td class="num-col">0.5736</td><td>permE</td><td>permE</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>27</td><td class="num-col">0.5656</td><td class="num-col">0.5057</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.1</td><td>1</td></tr>
+<tr><td>28</td><td class="num-col">0.5631</td><td class="num-col">0.5547</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>29</td><td class="num-col">0.5610</td><td class="num-col">0.5660</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr><td>30</td><td class="num-col">0.5606</td><td class="num-col">0.5472</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+<tr><td>31</td><td class="num-col">0.5602</td><td class="num-col">0.4981</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+<tr><td>32</td><td class="num-col">0.5602</td><td class="num-col">0.5396</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.2</td><td>4</td></tr>
+<tr><td>33</td><td class="num-col">0.5581</td><td class="num-col">0.5019</td><td>permE</td><td>permE</td><td>0.002</td><td>0.2</td><td>4</td></tr>
+<tr><td>34</td><td class="num-col">0.5569</td><td class="num-col">0.5170</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr><td>35</td><td class="num-col">0.5565</td><td class="num-col">0.4906</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.1</td><td>5</td></tr>
+<tr><td>36</td><td class="num-col">0.5565</td><td class="num-col">0.5245</td><td>permE</td><td>permE</td><td>0.002</td><td>0.2</td><td>1</td></tr>
+<tr><td>37</td><td class="num-col">0.5556</td><td class="num-col">0.5283</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>2</td></tr>
+<tr><td>38</td><td class="num-col">0.5548</td><td class="num-col">0.4830</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.1</td><td>2</td></tr>
+<tr><td>39</td><td class="num-col">0.5548</td><td class="num-col">0.5283</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.1</td><td>1</td></tr>
+<tr><td>40</td><td class="num-col">0.5536</td><td class="num-col">0.4906</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.3</td><td>4</td></tr>
+<tr><td>41</td><td class="num-col">0.5523</td><td class="num-col">0.5245</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.1</td><td>2</td></tr>
+<tr><td>42</td><td class="num-col">0.5519</td><td class="num-col">0.5585</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>43</td><td class="num-col">0.5507</td><td class="num-col">0.5132</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.1</td><td>1</td></tr>
+<tr><td>44</td><td class="num-col">0.5502</td><td class="num-col">0.5019</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr><td>45</td><td class="num-col">0.5502</td><td class="num-col">0.5170</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.2</td><td>1</td></tr>
+<tr><td>46</td><td class="num-col">0.5502</td><td class="num-col">0.4679</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.3</td><td>4</td></tr>
+<tr><td>47</td><td class="num-col">0.5502</td><td class="num-col">0.5358</td><td>permE</td><td>permE</td><td>0.002</td><td>0.3</td><td>1</td></tr>
+<tr><td>48</td><td class="num-col">0.5498</td><td class="num-col">0.5132</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>49</td><td class="num-col">0.5494</td><td class="num-col">0.4642</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.1</td><td>4</td></tr>
+<tr><td>50</td><td class="num-col">0.5486</td><td class="num-col">0.5321</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.3</td><td>4</td></tr>
+<tr><td>51</td><td class="num-col">0.5482</td><td class="num-col">0.5019</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>5</td></tr>
+<tr><td>52</td><td class="num-col">0.5473</td><td class="num-col">0.5208</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>53</td><td class="num-col">0.5469</td><td class="num-col">0.5057</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>54</td><td class="num-col">0.5465</td><td class="num-col">0.5245</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.1</td><td>5</td></tr>
+<tr><td>55</td><td class="num-col">0.5465</td><td class="num-col">0.5132</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.3</td><td>3</td></tr>
+<tr><td>56</td><td class="num-col">0.5461</td><td class="num-col">0.5283</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.1</td><td>1</td></tr>
+<tr><td>57</td><td class="num-col">0.5457</td><td class="num-col">0.5094</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.2</td><td>3</td></tr>
+<tr><td>58</td><td class="num-col">0.5453</td><td class="num-col">0.5245</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.3</td><td>1</td></tr>
+<tr><td>59</td><td class="num-col">0.5444</td><td class="num-col">0.5321</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>5</td></tr>
+<tr><td>60</td><td class="num-col">0.5428</td><td class="num-col">0.5132</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.3</td><td>3</td></tr>
+<tr><td>61</td><td class="num-col">0.5428</td><td class="num-col">0.4868</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.1</td><td>4</td></tr>
+<tr><td>62</td><td class="num-col">0.5403</td><td class="num-col">0.5019</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.3</td><td>3</td></tr>
+<tr><td>63</td><td class="num-col">0.5399</td><td class="num-col">0.5170</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr><td>64</td><td class="num-col">0.5395</td><td class="num-col">0.5132</td><td>permE</td><td>permE</td><td>0.001</td><td>0.1</td><td>1</td></tr>
+<tr><td>65</td><td class="num-col">0.5390</td><td class="num-col">0.5170</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.3</td><td>3</td></tr>
+<tr><td>66</td><td class="num-col">0.5386</td><td class="num-col">0.5094</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.2</td><td>4</td></tr>
+<tr><td>67</td><td class="num-col">0.5386</td><td class="num-col">0.5283</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.2</td><td>1</td></tr>
+<tr><td>68</td><td class="num-col">0.5382</td><td class="num-col">0.4830</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.1</td><td>5</td></tr>
+<tr><td>69</td><td class="num-col">0.5378</td><td class="num-col">0.5019</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.2</td><td>2</td></tr>
+<tr><td>70</td><td class="num-col">0.5374</td><td class="num-col">0.5132</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>3</td></tr>
+<tr><td>71</td><td class="num-col">0.5374</td><td class="num-col">0.5132</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.2</td><td>1</td></tr>
+<tr><td>72</td><td class="num-col">0.5370</td><td class="num-col">0.4604</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.3</td><td>4</td></tr>
+<tr><td>73</td><td class="num-col">0.5365</td><td class="num-col">0.5434</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.3</td><td>1</td></tr>
+<tr><td>74</td><td class="num-col">0.5357</td><td class="num-col">0.5170</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>75</td><td class="num-col">0.5357</td><td class="num-col">0.4906</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.1</td><td>4</td></tr>
+<tr><td>76</td><td class="num-col">0.5353</td><td class="num-col">0.4830</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.3</td><td>4</td></tr>
+<tr><td>77</td><td class="num-col">0.5349</td><td class="num-col">0.5132</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.1</td><td>4</td></tr>
+<tr><td>78</td><td class="num-col">0.5345</td><td class="num-col">0.5321</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>79</td><td class="num-col">0.5345</td><td class="num-col">0.5170</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.1</td><td>1</td></tr>
+<tr><td>80</td><td class="num-col">0.5332</td><td class="num-col">0.5057</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.3</td><td>3</td></tr>
+<tr><td>81</td><td class="num-col">0.5324</td><td class="num-col">0.5208</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.2</td><td>3</td></tr>
+
+<tr><td>82</td><td class="num-col">0.5316</td><td class="num-col">0.4830</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.2</td><td>5</td></tr>
+<tr><td>83</td><td class="num-col">0.5316</td><td class="num-col">0.4981</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>3</td></tr>
+<tr><td>84</td><td class="num-col">0.5316</td><td class="num-col">0.5094</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.1</td><td>1</td></tr>
+<tr><td>85</td><td class="num-col">0.5307</td><td class="num-col">0.4792</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.3</td><td>4</td></tr>
+<tr><td>86</td><td class="num-col">0.5303</td><td class="num-col">0.4868</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.1</td><td>1</td></tr>
+<tr><td>87</td><td class="num-col">0.5303</td><td class="num-col">0.5245</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.2</td><td>1</td></tr>
+<tr><td>88</td><td class="num-col">0.5299</td><td class="num-col">0.4792</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.1</td><td>2</td></tr>
+<tr><td>89</td><td class="num-col">0.5299</td><td class="num-col">0.4566</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.1</td><td>1</td></tr>
+<tr><td>90</td><td class="num-col">0.5287</td><td class="num-col">0.4755</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.1</td><td>5</td></tr>
+<tr><td>91</td><td class="num-col">0.5287</td><td class="num-col">0.5019</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>4</td></tr>
+<tr><td>92</td><td class="num-col">0.5287</td><td class="num-col">0.4642</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>5</td></tr>
+<tr><td>93</td><td class="num-col">0.5287</td><td class="num-col">0.4981</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>4</td></tr>
+<tr><td>94</td><td class="num-col">0.5282</td><td class="num-col">0.5208</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+<tr><td>95</td><td class="num-col">0.5266</td><td class="num-col">0.4642</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>96</td><td class="num-col">0.5266</td><td class="num-col">0.4981</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.3</td><td>4</td></tr>
+<tr><td>97</td><td class="num-col">0.5262</td><td class="num-col">0.4566</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.2</td><td>5</td></tr>
+<tr><td>98</td><td class="num-col">0.5257</td><td class="num-col">0.4604</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>99</td><td class="num-col">0.5257</td><td class="num-col">0.4528</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.2</td><td>5</td></tr>
+<tr><td>100</td><td class="num-col">0.5245</td><td class="num-col">0.4981</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>2</td></tr>
+<tr><td>101</td><td class="num-col">0.5241</td><td class="num-col">0.4717</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.1</td><td>2</td></tr>
+<tr><td>102</td><td class="num-col">0.5237</td><td class="num-col">0.4943</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.1</td><td>4</td></tr>
+<tr><td>103</td><td class="num-col">0.5237</td><td class="num-col">0.4528</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.1</td><td>4</td></tr>
+<tr><td>104</td><td class="num-col">0.5233</td><td class="num-col">0.4717</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.2</td><td>3</td></tr>
+<tr><td>105</td><td class="num-col">0.5233</td><td class="num-col">0.5208</td><td>permE</td><td>permE</td><td>0.001</td><td>0.3</td><td>5</td></tr>
+<tr><td>106</td><td class="num-col">0.5216</td><td class="num-col">0.4792</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.1</td><td>4</td></tr>
+<tr><td>107</td><td class="num-col">0.5212</td><td class="num-col">0.5057</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr><td>108</td><td class="num-col">0.5212</td><td class="num-col">0.5019</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.1</td><td>4</td></tr>
+<tr><td>109</td><td class="num-col">0.5212</td><td class="num-col">0.4755</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.3</td><td>5</td></tr>
+<tr><td>110</td><td class="num-col">0.5208</td><td class="num-col">0.5019</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.1</td><td>2</td></tr>
+<tr><td>111</td><td class="num-col">0.5203</td><td class="num-col">0.4906</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.3</td><td>1</td></tr>
+<tr><td>112</td><td class="num-col">0.5203</td><td class="num-col">0.4906</td><td>permE</td><td>permE</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>113</td><td class="num-col">0.5195</td><td class="num-col">0.5245</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>114</td><td class="num-col">0.5191</td><td class="num-col">0.5019</td><td>permE</td><td>permE</td><td>0.001</td><td>0.1</td><td>5</td></tr>
+<tr><td>115</td><td class="num-col">0.5187</td><td class="num-col">0.4981</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>116</td><td class="num-col">0.5166</td><td class="num-col">0.4943</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.1</td><td>1</td></tr>
+<tr><td>117</td><td class="num-col">0.5162</td><td class="num-col">0.5132</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.1</td><td>5</td></tr>
+<tr><td>118</td><td class="num-col">0.5158</td><td class="num-col">0.4943</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>1</td></tr>
+<tr><td>119</td><td class="num-col">0.5133</td><td class="num-col">0.4868</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.1</td><td>5</td></tr>
+<tr><td>120</td><td class="num-col">0.5133</td><td class="num-col">0.4981</td><td>permE</td><td>permE</td><td>0.002</td><td>0.3</td><td>4</td></tr>
+<tr><td>121</td><td class="num-col">0.5129</td><td class="num-col">0.5170</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.1</td><td>2</td></tr>
+<tr><td>122</td><td class="num-col">0.5129</td><td class="num-col">0.4906</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.1</td><td>3</td></tr>
+<tr><td>123</td><td class="num-col">0.5125</td><td class="num-col">0.4830</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+<tr><td>124</td><td class="num-col">0.5120</td><td class="num-col">0.4755</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>125</td><td class="num-col">0.5116</td><td class="num-col">0.4943</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.3</td><td>1</td></tr>
+<tr><td>126</td><td class="num-col">0.5112</td><td class="num-col">0.5132</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>5</td></tr>
+<tr><td>127</td><td class="num-col">0.5104</td><td class="num-col">0.4755</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.1</td><td>5</td></tr>
+<tr><td>128</td><td class="num-col">0.5075</td><td class="num-col">0.4377</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.1</td><td>2</td></tr>
+<tr><td>129</td><td class="num-col">0.5066</td><td class="num-col">0.4792</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.1</td><td>3</td></tr>
+<tr><td>130</td><td class="num-col">0.5058</td><td class="num-col">0.5245</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.3</td><td>5</td></tr>
+<tr><td>131</td><td class="num-col">0.5058</td><td class="num-col">0.4755</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.3</td><td>5</td></tr>
+<tr><td>132</td><td class="num-col">0.5046</td><td class="num-col">0.4679</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.1</td><td>1</td></tr>
+<tr><td>133</td><td class="num-col">0.5046</td><td class="num-col">0.4755</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+<tr><td>134</td><td class="num-col">0.5046</td><td class="num-col">0.4566</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.3</td><td>3</td></tr>
+<tr><td>135</td><td class="num-col">0.5046</td><td class="num-col">0.5245</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.3</td><td>3</td></tr>
+<tr><td>136</td><td class="num-col">0.5037</td><td class="num-col">0.4340</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>137</td><td class="num-col">0.5037</td><td class="num-col">0.4453</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.2</td><td>2</td></tr>
+<tr><td>138</td><td class="num-col">0.5025</td><td class="num-col">0.4755</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>139</td><td class="num-col">0.5021</td><td class="num-col">0.4302</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>2</td></tr>
+<tr><td>140</td><td class="num-col">0.5021</td><td class="num-col">0.4943</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.3</td><td>2</td></tr>
+<tr><td>141</td><td class="num-col">0.5017</td><td class="num-col">0.4981</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.1</td><td>4</td></tr>
+<tr><td>142</td><td class="num-col">0.5012</td><td class="num-col">0.5057</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.3</td><td>1</td></tr>
+<tr><td>143</td><td class="num-col">0.5012</td><td class="num-col">0.4981</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.3</td><td>4</td></tr>
+<tr><td>144</td><td class="num-col">0.5008</td><td class="num-col">0.4830</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.2</td><td>2</td></tr>
+<tr><td>145</td><td class="num-col">0.5004</td><td class="num-col">0.4755</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.1</td><td>3</td></tr>
+<tr><td>146</td><td class="num-col">0.5000</td><td class="num-col">0.4717</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.2</td><td>4</td></tr>
+<tr><td>147</td><td class="num-col">0.4992</td><td class="num-col">0.4528</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.1</td><td>2</td></tr>
+<tr><td>148</td><td class="num-col">0.4983</td><td class="num-col">0.4906</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>3</td></tr>
+<tr><td>149</td><td class="num-col">0.4979</td><td class="num-col">0.4679</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.2</td><td>3</td></tr>
+<tr><td>150</td><td class="num-col">0.4971</td><td class="num-col">0.5396</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.3</td><td>5</td></tr>
+<tr><td>151</td><td class="num-col">0.4971</td><td class="num-col">0.4830</td><td>permE</td><td>permE</td><td>0.002</td><td>0.1</td><td>2</td></tr>
+<tr><td>152</td><td class="num-col">0.4958</td><td class="num-col">0.4679</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.3</td><td>1</td></tr>
+<tr><td>153</td><td class="num-col">0.4950</td><td class="num-col">0.4717</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.3</td><td>3</td></tr>
+<tr><td>154</td><td class="num-col">0.4946</td><td class="num-col">0.4642</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.2</td><td>5</td></tr>
+<tr><td>155</td><td class="num-col">0.4929</td><td class="num-col">0.4528</td><td>permE</td><td>dropN</td><td>0.001</td><td>0.2</td><td>5</td></tr>
+<tr><td>156</td><td class="num-col">0.4929</td><td class="num-col">0.5132</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.1</td><td>1</td></tr>
+<tr><td>157</td><td class="num-col">0.4921</td><td class="num-col">0.4453</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.2</td><td>2</td></tr>
+<tr><td>158</td><td class="num-col">0.4917</td><td class="num-col">0.4868</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>159</td><td class="num-col">0.4913</td><td class="num-col">0.4453</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.2</td><td>2</td></tr>
+<tr><td>160</td><td class="num-col">0.4896</td><td class="num-col">0.4604</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.2</td><td>1</td></tr>
+<tr><td>161</td><td class="num-col">0.4892</td><td class="num-col">0.4981</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.1</td><td>1</td></tr>
+<tr><td>162</td><td class="num-col">0.4892</td><td class="num-col">0.4717</td><td>permE</td><td>permE</td><td>0.002</td><td>0.2</td><td>3</td></tr>
+<tr><td>163</td><td class="num-col">0.4880</td><td class="num-col">0.4868</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.3</td><td>5</td></tr>
+<tr><td>164</td><td class="num-col">0.4875</td><td class="num-col">0.4566</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>165</td><td class="num-col">0.4871</td><td class="num-col">0.4189</td><td>dropN</td><td>permE</td><td>0.01</td><td>None</td><td>4</td></tr>
+<tr><td>166</td><td class="num-col">0.4855</td><td class="num-col">0.4792</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>5</td></tr>
+<tr><td>167</td><td class="num-col">0.4855</td><td class="num-col">0.4642</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.2</td><td>4</td></tr>
+<tr><td>168</td><td class="num-col">0.4850</td><td class="num-col">0.4792</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.1</td><td>5</td></tr>
+<tr><td>169</td><td class="num-col">0.4846</td><td class="num-col">0.4528</td><td>dropN</td><td>permE</td><td>0.001</td><td>0.1</td><td>2</td></tr>
+<tr><td>170</td><td class="num-col">0.4846</td><td class="num-col">0.5094</td><td>permE</td><td>permE</td><td>0.002</td><td>0.2</td><td>2</td></tr>
+<tr><td>171</td><td class="num-col">0.4826</td><td class="num-col">0.4566</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.1</td><td>4</td></tr>
+<tr><td>172</td><td class="num-col">0.4826</td><td class="num-col">0.4717</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.2</td><td>3</td></tr>
+<tr><td>173</td><td class="num-col">0.4821</td><td class="num-col">0.4792</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.2</td><td>2</td></tr>
+<tr><td>174</td><td class="num-col">0.4813</td><td class="num-col">0.4189</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.1</td><td>5</td></tr>
+<tr><td>175</td><td class="num-col">0.4805</td><td class="num-col">0.4453</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.1</td><td>5</td></tr>
+<tr><td>176</td><td class="num-col">0.4797</td><td class="num-col">0.4264</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>5</td></tr>
+<tr><td>177</td><td class="num-col">0.4797</td><td class="num-col">0.4264</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.1</td><td>4</td></tr>
+<tr><td>178</td><td class="num-col">0.4788</td><td class="num-col">0.4943</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.2</td><td>3</td></tr>
+<tr><td>179</td><td class="num-col">0.4780</td><td class="num-col">0.4491</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.1</td><td>5</td></tr>
+<tr><td>180</td><td class="num-col">0.4780</td><td class="num-col">0.4302</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.3</td><td>4</td></tr>
+<tr><td>181</td><td class="num-col">0.4776</td><td class="num-col">0.4604</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.2</td><td>3</td></tr>
+<tr><td>182</td><td class="num-col">0.4772</td><td class="num-col">0.4377</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.2</td><td>4</td></tr>
+<tr><td>183</td><td class="num-col">0.4767</td><td class="num-col">0.4528</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.2</td><td>5</td></tr>
+<tr><td>184</td><td class="num-col">0.4759</td><td class="num-col">0.4679</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.1</td><td>1</td></tr>
+<tr><td>185</td><td class="num-col">0.4755</td><td class="num-col">0.4453</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.2</td><td>1</td></tr>
+<tr><td>186</td><td class="num-col">0.4747</td><td class="num-col">0.4642</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.1</td><td>1</td></tr>
+<tr><td>187</td><td class="num-col">0.4743</td><td class="num-col">0.4566</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.2</td><td>3</td></tr>
+<tr><td>188</td><td class="num-col">0.4738</td><td class="num-col">0.4981</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.3</td><td>5</td></tr>
+<tr><td>189</td><td class="num-col">0.4738</td><td class="num-col">0.4604</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+<tr><td>190</td><td class="num-col">0.4730</td><td class="num-col">0.4491</td><td>dropN</td><td>maskN</td><td>0.001</td><td>0.3</td><td>3</td></tr>
+<tr><td>191</td><td class="num-col">0.4680</td><td class="num-col">0.4264</td><td>maskN</td><td>maskN</td><td>0.001</td><td>0.2</td><td>5</td></tr>
+<tr><td>192</td><td class="num-col">0.4680</td><td class="num-col">0.4755</td><td>permE</td><td>permE</td><td>0.001</td><td>0.2</td><td>3</td></tr>
+<tr><td>193</td><td class="num-col">0.4676</td><td class="num-col">0.3962</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.1</td><td>4</td></tr>
+<tr><td>194</td><td class="num-col">0.4676</td><td class="num-col">0.4226</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.2</td><td>4</td></tr>
+<tr><td>195</td><td class="num-col">0.4668</td><td class="num-col">0.4226</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.2</td><td>5</td></tr>
+<tr><td>196</td><td class="num-col">0.4651</td><td class="num-col">0.4943</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.2</td><td>3</td></tr>
+<tr><td>197</td><td class="num-col">0.4626</td><td class="num-col">0.4868</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.1</td><td>5</td></tr>
+<tr><td>198</td><td class="num-col">0.4614</td><td class="num-col">0.4642</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.2</td><td>1</td></tr>
+<tr><td>199</td><td class="num-col">0.4576</td><td class="num-col">0.4226</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.1</td><td>1</td></tr>
+<tr><td>200</td><td class="num-col">0.4560</td><td class="num-col">0.4642</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.3</td><td>2</td></tr>
+<tr><td>201</td><td class="num-col">0.4556</td><td class="num-col">0.4226</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.1</td><td>4</td></tr>
+<tr><td>202</td><td class="num-col">0.4556</td><td class="num-col">0.4981</td><td>permE</td><td>permE</td><td>0.001</td><td>0.2</td><td>5</td></tr>
+<tr><td>203</td><td class="num-col">0.4539</td><td class="num-col">0.4491</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.1</td><td>2</td></tr>
+<tr><td>204</td><td class="num-col">0.4535</td><td class="num-col">0.4453</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.3</td><td>3</td></tr>
+<tr><td>205</td><td class="num-col">0.4531</td><td class="num-col">0.4038</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.3</td><td>4</td></tr>
+<tr><td>206</td><td class="num-col">0.4522</td><td class="num-col">0.4038</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.2</td><td>2</td></tr>
+<tr><td>207</td><td class="num-col">0.4510</td><td class="num-col">0.3623</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.3</td><td>2</td></tr>
+<tr><td>208</td><td class="num-col">0.4502</td><td class="num-col">0.4340</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.3</td><td>5</td></tr>
+<tr><td>209</td><td class="num-col">0.4498</td><td class="num-col">0.3887</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.2</td><td>2</td></tr>
+<tr><td>210</td><td class="num-col">0.4498</td><td class="num-col">0.4000</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.2</td><td>4</td></tr>
+<tr><td>211</td><td class="num-col">0.4498</td><td class="num-col">0.3547</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.2</td><td>5</td></tr>
+<tr><td>212</td><td class="num-col">0.4485</td><td class="num-col">0.4075</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.1</td><td>5</td></tr>
+<tr><td>213</td><td class="num-col">0.4481</td><td class="num-col">0.4226</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.1</td><td>4</td></tr>
+<tr><td>214</td><td class="num-col">0.4468</td><td class="num-col">0.4830</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.2</td><td>3</td></tr>
+<tr><td>215</td><td class="num-col">0.4452</td><td class="num-col">0.3774</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.3</td><td>5</td></tr>
+<tr><td>216</td><td class="num-col">0.4444</td><td class="num-col">0.4113</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.1</td><td>3</td></tr>
+<tr><td>217</td><td class="num-col">0.4439</td><td class="num-col">0.4226</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.3</td><td>2</td></tr>
+<tr><td>218</td><td class="num-col">0.4423</td><td class="num-col">0.3925</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.3</td><td>1</td></tr>
+<tr><td>219</td><td class="num-col">0.4419</td><td class="num-col">0.4491</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.1</td><td>3</td></tr>
+<tr><td>220</td><td class="num-col">0.4419</td><td class="num-col">0.4113</td><td>permE</td><td>permE</td><td>0.002</td><td>0.1</td><td>3</td></tr>
+<tr><td>221</td><td class="num-col">0.4419</td><td class="num-col">0.4189</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.3</td><td>3</td></tr>
+<tr><td>222</td><td class="num-col">0.4414</td><td class="num-col">0.4264</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.3</td><td>2</td></tr>
+<tr><td>223</td><td class="num-col">0.4402</td><td class="num-col">0.4226</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.1</td><td>2</td></tr>
+<tr><td>224</td><td class="num-col">0.4398</td><td class="num-col">0.4038</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.2</td><td>4</td></tr>
+<tr><td>225</td><td class="num-col">0.4390</td><td class="num-col">0.4226</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.2</td><td>2</td></tr>
+<tr><td>226</td><td class="num-col">0.4381</td><td class="num-col">0.4000</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.3</td><td>4</td></tr>
+<tr><td>227</td><td class="num-col">0.4356</td><td class="num-col">0.3925</td><td>dropN</td><td>permE</td><td>0.01</td><td>None</td><td>3</td></tr>
+<tr><td>228</td><td class="num-col">0.4331</td><td class="num-col">0.4151</td><td>permE</td><td>permE</td><td>0.002</td><td>0.2</td><td>5</td></tr>
+<tr><td>229</td><td class="num-col">0.4327</td><td class="num-col">0.4151</td><td>permE</td><td>permE</td><td>0.001</td><td>0.1</td><td>2</td></tr>
+<tr><td>230</td><td class="num-col">0.4327</td><td class="num-col">0.3887</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.3</td><td>4</td></tr>
+<tr><td>231</td><td class="num-col">0.4327</td><td class="num-col">0.4226</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.3</td><td>5</td></tr>
+<tr><td>232</td><td class="num-col">0.4294</td><td class="num-col">0.3849</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>5</td></tr>
+<tr><td>233</td><td class="num-col">0.4282</td><td class="num-col">0.4189</td><td>dropN</td><td>dropN</td><td>0.001</td><td>0.1</td><td>4</td></tr>
+<tr><td>234</td><td class="num-col">0.4282</td><td class="num-col">0.3811</td><td>permE</td><td>permE</td><td>0.001</td><td>0.2</td><td>2</td></tr>
+<tr><td>235</td><td class="num-col">0.4277</td><td class="num-col">0.4302</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.1</td><td>5</td></tr>
+<tr><td>236</td><td class="num-col">0.4244</td><td class="num-col">0.4151</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.3</td><td>2</td></tr>
+<tr><td>237</td><td class="num-col">0.4232</td><td class="num-col">0.3698</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.2</td><td>2</td></tr>
+<tr><td>238</td><td class="num-col">0.4232</td><td class="num-col">0.4189</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.2</td><td>4</td></tr>
+<tr><td>239</td><td class="num-col">0.4228</td><td class="num-col">0.4075</td><td>permE</td><td>permE</td><td>0.002</td><td>0.3</td><td>2</td></tr>
+<tr><td>240</td><td class="num-col">0.4223</td><td class="num-col">0.3887</td><td>maskN</td><td>dropN</td><td>0.001</td><td>0.2</td><td>2</td></tr>
+<tr><td>241</td><td class="num-col">0.4207</td><td class="num-col">0.3774</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.3</td><td>5</td></tr>
+<tr><td>242</td><td class="num-col">0.4203</td><td class="num-col">0.4038</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.3</td><td>3</td></tr>
+<tr><td>243</td><td class="num-col">0.4182</td><td class="num-col">0.3811</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.1</td><td>4</td></tr>
+<tr><td>244</td><td class="num-col">0.4157</td><td class="num-col">0.4189</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.2</td><td>2</td></tr>
+<tr><td>245</td><td class="num-col">0.4145</td><td class="num-col">0.3774</td><td>permE</td><td>permE</td><td>0.002</td><td>0.3</td><td>5</td></tr>
+<tr><td>246</td><td class="num-col">0.4140</td><td class="num-col">0.4000</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.1</td><td>5</td></tr>
+<tr><td>247</td><td class="num-col">0.4132</td><td class="num-col">0.3962</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.3</td><td>4</td></tr>
+<tr><td>248</td><td class="num-col">0.4132</td><td class="num-col">0.4189</td><td>permE</td><td>permE</td><td>0.002</td><td>0.3</td><td>3</td></tr>
+<tr><td>249</td><td class="num-col">0.4124</td><td class="num-col">0.3925</td><td>dropN</td><td>permE</td><td>0.01</td><td>None</td><td>5</td></tr>
+<tr><td>250</td><td class="num-col">0.4103</td><td class="num-col">0.4151</td><td>maskN</td><td>permE</td><td>0.001</td><td>0.1</td><td>5</td></tr>
+<tr><td>251</td><td class="num-col">0.4082</td><td class="num-col">0.3925</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.1</td><td>2</td></tr>
+<tr><td>252</td><td class="num-col">0.4082</td><td class="num-col">0.3660</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.1</td><td>2</td></tr>
+<tr><td>253</td><td class="num-col">0.4061</td><td class="num-col">0.4038</td><td>permE</td><td>maskN</td><td>0.001</td><td>0.3</td><td>5</td></tr>
+<tr><td>254</td><td class="num-col">0.4020</td><td class="num-col">0.4038</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.2</td><td>3</td></tr>
+<tr><td>255</td><td class="num-col">0.3995</td><td class="num-col">0.3887</td><td>maskN</td><td>permE</td><td>0.002</td><td>0.1</td><td>3</td></tr>
+<tr><td>256</td><td class="num-col">0.3987</td><td class="num-col">0.4302</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.1</td><td>3</td></tr>
+<tr><td>257</td><td class="num-col">0.3970</td><td class="num-col">0.3811</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.3</td><td>2</td></tr>
+<tr><td>258</td><td class="num-col">0.3962</td><td class="num-col">0.3623</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.1</td><td>2</td></tr>
+<tr><td>259</td><td class="num-col">0.3945</td><td class="num-col">0.3925</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.3</td><td>2</td></tr>
+<tr><td>260</td><td class="num-col">0.3945</td><td class="num-col">0.3660</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.3</td><td>2</td></tr>
+<tr><td>261</td><td class="num-col">0.3937</td><td class="num-col">0.3698</td><td>dropN</td><td>permE</td><td>0.01</td><td>None</td><td>2</td></tr>
+<tr><td>262</td><td class="num-col">0.3887</td><td class="num-col">0.3736</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.1</td><td>2</td></tr>
+<tr><td>263</td><td class="num-col">0.3883</td><td class="num-col">0.3509</td><td>dropN</td><td>permE</td><td>0.01</td><td>None</td><td>1</td></tr>
+<tr><td>264</td><td class="num-col">0.3875</td><td class="num-col">0.3547</td><td>dropN</td><td>maskN</td><td>0.002</td><td>0.2</td><td>5</td></tr>
+<tr><td>265</td><td class="num-col">0.3850</td><td class="num-col">0.3623</td><td>permE</td><td>permE</td><td>0.002</td><td>0.1</td><td>4</td></tr>
+<tr><td>266</td><td class="num-col">0.3829</td><td class="num-col">0.4226</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.2</td><td>5</td></tr>
+<tr><td>267</td><td class="num-col">0.3825</td><td class="num-col">0.3887</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.2</td><td>5</td></tr>
+<tr><td>268</td><td class="num-col">0.3796</td><td class="num-col">0.3472</td><td>dropN</td><td>permE</td><td>0.002</td><td>0.1</td><td>3</td></tr>
+<tr><td>269</td><td class="num-col">0.3796</td><td class="num-col">0.4000</td><td>maskN</td><td>maskN</td><td>0.002</td><td>0.1</td><td>3</td></tr>
+<tr><td>270</td><td class="num-col">0.3717</td><td class="num-col">0.3811</td><td>permE</td><td>maskN</td><td>0.002</td><td>0.3</td><td>2</td></tr>
+<tr><td>271</td><td class="num-col">0.3679</td><td class="num-col">0.3925</td><td>permE</td><td>permE</td><td>0.002</td><td>0.1</td><td>5</td></tr>
+<tr><td>272</td><td class="num-col">0.3663</td><td class="num-col">0.3736</td><td>maskN</td><td>dropN</td><td>0.002</td><td>0.3</td><td>3</td></tr>
+<tr><td>273</td><td class="num-col">0.3617</td><td class="num-col">0.3094</td><td>permE</td><td>dropN</td><td>0.002</td><td>0.1</td><td>2</td></tr>
+<tr><td>274</td><td class="num-col">0.3613</td><td class="num-col">0.3321</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.3</td><td>5</td></tr>
+<tr><td>275</td><td class="num-col">0.3401</td><td class="num-col">0.3472</td><td>dropN</td><td>dropN</td><td>0.002</td><td>0.2</td><td>5</td></tr>
+
+</tbody>
+</table>
+</div>
+</details>
+
+<div class="meta" style="margin-top:3rem; padding-top:1rem; border-top:1px solid var(--border);">
+  评估脚本: eval_pretrain.py &nbsp;|&nbsp; 预训练脚本: pretrain_5seed.sh (epochs=200, 无早停) &nbsp;|&nbsp; 数据: Cora 清洁图 few-shot split 1
+</div>
+
+</body>
+</html>

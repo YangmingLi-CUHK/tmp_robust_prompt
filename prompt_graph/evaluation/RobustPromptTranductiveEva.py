@@ -108,5 +108,49 @@ def RobustPromptTranductiveEva(data, mask, gnn, prompt, answering, num_class, de
     f1 = macro_f1(pred[mask], data.y[mask])
     # roc = auroc(out[mask], data.y[mask]) 
     # prc = auprc(out[mask], data.y[mask]) 
+
+
+
+
+
+    # === 7-Class Confusion Matrix 2026年7月2日 ===
+    # === 7-Class Confusion Matrix ===
+    y_true = data.y[mask].cpu()
+    y_pred = pred[mask].cpu()
+    n_class = num_class
+
+    print("─" * 50)
+    print("Per-Class Accuracy (test mask):")
+    for c in range(n_class):
+        c_mask = (y_true == c)
+        if c_mask.sum() > 0:
+            c_acc = (y_pred[c_mask] == c).sum().item() / c_mask.sum().item()
+            print(f"  Class {c}: {c_acc:.4f}  (n={c_mask.sum().item()})")
+
+    cm = torch.zeros(n_class, n_class, dtype=torch.int32)
+    for t, p in zip(y_true.tolist(), y_pred.tolist()):
+        cm[t, p] += 1
+
+    print(f"\nConfusion Matrix (rows=true, cols=pred):")
+    print("     " + "".join(f"  C{j}  " for j in range(n_class)))
+    for i in range(n_class):
+        row = f"  C{i} " + "".join(
+            f" \033[32m{cm[i,j]:5d}\033[0m  " if i == j else f" {cm[i,j]:5d}  "
+            for j in range(n_class)
+        )
+        print(row)
+
+    total_correct = cm.trace().item()
+    total = cm.sum().item()
+    print(f"\nOverall: {total_correct}/{total} correct ({100*total_correct/total:.1f}%)")
+    print("Top misclassifications:")
+    off_diag = sorted(
+        [(cm[i,j].item(), i, j) for i in range(n_class) for j in range(n_class) if i != j],
+        reverse=True
+    )
+    for count, true_c, pred_c in off_diag[:5]:
+        print(f"  True C{true_c} -> Pred C{pred_c}: {count}")
+    print("─" * 50)
+
     return acc.item(), f1.item() #, roc.item(),prc.item()
 

@@ -49,8 +49,10 @@ if device != 'cpu':
 # path_default = osp.expanduser('/home/songsh/MyPrompt/data_attack_fewshot/{}/default/'.format(args.dataset))
 # dataset      = AttackDataset_specified(root = path_default, name = 'Attack-' + args.dataset,  attackmethod = "Meta_Self", ptb_rate=0.0) # , transform=T.NormalizeFeatures()
 
-path       = attack_data_root()
-dataset    = get_dataset(path, 'Attack-' + args.dataset, "Meta_Self", 0.0)
+# 2026-06-19 修复：改为从 data_attack_fewshot 统一数据源加载 clean 底图
+# 原代码从 data_pyg/Attack_data 加载，该路径缺少 ptb=0.0 的 raw 文件 → FileNotFoundError
+path       = project_path('data_attack_fewshot', args.dataset, 'shot_{}'.format(args.shot_num), str(args.run_split))
+dataset    = AttackDataset_specified(root = path, name = 'Attack-' + args.dataset,  attackmethod = "Meta_Self", ptb_rate='0.0')
 
 
 data = dataset[0]  # Get the first graph object.
@@ -99,7 +101,12 @@ idx_test   = data.test_mask.nonzero().squeeze()
 idx_unlabeled = np.union1d(idx_val, idx_test)
 
 
-perturbations = int(args.ptb_rate * (adj.sum()//2))
+# 2026-07-04 fix: exclude self-loops from perturbation budget.
+# adj.sum() includes self-loops (2*E_undirected + N), which inflates the
+# effective ptb_rate by ~25.7% on Cora. Subtracting N then //2 gives the
+# true undirected edge count (5278 on Cora).
+edge_count = (adj.sum() - adj.shape[0]) // 2
+perturbations = int(args.ptb_rate * edge_count)
 adj, features, labels = preprocess(adj, features, labels, preprocess_adj=False)
 
 

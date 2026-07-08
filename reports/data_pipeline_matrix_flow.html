@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RobustPrompt-T 端到端数据矩阵维度流转全景</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card-bg: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-secondary: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --purple: #bc8cff;
+    --code-bg: #1c2128;
+    --dim-bg: #0d1117;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 20px 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+    font-size: 15px;
+  }
+  h1 { font-size: 2.2em; text-align:center; margin: 40px 0 10px; color: var(--accent); letter-spacing: -1px; }
+  .subtitle { text-align:center; color: var(--text-secondary); margin-bottom: 50px; font-size:1.05em; }
+
+  h2 {
+    font-size: 1.6em; margin: 60px 0 18px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--border); color: var(--accent2);
+  }
+  h3 { font-size:1.25em; margin:32px 0 12px; color: var(--purple); }
+  h4 { font-size:1.05em; margin:20px 0 8px; color: #e6edf3; }
+
+  .pipeline-overview {
+    display: flex; align-items:center; justify-content:center;
+    gap: 8px; flex-wrap: wrap; margin: 30px 0 40px;
+    font-size: 0.92em; font-weight:600;
+  }
+  .pipe-stage {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 18px; text-align: center;
+    min-width: 70px; white-space: nowrap;
+  }
+  .pipe-arrow { color: var(--text-secondary); font-size:1.3em; margin:0 4px; }
+
+  .matrix-box {
+    background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 20px; margin: 12px 0 18px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.94em; line-height: 1.8; overflow-x: auto;
+  }
+  .matrix-box .dim { color: var(--accent2); font-weight: bold; }
+  .matrix-box .shape { color: var(--accent); }
+  .matrix-box .op { color: var(--purple); }
+  .matrix-box .comment { color: var(--text-secondary); font-style: italic; }
+  .matrix-box .loss { color: var(--danger); }
+
+  .flow-card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 28px; margin: 24px 0;
+  }
+  .flow-card h3 { margin-top: 0; color: var(--accent2); border:none; }
+  .flow-card .file-ref {
+    font-size:0.8em; color: var(--text-secondary); margin-bottom:16px;
+  }
+
+  table.dims { width:100%; border-collapse: collapse; margin: 16px 0; font-size:0.92em; }
+  table.dims th { background: var(--code-bg); color: var(--accent); text-align:left; padding: 8px 12px; border: 1px solid var(--border); }
+  table.dims td { padding: 8px 12px; border: 1px solid var(--border); font-family: 'Cascadia Code','Consolas',monospace; font-size:0.9em; }
+  table.dims tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+
+  .note {
+    background: rgba(88,166,255,0.08); border-left: 3px solid var(--accent);
+    padding: 12px 18px; margin: 16px 0; border-radius: 0 6px 6px 0;
+    font-size: 0.93em;
+  }
+  .note-warn {
+    background: rgba(210,153,34,0.08); border-left-color: var(--warn);
+  }
+  .note-danger {
+    background: rgba(248,81,73,0.08); border-left-color: var(--danger);
+  }
+
+  code { background: var(--code-bg); padding: 1px 6px; border-radius: 3px; font-family:'Cascadia Code','Consolas',monospace; font-size:0.9em; }
+  .highlight { background: rgba(88,166,255,0.15); padding: 2px 8px; border-radius: 3px; }
+
+  sup { font-size:0.7em; color: var(--text-secondary); }
+
+  .two-col { display:grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  .tag {
+    display:inline-block; font-size:0.75em; padding:2px 8px; border-radius:10px;
+    margin-left: 6px; font-weight:600;
+  }
+  .tag-freeze { background:rgba(248,81,73,0.2); color:var(--danger); }
+  .tag-train { background:rgba(63,185,80,0.2); color:var(--accent2); }
+</style>
+</head>
+<body>
+
+<h1>RobustPrompt-T 端到端数据流</h1>
+<p class="subtitle">
+  从原始图数据 → GCL 预训练 → 3-Filter 节点分选 → Prompt 注入 → τ-Tune 边剪枝 → 分类输出<br>
+  每一步的矩阵维度精确追踪（基于 <code>prompt_graph/</code> 实际代码）
+</p>
+
+<!-- ========== OVERVIEW ========== -->
+<h2>零、全景流水线</h2>
+<div class="pipeline-overview">
+  <div class="pipe-stage">Cora 原图<br><span style="color:var(--accent)">2708×1433</span></div>
+  <span class="pipe-arrow">→</span>
+  <div class="pipe-stage">METIS 分簇<br><span style="color:var(--accent)">200 子图</span></div>
+  <span class="pipe-arrow">→</span>
+  <div class="pipe-stage">GraphCL 预训练<br><span style="color:var(--accent)">GCN 1433→128</span></div>
+  <span class="pipe-arrow">→</span>
+  <div class="pipe-stage">冻结 Backbone<br><span class="tag tag-freeze">frozen</span></div>
+  <span class="pipe-arrow">→</span>
+  <div class="pipe-stage">3 Filter 分选<br><span style="color:var(--accent)">sim/deg/ood</span></div>
+  <span class="pipe-arrow">→</span>
+  <div class="pipe-stage">Prompt 注入<br><span style="color:var(--accent)">+1433-dim</span></div>
+  <span class="pipe-arrow">→</span>
+  <div class="pipe-stage">GNN₁ Forward<br><span style="color:var(--accent)">2708×128</span></div>
+  <span class="pipe-arrow">→</span>
+  <div class="pipe-stage">τ-Tune 剪枝<br><span style="color:var(--warn)">去低 cos 边</span></div>
+  <span class="pipe-arrow">→</span>
+  <div class="pipe-stage">GNN₂ Forward<br><span style="color:var(--accent)">2708×128</span></div>
+  <span class="pipe-arrow">→</span>
+  <div class="pipe-stage">Linear 头<br><span style="color:var(--accent)">2708×7</span></div>
+</div>
+
+<!-- ========== PHASE 1: DATA LOADING ========== -->
+<h2>一、原始图数据加载</h2>
+
+<div class="flow-card">
+  <h3>1.1 数据源头</h3>
+  <div class="file-ref">代码: <code>prompt_graph/data/load4data.py</code> → <code>load4cora_pretrain()</code> / <code>load4node_attack_specified_shot_index()</code></div>
+
+  <p>以 <strong>Cora</strong> 为例，数据从 <code>data_attack_fewshot/Cora/shot_5/1/</code> 加载，该类数据集同时支持干净图（<code>ptb_rate=0.0</code>）和受攻击图（<code>Meta_Self-0.05</code> 等）：</p>
+
+  <div class="matrix-box">
+<span class="comment"># === 原始 Cora 图（单张 Data 对象）===</span>
+graph = Data(
+    <span class="dim">x</span>          = Tensor <span class="shape">[2708, 1433]</span>   <span class="comment"># 2708 个节点，每节点 1433 维词袋特征 (L1归一化)</span>
+    <span class="dim">edge_index</span> = Tensor <span class="shape">[2, 10556]</span>    <span class="comment"># 10556 条无向边（含自环已移除）</span>
+    <span class="dim">y</span>          = Tensor <span class="shape">[2708]</span>        <span class="comment"># 节点类别标签 (0~6，共 7 类)</span>
+    <span class="dim">train_mask</span> = Tensor <span class="shape">[2708]</span>        <span class="comment"># Bool: few-shot 训练节点 ≈ 7×5=35 个</span>
+    <span class="dim">val_mask</span>   = Tensor <span class="shape">[2708]</span>        <span class="comment"># Bool: 验证节点</span>
+    <span class="dim">test_mask</span>  = Tensor <span class="shape">[2708]</span>        <span class="comment"># Bool: 测试节点</span>
+)
+<span class="dim">num_features</span> = <span class="shape">1433</span>
+<span class="dim">num_classes</span>  = <span class="shape">7</span>
+  </div>
+
+  <p><strong>受攻击时</strong>（如 <code>Meta_Self-0.05</code>）：<code>edge_index</code> 中 5% 的边被 Metattack 污染，其余保持不变。特征 <code>x</code> 与标签 <code>y</code> 不受攻击影响。</p>
+</div>
+
+<!-- ========== PHASE 2: GCL PRETRAINING ========== -->
+<h2>二、GCL 预训练 → 产出 Backbone 权重</h2>
+
+<div class="flow-card">
+  <h3>2.1 数据准备：全图 → METIS 子图分簇</h3>
+  <div class="file-ref">代码: <code>prompt_graph/data/load4data.py:322</code> → <code>NodePretrain()</code>，调用 <code>torch_geometric.loader.ClusterData</code></div>
+
+  <p>Cora 全图通过 METIS 算法切分为 <strong>200 个连通子图</strong>（大致均匀，每子图平均 ~13.5 节点）：</p>
+
+  <div class="matrix-box">
+<span class="comment"># === 全图 → 200 子图列表 ===</span>
+<span class="dim">graph_list</span> = [Data_0, Data_1, ..., Data_199]
+<span class="comment"># 每个子图 Data_i:</span>
+<span class="comment">#   x_i          ∈ R^(n_i × 1433)     n_i ≈ 13~14 (METIS 平衡划分)</span>
+<span class="comment">#   edge_index_i ∈ R^(2 × e_i)        e_i 为子图内边数</span>
+<span class="comment">#   y_i          ∈ R^n_i              (子图保留节点标签，但 GraphCL 不使用)</span>
+<span class="comment">#   Σ n_i = 2708, Σ e_i ≈ 10556 (去自环后)</span>
+  </div>
+</div>
+
+<div class="flow-card">
+  <h3>2.2 GraphCL 对比学习：双视图增强</h3>
+  <div class="file-ref">代码: <code>prompt_graph/pretrain/GraphCL.py:85</code> → <code>train_graphcl()</code>；增强: <code>prompt_graph/utils/perturbation.py</code></div>
+
+  <p>每个子图生成两个随机增强视图（配置文件：<code>aug1='permE'</code> + <code>aug2='dropN'</code>，<code>aug_ratio=0.2</code> 或 <code>0.3</code>）：</p>
+
+  <div class="two-col">
+    <div class="matrix-box">
+<span class="comment"># View 1: permE (边扰动，ratio=0.2)</span>
+<span class="comment"># 随机删除 20% 的边</span>
+<span class="dim">x_view1</span>       <span class="shape">[n_i, 1433]</span>     <span class="comment"># 节点特征不变</span>
+<span class="dim">edge_index_1</span>  <span class="shape">[2, e_i×0.8]</span>   <span class="comment"># 保留 80% 边</span>
+    </div>
+    <div class="matrix-box">
+<span class="comment"># View 2: dropN (节点丢弃，ratio=0.2)</span>
+<span class="comment"># 随机丢弃 20% 节点及相连边</span>
+<span class="dim">x_view2</span>       <span class="shape">[n_i×0.8, 1433]</span> <span class="comment"># 保留 80% 节点</span>
+<span class="dim">edge_index_2</span>  <span class="shape">[2, e_i']</span>       <span class="comment"># 仅保留未丢弃节点间边</span>
+    </div>
+  </div>
+
+  <p>将 200 子图 × 2 视图分别装入 DataLoader（batch_size=10）：</p>
+  <div class="matrix-box">
+<span class="comment"># 每个 batch: ~10 子图拼接</span>
+<span class="dim">batch1.x</span>           <span class="shape">[N_batch, 1433]</span>    <span class="comment"># N_batch = Σ n_i ≈ 130~140</span>
+<span class="dim">batch1.edge_index</span>  <span class="shape">[2, E_batch]</span>       <span class="comment"># E_batch = Σ e_i</span>
+<span class="dim">batch1.batch</span>        <span class="shape">[N_batch]</span>          <span class="comment"># 节点→子图归属索引</span>
+  </div>
+</div>
+
+<div class="flow-card">
+  <h3>2.3 GNN Encoder + Projection Head</h3>
+  <div class="file-ref">代码: <code>prompt_graph/pretrain/GraphCL.py:19</code> → <code>__init__()</code>；GCN: <code>prompt_graph/model/GCN.py</code></div>
+
+  <div class="matrix-box">
+<span class="comment"># === GCN Backbone (2层, hid_dim=128) ===</span>
+<span class="dim">Conv1</span>: GCNConv(<span class="shape">1433</span> → <span class="shape">128</span>)    <span class="comment"># input_dim → hid_dim</span>
+<span class="dim">Conv2</span>: GCNConv(<span class="shape">128</span>  → <span class="shape">128</span>)    <span class="comment"># hid_dim → hid_dim (out_dim=hid_dim when unspecified)</span>
+
+<span class="comment"># === GNN Forward (以 batch 为单位) ===</span>
+<span class="dim">h0</span>   <span class="shape">[N_batch, 1433]</span>         <span class="comment"># 输入特征</span>
+  <span class="op">↓</span>  Conv1(h0, edge_index) + ReLU + Dropout(0.0)
+<span class="dim">h1</span>   <span class="shape">[N_batch, 128]</span>          <span class="comment"># 第 1 层输出（默认无 dropout）</span>
+  <span class="op">↓</span>  Conv2(h1, edge_index)
+<span class="dim">h2</span>   <span class="shape">[N_batch, 128]</span>          <span class="comment"># 第 2 层输出 = node embeddings (JK="last")</span>
+  <span class="op">↓</span>  global_mean_pool(h2, batch)
+<span class="dim">graph_emb</span>  <span class="shape">[batch_size, 128]</span>  <span class="comment"># 每个子图一个 128-dim 向量</span>
+
+<span class="comment"># === Projection Head ===</span>
+<span class="dim">z</span> = Linear₁(128→128) → ReLU → Linear₂(128→128)
+<span class="dim">z</span>  <span class="shape">[batch_size, 128]</span>      <span class="comment"># 投影后的图表示</span>
+  </div>
+
+  <table class="dims">
+    <tr><th>步骤</th><th>输入维度</th><th>操作</th><th>输出维度</th></tr>
+    <tr><td>Batch 组装</td><td>200 × [n_i, 1433]</td><td>DataLoader(batch=10)</td><td>[N_batch, 1433] × 20 batches/epoch</td></tr>
+    <tr><td>GCN Layer 1</td><td>[N, 1433] + edge_index</td><td>GCNConv(1433,128) + ReLU</td><td>[N, 128]</td></tr>
+    <tr><td>GCN Layer 2</td><td>[N, 128] + edge_index</td><td>GCNConv(128,128)</td><td>[N, 128]</td></tr>
+    <tr><td>图池化</td><td>[N, 128] + batch_ids</td><td>global_mean_pool</td><td>[10, 128]</td></tr>
+    <tr><td>投影头</td><td>[10, 128]</td><td>MLP 128→128→128</td><td>[10, 128]</td></tr>
+  </table>
+</div>
+
+<div class="flow-card">
+  <h3>2.4 对比损失与权重保存</h3>
+  <div class="file-ref">代码: <code>prompt_graph/pretrain/GraphCL.py:66</code> → <code>loss_cl()</code></div>
+
+  <div class="matrix-box">
+<span class="comment"># === InfoNCE 对比损失 (temperature T=0.1) ===</span>
+<span class="dim">z1</span>, <span class="dim">z2</span>  <span class="shape">[batch_size, 128]</span>     <span class="comment"># 同一子图的两个增强视图的表示</span>
+<span class="dim">sim_matrix</span>  = exp( cos(z1, z2) / 0.1 )    <span class="shape">[batch, batch]</span>
+<span class="loss">loss</span>  = -log( pos_sim / Σ sim )            <span class="comment"># 标准 InfoNCE</span>
+
+<span class="comment"># === 训练完成：仅保存 GNN backbone 权重 ===</span>
+torch.save(self.gnn.state_dict(),
+    <span class="shape">"./pre_trained_model_raw/Cora.GraphCL.TransformerConv.<span class="dim">128</span>_hidden_dim.aug1_permE.aug2_dropN.lr_0.001.pth"</span>)
+<span class="comment"># 注意：Projection Head 权重不保存，下游仅复用 GNN Backbone</span>
+  </div>
+</div>
+
+<!-- ========== PHASE 3: PROMPT LEARNING ========== -->
+<h2>三、下游任务：RobustPrompt-T 提示学习</h2>
+
+<div class="flow-card">
+  <h3>3.1 初始化：加载 Backbone + 构建 Prompt</h3>
+  <div class="file-ref">代码: <code>prompt_graph/tasker/task.py:274</code> → <code>initialize_gnn()</code> + <code>initialize_prompt()</code></div>
+
+  <table class="dims">
+    <tr><th>组件</th><th>维度</th><th>状态</th><th>说明</th></tr>
+    <tr>
+      <td>GNN Backbone</td>
+      <td>Conv₁(1433,128) + Conv₂(128,128)</td>
+      <td><span class="tag tag-freeze">frozen</span></td>
+      <td>从预训练 .pth 加载权重，不参与梯度更新</td>
+    </tr>
+    <tr>
+      <td>prompt_sim_pt</td>
+      <td>[1, 1433] <em>或 p_plus: [20, 1433]</em></td>
+      <td><span class="tag tag-train">trainable</span></td>
+      <td>邻居相似度低的节点防御 prompt</td>
+    </tr>
+    <tr>
+      <td>prompt_degree_pt</td>
+      <td>[1, 1433] <em>或 p_plus: [20, 1433]</em></td>
+      <td><span class="tag tag-train">trainable</span></td>
+      <td>低度节点防御 prompt</td>
+    </tr>
+    <tr>
+      <td>prompt_out_detect_pt</td>
+      <td>[1, 1433] <em>或 p_plus: [20, 1433]</em></td>
+      <td><span class="tag tag-train">trainable</span></td>
+      <td>OOD 边端点防御 prompt</td>
+    </tr>
+    <tr>
+      <td>prompt_other_pt</td>
+      <td>[1, 1433] <em>或 p_plus: [20, 1433]</em></td>
+      <td><span class="tag tag-train">trainable</span></td>
+      <td>其余未被覆盖节点的增强 prompt</td>
+    </tr>
+    <tr>
+      <td>sim_pt_a / degree_pt_a / …</td>
+      <td>Linear(1433, 20)</td>
+      <td><span class="tag tag-train">trainable</span></td>
+      <td>p_plus 模式：学习每个节点的 token 组合权重</td>
+    </tr>
+    <tr>
+      <td>attention_layer</td>
+      <td>MultiheadAttention(128, heads=1)</td>
+      <td><span class="tag tag-train">trainable</span></td>
+      <td>多头注意力融合 4 种 defense prompt</td>
+    </tr>
+    <tr>
+      <td>readout_token</td>
+      <td>[1, 1, 128]</td>
+      <td><span class="tag tag-train">trainable</span></td>
+      <td>readout-token 模式：汇聚各 defense prompt 信号</td>
+    </tr>
+    <tr>
+      <td>answering head</td>
+      <td>Linear(128, 7)</td>
+      <td><span class="tag tag-train">trainable</span></td>
+      <td>分类头</td>
+    </tr>
+  </table>
+</div>
+
+<div class="flow-card">
+  <h3>3.2 核心步骤 A：add_muti_pt — 三 Filter 分选 + Prompt 注入</h3>
+  <div class="file-ref">代码: <code>prompt_graph/prompt/RobustPrompt_T.py:154</code> → <code>add_muti_pt()</code></div>
+
+  <p>该函数是整个 RobustPrompt-T 的<strong>核心防御机制</strong>。它在节点特征空间中根据三种标准识别易受攻击的节点，并注入对应的可学习 prompt 向量。</p>
+
+  <h4>3.2.1 预备：构建 Prompt 记录矩阵</h4>
+  <div class="matrix-box">
+<span class="comment"># === 初始化 multi-prompt 记录张量 ===</span>
+<span class="dim">g_mutiftpt_record</span>  = zeros <span class="shape">[2708, 4 × 1433]</span> = zeros <span class="shape">[2708, 5732]</span>
+<span class="comment"># 4 种 prompt 各占 1433 维连续区间：</span>
+<span class="comment">#   columns [0,    1433)  → sim_pt 槽位</span>
+<span class="comment">#   columns [1433, 2866)  → degree_pt 槽位</span>
+<span class="comment">#   columns [2866, 4299)  → out_detect_pt 槽位</span>
+<span class="comment">#   columns [4299, 5732)  → other_pt 槽位</span>
+  </div>
+
+  <h4>3.2.2 Filter ① — sim_pt（邻居相似度 Filter）</h4>
+  <div class="matrix-box">
+<span class="comment"># === Step 1: L2 归一化特征 ===</span>
+<span class="dim">x_norm</span> <span class="shape">[2708, 1433]</span>    = x / ||x||₂
+
+<span class="comment"># === Step 2: 逐边 cosine 相似度 ===</span>
+<span class="dim">e</span> <span class="shape">[|E|, 1]</span>             = Σ_d (x_norm[u,d] · x_norm[v,d])  for each edge (u,v)
+                         <span class="comment"># 每对邻居节点的原始特征相似度</span>
+
+<span class="comment"># === Step 3: 逐节点平均邻居相似度 ===</span>
+<span class="dim">c</span> <span class="shape">[2708, 1]</span>            = scatter_add(e, col_index)        <span class="comment"># 聚合每条边到目标节点</span>
+<span class="dim">deg</span> <span class="shape">[2708, 1]</span>           = degree(col)                     <span class="comment"># 各节点度数</span>
+<span class="dim">csim</span> <span class="shape">[2708]</span>             = c / deg                          <span class="comment"># 平均邻居 cosine 相似度</span>
+                         <span class="comment"># 值域 [-1, 1]，低值 → 邻居特征差异大 → 可疑</span>
+
+<span class="comment"># === Step 4: 阈值分选（如 sim_threshold=0.4）===</span>
+<span class="dim">node_use_sim_pt</span>        = { i | csim[i] ≤ 0.4 }
+                         <span class="comment"># 选出的节点数通常为几十到几百，取决于阈值和图结构</span>
+
+<span class="comment"># === Step 5: p_plus 动态 token 组合（可选）===</span>
+<span class="comment"># p_plus=True 时，对每个选中节点学习加权组合：</span>
+<span class="dim">x_selected</span> <span class="shape">[|S_sim|, 1433]</span>
+  <span class="op">↓</span> sim_pt_a: Linear(1433, 20)       <span class="comment"># 为每个节点生成 20-dim 分数</span>
+<span class="dim">score</span> <span class="shape">[|S_sim|, 20]</span>
+  <span class="op">↓</span> softmax(dim=1)                   <span class="comment"># 归一化为组合权重</span>
+<span class="dim">sim_weight</span> <span class="shape">[|S_sim|, 20]</span>
+  <span class="op">↓</span> sim_weight × sim_pt_list[20,1433] <span class="comment"># 加权组合 20 个 token</span>
+<span class="dim">prompt_sim_pt</span> <span class="shape">[|S_sim|, 1433]</span>   <span class="comment"># 每节点定制化的 prompt 向量</span>
+
+<span class="comment"># p_plus=False 时，所有选中节点共享同一个 prompt 向量：</span>
+<span class="dim">prompt_sim_pt</span> <span class="shape">[1, 1433]</span>          <span class="comment"># 广播到所有选中节点</span>
+
+<span class="comment"># === Step 6: 写入记录矩阵 ===</span>
+<span class="dim">g_mutiftpt_record</span>[node_use_sim_pt, <span class="shape">0:1433</span>] = prompt_sim_pt
+  </div>
+
+  <h4>3.2.3 Filter ② — degree_pt（低度节点 Filter）</h4>
+  <div class="matrix-box">
+<span class="comment"># === Step 1: 计算节点度数 ===</span>
+<span class="dim">deg</span> <span class="shape">[2708]</span>  = degree(col, num_nodes=2708)       <span class="comment"># 每节点入度</span>
+
+<span class="comment"># === Step 2: 阈值分选（如 degree_threshold=2）===</span>
+<span class="dim">node_use_degree_pt</span>  = { i | deg[i] ≤ 2 }
+                       <span class="comment"># 低度节点：信息少、易受攻击影响</span>
+
+<span class="comment"># p_plus 同理：degree_pt_a(Linear 1433→20) → softmax → × degree_pt_list[20,1433]</span>
+<span class="dim">prompt_degree_pt</span>  → 写入 record[:, <span class="shape">1433:2866</span>]
+  </div>
+
+  <h4>3.2.4 Filter ③ — out_detect_pt（OOD 边检测 Filter）</h4>
+  <div class="matrix-box">
+<span class="comment"># === Step 1: 逐边 cosine 相似度 ===</span>
+<span class="dim">x_norm</span> <span class="shape">[2708, 1433]</span>   = x / (||x||₂ + 1e-12)
+<span class="dim">e</span> <span class="shape">[|E|]</span>               = Σ_d (x_norm[u,d] · x_norm[v,d])  for each edge (u,v)
+
+<span class="comment"># === Step 2: 标记 OOD 边 ===</span>
+<span class="dim">ood_edge_mask</span> <span class="shape">[|E|]</span>   = e ≤ ood_threshold   <span class="comment"># 如 0.5</span>
+<span class="comment"># ====== OOD 边：两端节点原始特征差异大，很可能是攻击注入的边 ======</span>
+<span class="dim">ood_edges</span> <span class="shape">[2, |E_ood|]</span>  = edge_index[:, ood_edge_mask]
+
+<span class="comment"># === Step 3: 收集 OOD 边端点 ===</span>
+<span class="dim">node_use_ood_pt</span>  = unique( ood_edges[0] ∪ ood_edges[1] )
+                   <span class="comment"># 这些节点参与了"可疑边"，需要特别保护</span>
+
+<span class="comment"># p_plus 同理 → prompt_out_detect_pt 写入 record[:, 2866:4299]</span>
+  </div>
+
+  <h4>3.2.5 Filter ④ — other_pt（增强其余节点）</h4>
+  <div class="matrix-box">
+<span class="comment"># === 取所有未被子类型 prompt 覆盖的节点 ===</span>
+<span class="dim">all_pt_nodes</span>     = unique( node_use_sim_pt ∪ node_use_degree_pt ∪ node_use_ood_pt )
+<span class="dim">node_use_other_pt</span> = {0..2707} \ all_pt_nodes
+                   <span class="comment"># mode='all': 取全部其余节点</span>
+                   <span class="comment"># mode='random-0.2': 随机取 20%</span>
+
+<span class="comment"># p_plus 同理 → prompt_other_pt 写入 record[:, 4299:5732]</span>
+  </div>
+</div>
+
+<div class="flow-card">
+  <h3>3.3 核心步骤 B：Self-Attention 融合 → 最终 Prompted Feature</h3>
+  <div class="file-ref">代码: <code>prompt_graph/prompt/RobustPrompt_T.py:283</code> → 融合部分</div>
+
+  <div class="matrix-box">
+<span class="comment"># === 重塑：展平 → 三维（节点 × prompt类型 × 特征）===</span>
+<span class="dim">g_mutiftpt_record</span> <span class="shape">[2708, 5732]</span>
+  <span class="op">↓</span> .reshape(2708, 4, 1433)
+<span class="dim">g_mutiftpt_record</span> <span class="shape">[2708, 4, 1433]</span>      <span class="comment"># 4 = {sim, degree, ood, other}</span>
+
+<span class="comment"># ============ 方案 A: Self-Attention 融合（use_attention=True）============</span>
+<span class="comment"># 1. 拼接 readout_token（可学习汇聚标记）</span>
+<span class="dim">readout_token</span> <span class="shape">[1, 1, 1433]</span>              <span class="comment"># 可学习参数</span>
+  <span class="op">↓</span> .expand(2708, 1, 1433)
+<span class="dim">concat_input</span> <span class="shape">[2708, 5, 1433]</span>           <span class="comment"># [readout, sim_pt, degree_pt, ood_pt, other_pt]</span>
+
+<span class="comment"># 2. 构建 key_padding_mask（标记哪些 prompt 槽位为空）</span>
+<span class="dim">key_padding_mask</span> <span class="shape">[2708, 5]</span>             <span class="comment"># True = 该槽位全为零（无 prompt）</span>
+
+<span class="comment"># 3. MultiheadAttention (embed_dim=1433, heads=1, batch_first=True)</span>
+<span class="dim">attn_output</span> <span class="shape">[2708, 5, 1433]</span>            <span class="comment"># Q=K=V=concat_input</span>
+<span class="dim">attn_weights</span> <span class="shape">[2708, 5, 5]</span>             <span class="comment"># 注意力权重矩阵</span>
+
+<span class="comment"># 4. 取 readout 位的输出 → 各节点融合后的 prompt</span>
+<span class="dim">g_mutiftpt_final_output</span> <span class="shape">[2708, 1433]</span>   <span class="comment"># = attn_output[:, 0, :]</span>
+
+<span class="comment"># 5. 没有 prompt 的节点 → 零向量（不污染特征）</span>
+<span class="dim">node_use_no_pt</span>  → g_mutiftpt_final_output[i] = 0
+
+<span class="comment"># ============ 方案 B: 平均融合（use_attention=False）============</span>
+<span class="dim">wo_padding_mask</span> <span class="shape">[2708, 4, 1]</span>   <span class="comment"># 非零 prompt 标记</span>
+<span class="dim">node_prompt_len</span> <span class="shape">[2708, 1]</span>       <span class="comment"># 每节点拥有的 prompt 数量 (0~4)</span>
+<span class="dim">g_mutiftpt_final_output</span> <span class="shape">[2708, 1433]</span>
+    = sum(record, dim=1) / node_prompt_len     <span class="comment"># 简单平均</span>
+    = 0                                         <span class="comment"># 无 prompt 节点</span>
+  </div>
+
+  <h4>最终 Prompted 特征</h4>
+  <div class="matrix-box">
+<span class="comment"># === 残差连接：原始特征 + 融合 prompt ===</span>
+<span class="dim">g_mutiftpt_final_x</span>  = g.x + g_mutiftpt_final_output
+                      = <span class="shape">[2708, 1433]</span> + <span class="shape">[2708, 1433]</span>
+                      = <span class="shape">[2708, 1433]</span>
+<span class="comment"># 注意：维度不变！Prompt 并非拼接，而是加性注入（残差形式）</span>
+<span class="comment"># 这保证了 Backbone GNN 的 input_dim 仍然是 1433，无需适配</span>
+  </div>
+</div>
+
+<div class="flow-card">
+  <h3>3.4 核心步骤 C：τ-Tune 训练流程（两阶段 GNN Forward）</h3>
+  <div class="file-ref">代码: <code>prompt_graph/prompt/RobustPrompt_T.py:327</code> → <code>Tune()</code></div>
+
+  <div class="note">
+    <strong>关键设计：</strong>训练时使用两阶段 GNN Forward（先全图 embedding → τ-tune 剪枝 → 再 forward），
+    推理时只做一次 forward 不剪枝。这与 GPromptShield 论文 Equation 15 对齐。
+  </div>
+
+  <div class="matrix-box">
+<span class="comment"># ============== 第一阶段：Prompted GNN Forward（全边）==============</span>
+<span class="comment"># 输入：已注入 prompt 的特征 + 原始边集</span>
+<span class="dim">node_emb_intermediate</span> <span class="shape">[2708, 128]</span>
+    = GNN( g_mutiftpt_final_x <span class="shape">[2708,1433]</span>, edge_index <span class="shape">[2, |E|]</span> )
+
+<span class="comment"># → GCNConv₁(1433→128) + ReLU + Dropout</span>
+<span class="comment">#   h₁ ∈ [2708, 128]</span>
+<span class="comment"># → GCNConv₂(128→128)</span>
+<span class="comment">#   node_emb_intermediate ∈ [2708, 128]</span>
+
+<span class="comment"># ============== τ-Tune 边剪枝 ==============</span>
+<span class="comment"># 基于中间 embedding 逐边计算 cosine 相似度</span>
+<span class="dim">edge_sim_intermediate</span> <span class="shape">[|E|]</span>
+    = cos( node_emb_intermediate[u], node_emb_intermediate[v] )  for each (u,v)∈E
+
+<span class="comment"># 阈值过滤：保留相似度 ≥ pt_threshold 的边</span>
+<span class="dim">tune_keep_mask</span> <span class="shape">[|E|]</span>      = edge_sim_intermediate ≥ 0.5   <span class="comment"># 默认 τ_tune=0.5</span>
+<span class="dim">tuned_edge_index</span> <span class="shape">[2, |E'|]</span>  = edge_index[:, tune_keep_mask]
+                                <span class="comment"># |E'| ≤ |E|，典型保留 60%-95% 边</span>
+
+<span class="comment"># ============== 第二阶段：剪枝后 GNN Forward ==============</span>
+<span class="dim">tuned_g</span>  = Data(x=g_mutiftpt_final_x <span class="shape">[2708,1433]</span>, edge_index=tuned_edge_index <span class="shape">[2,|E'|]</span>)
+<span class="dim">node_emb</span> <span class="shape">[2708, 128]</span>  = GNN( tuned_g.x, tuned_g.edge_index )  <span class="comment"># 第二次 forward</span>
+  </div>
+
+  <div class="note note-warn">
+    <strong>τ_tune 的效果：</strong>图结构扰动（Metattack）注入的边往往连接特征不相似的节点。
+    经过 prompt 增强后，这些"坏边"两端节点 embedding 的 cosine 相似度更低，
+    更容易在 τ_tune 阶段被剪除。两次 GNN forward 的代价是训练时间约 1.8×。
+  </div>
+</div>
+
+<div class="flow-card">
+  <h3>3.5 分类与复合损失函数</h3>
+  <div class="file-ref">代码: <code>prompt_graph/prompt/RobustPrompt_T.py:377</code> → loss 计算</div>
+
+  <div class="matrix-box">
+<span class="comment"># ============== 分类输出 ==============</span>
+<span class="dim">out</span> <span class="shape">[2708, 7]</span>  = answering( node_emb <span class="shape">[2708, 128]</span> )
+               <span class="comment"># Linear(128, 7)，7 类 logits</span>
+
+<span class="comment"># ============== 总损失 = 四部分加权 ==============</span>
+
+<span class="comment"># ① CE Loss（分类损失，仅 train_mask 节点）</span>
+<span class="loss">L_ce</span>   = CrossEntropyLoss( out[train_mask], y[train_mask] )
+        <span class="comment"># train_mask ≈ 35 个 few-shot 节点</span>
+
+<span class="comment"># ② MSE Loss（平滑性正则 L_s，论文 Eq. 16）</span>
+<span class="loss">L_mse</span>  = MSE( node_emb[u], node_emb[v] )   for (u,v) ∈ tuned_edge_index
+        <span class="comment"># 鼓励剪枝后相连节点的 embedding 接近——同质性假设</span>
+        weight: <span class="dim">weight_mse</span> (默认 0.1)
+
+<span class="comment"># ③ KL Loss（提示分布对齐）</span>
+<span class="loss">L_pt</span>   = Σ_{pt ∈ {sim,degree,ood}} KL( softmax(mean(emb[pt_nodes])/T),
+                                          softmax(mean(emb[non_pt_nodes])/T) )
+        <span class="comment"># 鼓励每种 defense prompt 覆盖的节点，embedding 分布与非覆盖节点一致</span>
+        <span class="comment"># 前提：两类节点均非空</span>
+        weight: <span class="dim">weight_kl</span> (默认 0.3), T: <span class="dim">temperature</span> (默认 1.0)
+
+<span class="comment"># ④ Constraint Loss（Prompt 正交约束）</span>
+<span class="loss">L_constraint</span> = || M(prompts) - overlap_matrix ||₂
+        <span class="comment"># 仅当 p_plus=False 且 ≥2 种 prompt 时生效</span>
+        <span class="comment"># M 为 prompt 向量间的 cosine/dot 相似度矩阵 [K, K]</span>
+        <span class="comment"># overlap_matrix 为节点集之间的 Jaccard 重叠度</span>
+        <span class="comment"># 目标：prompt 之间相似度 = 它们覆盖节点集的重叠度</span>
+        weight: <span class="dim">weight_constraint</span> (默认 0.2)
+
+<span class="comment"># ============== 梯度裁剪 & 优化 ==============</span>
+clip_grad_norm_(prompt.params, max_norm=1.0)
+clip_grad_norm_(answering.params, max_norm=1.0)
+optimizer.step()  <span class="comment"># Adam, lr=prompt_lr (默认 0.01), 更新 prompt + answering</span>
+  </div>
+</div>
+
+<!-- ========== PHASE 4: INFERENCE ========== -->
+<h2>四、推理阶段</h2>
+
+<div class="flow-card">
+  <h3>4.1 推理流程（简化，无剪枝）</h3>
+  <div class="file-ref">代码: <code>prompt_graph/evaluation/RobustPromptTranductiveEva.py:31</code></div>
+
+  <div class="note">
+    <strong>论文对齐：推理时不做任何边剪枝</strong>（τ_tune 是纯训练时正则化手段）。
+    仅 <code>add_muti_pt → GNN forward → Linear</code>。
+  </div>
+
+  <div class="matrix-box">
+<span class="comment"># ============== 推理 ==============</span>
+<span class="dim">g_mutiftpt</span>  = prompt.add_muti_pt( data, device )      <span class="comment"># 注入 prompt</span>
+<span class="dim">node_emb</span>    = gnn( g_mutiftpt.x, g_mutiftpt.edge_index )  <span class="comment"># 单次 GNN forward [2708,128]</span>
+<span class="dim">out</span>         = answering( node_emb )                      <span class="comment"># Linear(128,7) → [2708,7]</span>
+<span class="dim">pred</span>        = out.argmax(dim=1)                          <span class="comment"># [2708]</span>
+
+<span class="comment"># 仅在 test_mask 节点上评估</span>
+acc = Accuracy( pred[test_mask], y[test_mask] )
+  </div>
+</div>
+
+<!-- ========== PHASE 5: COMPLETE DIM TABLE ========== -->
+<h2>五、维度流转完整速查表</h2>
+
+<table class="dims">
+  <tr>
+    <th>#</th><th>阶段</th><th>数据结构</th><th>维度 / Shape</th><th>所在代码</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>原始图</td>
+    <td>Data.x</td>
+    <td>[2708, 1433]</td>
+    <td><code>load4data.py:324</code></td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>原始图</td>
+    <td>Data.edge_index</td>
+    <td>[2, 10556]</td>
+    <td><code>load4data.py:324</code></td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>原始图</td>
+    <td>Data.y / 各 mask</td>
+    <td>[2708]</td>
+    <td><code>load4data.py:324</code></td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>预训练分簇</td>
+    <td>200 子图 x_i</td>
+    <td>[n_i, 1433], Σn_i=2708</td>
+    <td><code>load4data.py:339</code> ClusterData</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>GCL 增强</td>
+    <td>View₁ / View₂ (permE/dropN)</td>
+    <td>[n_i', 1433] + [2, e_i']</td>
+    <td><code>perturbation.py:5</code></td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td>GCL Batch</td>
+    <td>batch.x / batch.edge_index</td>
+    <td>[N_batch, 1433] / [2, E_batch]</td>
+    <td><code>GraphCL.py:89</code></td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td>GNN Conv₁</td>
+    <td>GCNConv(1433,128)</td>
+    <td>[N, 1433] → [N, 128]</td>
+    <td><code>GCN.py:39</code></td>
+  </tr>
+  <tr>
+    <td>8</td>
+    <td>GNN Conv₂</td>
+    <td>GCNConv(128,128)</td>
+    <td>[N, 128] → [N, 128]</td>
+    <td><code>GCN.py:39</code></td>
+  </tr>
+  <tr>
+    <td>9</td>
+    <td>图池化</td>
+    <td>global_mean_pool</td>
+    <td>[N, 128] → [10, 128]</td>
+    <td><code>GCN.py:53</code></td>
+  </tr>
+  <tr>
+    <td>10</td>
+    <td>Projection Head</td>
+    <td>MLP 128→128→128</td>
+    <td>[10, 128] → [10, 128]</td>
+    <td><code>GraphCL.py:19</code></td>
+  </tr>
+  <tr>
+    <td>11</td>
+    <td>对比损失</td>
+    <td>sim_matrix + InfoNCE</td>
+    <td>[10, 10] → scalar</td>
+    <td><code>GraphCL.py:66</code></td>
+  </tr>
+  <tr style="border-top:3px solid var(--accent)">
+    <td>12</td>
+    <td>保存权重</td>
+    <td>gnn.state_dict()</td>
+    <td>Conv₁(1433,128)+Conv₂(128,128)</td>
+    <td><code>GraphCL.py:141</code></td>
+  </tr>
+  <tr style="border-top:3px solid var(--accent)">
+    <td>13</td>
+    <td>下游加载</td>
+    <td>冻结 Backbone</td>
+    <td>Conv₁(1433,128)+Conv₂(128,128)</td>
+    <td><code>task.py:297</code></td>
+  </tr>
+  <tr>
+    <td>14</td>
+    <td>Prompt 初始化</td>
+    <td>4 种 prompt (GPF mode)</td>
+    <td>各 [1, 1433]</td>
+    <td><code>RobustPrompt_T.py:55-78</code></td>
+  </tr>
+  <tr>
+    <td>15</td>
+    <td>Prompt (p_plus)</td>
+    <td>pt_list + pt_a</td>
+    <td>[20, 1433] + Linear(1433,20)</td>
+    <td><code>RobustPrompt_T.py:56-78</code></td>
+  </tr>
+  <tr>
+    <td>16</td>
+    <td>Attention 模块</td>
+    <td>MHA + readout_token</td>
+    <td>MHA(1433,1) + [1,1,1433]</td>
+    <td><code>RobustPrompt_T.py:85-86</code></td>
+  </tr>
+  <tr>
+    <td>17</td>
+    <td>sim_pt 分选</td>
+    <td>邻居 cosine 均值</td>
+    <td>[2708] → 阈值 → |S_sim|</td>
+    <td><code>RobustPrompt_T.py:175-185</code></td>
+  </tr>
+  <tr>
+    <td>18</td>
+    <td>degree_pt 分选</td>
+    <td>节点度数</td>
+    <td>[2708] → 阈值 → |S_deg|</td>
+    <td><code>RobustPrompt_T.py:207-210</code></td>
+  </tr>
+  <tr>
+    <td>19</td>
+    <td>out_detect_pt 分选</td>
+    <td>边 cosine + 端点</td>
+    <td>[|E|] → 阈值 → |S_ood|</td>
+    <td><code>RobustPrompt_T.py:231-237</code></td>
+  </tr>
+  <tr>
+    <td>20</td>
+    <td>Prompt Record</td>
+    <td>初始零矩阵</td>
+    <td>[2708, 5732]</td>
+    <td><code>RobustPrompt_T.py:160</code></td>
+  </tr>
+  <tr>
+    <td>21</td>
+    <td>Prompt Record</td>
+    <td>写入后 reshape</td>
+    <td>[2708, 4, 1433]</td>
+    <td><code>RobustPrompt_T.py:283</code></td>
+  </tr>
+  <tr>
+    <td>22</td>
+    <td>Attention 输入</td>
+    <td>拼接 readout_token</td>
+    <td>[2708, 5, 1433]</td>
+    <td><code>RobustPrompt_T.py:285</code></td>
+  </tr>
+  <tr>
+    <td>23</td>
+    <td>Attention 输出</td>
+    <td>取 readout 位</td>
+    <td>[2708, 1433]</td>
+    <td><code>RobustPrompt_T.py:293</code></td>
+  </tr>
+  <tr>
+    <td>24</td>
+    <td>最终 Prompted 特征</td>
+    <td>x + prompt</td>
+    <td>[2708, 1433]</td>
+    <td><code>RobustPrompt_T.py:316</code></td>
+  </tr>
+  <tr>
+    <td>25</td>
+    <td>GNN₁ Forward</td>
+    <td>全边 forward</td>
+    <td>[2708, 1433] → [2708, 128]</td>
+    <td><code>RobustPrompt_T.py:358</code></td>
+  </tr>
+  <tr>
+    <td>26</td>
+    <td>τ-Tune 边相似度</td>
+    <td>emb 间 cosine</td>
+    <td>[|E|]</td>
+    <td><code>RobustPrompt_T.py:360-364</code></td>
+  </tr>
+  <tr>
+    <td>27</td>
+    <td>剪枝后边集</td>
+    <td>保留 cos≥τ 的边</td>
+    <td>[2, |E'|], |E'|≤|E|</td>
+    <td><code>RobustPrompt_T.py:366</code></td>
+  </tr>
+  <tr>
+    <td>28</td>
+    <td>GNN₂ Forward</td>
+    <td>剪枝后 forward</td>
+    <td>[2708, 1433] → [2708, 128]</td>
+    <td><code>RobustPrompt_T.py:369</code></td>
+  </tr>
+  <tr>
+    <td>29</td>
+    <td>分类输出</td>
+    <td>Linear(128,7)</td>
+    <td>[2708, 128] → [2708, 7]</td>
+    <td><code>RobustPrompt_T.py:377</code></td>
+  </tr>
+  <tr>
+    <td>30</td>
+    <td>总 Loss</td>
+    <td>CE + w₁·MSE + w₂·KL + w₃·Constraint</td>
+    <td>scalar</td>
+    <td><code>RobustPrompt_T.py:434</code></td>
+  </tr>
+  <tr style="border-top:3px solid var(--accent2)">
+    <td>31</td>
+    <td>推理</td>
+    <td>add_muti_pt → GNN → Linear</td>
+    <td>[2708,1433]→[2708,128]→[2708,7]</td>
+    <td><code>RobustPromptTranductiveEva.py:72-73</code></td>
+  </tr>
+</table>
+
+<!-- ========== PHASE 6: DIAGRAM ========== -->
+<h2>六、关键维度变迁总览图</h2>
+
+<div class="flow-card">
+  <div class="matrix-box" style="line-height:2.4; font-size: 0.88em;">
+<pre style="margin:0; color:var(--text);">
+┌─────────────────────────────────────────────────────────────────────────┐
+│ <span style="color:var(--accent2);font-weight:bold;">阶段一：预训练</span>                                                          │
+│                                                                         │
+│  Cora 全图 ──METIS──▶ 200 子图 ──permE/dropN──▶ View₁ + View₂          │
+│  [2708,1433]          [n_i,1433]               [n_i',1433]              │
+│                                                 per subgraph             │
+│      ┌──────────────────────────────────────────────┐                    │
+│      │  GCN(1433→128→128) → mean_pool → Proj(128→128) │                  │
+│      │  InfoNCE Loss: sim(z₁, z₂) / T=0.1           │                  │
+│      │  保存: GCN Conv₁, Conv₂ 权重到 .pth          │                    │
+│      └──────────────────────────────────────────────┘                    │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ <span style="color:var(--accent2);font-weight:bold;">阶段二：下游初始化</span>                                                      │
+│                                                                         │
+│  加载 Backbone ──▶ <span class="tag tag-freeze">frozen</span>                                           │
+│  初始化 Prompt:  4×[1,1433] (or 4×[20,1433] with p_plus)                 │
+│  初始化 Answering: Linear(128,7)                      <span class="tag tag-train">trainable</span>      │
+│  初始化 Attention: MHA(1433,1) + readout_token[1,1,1433] <span class="tag tag-train">trainable</span>    │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ <span style="color:var(--accent2);font-weight:bold;">阶段三：add_muti_pt — Filter 分选 + Prompt 注入</span>                           │
+│                                                                         │
+│  输入:  x ∈ [2708, 1433]    edge_index ∈ [2, |E|]                      │
+│                                                                         │
+│  ┌─ <span style="color:var(--accent);">Filter ① sim_pt</span> ─────────────────────────────────────────────────┐  │
+│  │  cos(x_u, x_v) per edge → scatter → csim[node] ∈ [2708]              │  │
+│  │  filter: csim ≤ 0.4 → node_use_sim_pt ⊂ {0..2707}                   │  │
+│  │  p_plus:  node_feat → Linear(1433,20) → softmax × [20,1433]          │  │
+│  │           ⇒ prompt_sim_pt ∈ [|S|, 1433]                              │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│  ┌─ <span style="color:var(--accent);">Filter ② degree_pt</span> ──────────────────────────────────────────────┐  │
+│  │  degree(node) ∈ [2708]   filter: deg ≤ 2 → node_use_degree_pt       │  │
+│  │  p_plus:  node_feat → Linear(1433,20) → softmax × [20,1433]          │  │
+│  │           ⇒ prompt_degree_pt ∈ [|S|, 1433]                           │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│  ┌─ <span style="color:var(--accent);">Filter ③ out_detect_pt</span> ──────────────────────────────────────────┐  │
+│  │  cos(x_u, x_v) per edge → filter: cos ≤ 0.5 → ood_edges              │  │
+│  │  node_use_ood_pt = unique( ood_edges 两端点 )                        │  │
+│  │  p_plus:  node_feat → Linear(1433,20) → softmax × [20,1433]          │  │
+│  │           ⇒ prompt_out_detect_pt ∈ [|S|, 1433]                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│  ┌─ <span style="color:var(--accent);">Filter ④ other_pt</span> ──────────────────────────────────────────────┐  │
+│  │  node_use_other_pt = all_nodes \ (S_sim ∪ S_deg ∪ S_ood)             │  │
+│  │  p_plus:  node_feat → Linear(1433,20) → softmax × [20,1433]          │  │
+│  │           ⇒ prompt_other_pt ∈ [|S|, 1433]                            │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  Record:  [2708, 5732]  ──reshape──▶  [2708, 4, 1433]                  │
+│                                                                         │
+│  <span style="color:var(--purple);">融合方式</span>:                                                            │
+│    Attention: [2708, 5, 1433] (prepend readout)                         │
+│               → MHA(Q,K,V) → [2708, 5, 1433]                            │
+│               → output[:,0,:] → [2708, 1433]                            │
+│    Average:   mask non-zero → sum/len → [2708, 1433]                     │
+│    None:      zero vector → [2708, 1433]                                │
+│                                                                         │
+│  <span style="color:var(--accent2);">最终特征</span>:  x_prompted = x + prompt_output = <span class="shape">[2708, 1433]</span>             │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ <span style="color:var(--accent2);font-weight:bold;">阶段四：两阶段 GNN Forward + τ-Tune 剪枝（仅训练时）</span>                     │
+│                                                                         │
+│  ┌─ <span style="color:var(--danger);">GNN₁ Forward（全边）</span> ────────────────────────────────────────────┐    │
+│  │  GCN₁(x_prompted [2708,1433], edge_index [2,|E|])                    │  │
+│  │  → h₁ [2708,128] → GCN₂ → node_emb_intermediate [2708,128]          │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                              │                                          │
+│                              ▼                                          │
+│  ┌─ <span style="color:var(--warn);">τ-Tune 边剪枝</span> ──────────────────────────────────────────────────┐    │
+│  │  cos(emb[u], emb[v]) ∈ [|E|]     filter: cos ≥ 0.5                   │  │
+│  │  → tuned_edge_index [2, |E'|]                                        │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                              │                                          │
+│                              ▼                                          │
+│  ┌─ <span style="color:var(--accent2);">GNN₂ Forward（剪枝后）</span> ────────────────────────────────────────┐    │
+│  │  GCN₁(x_prompted [2708,1433], tuned_edge_index [2,|E'|])             │  │
+│  │  → h₁ [2708,128] → GCN₂ → node_emb [2708,128]                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ <span style="color:var(--accent2);font-weight:bold;">阶段五：分类</span>                                                              │
+│                                                                         │
+│  Answering:  Linear(node_emb [2708,128]) → out [2708, 7]               │
+│                                                                         │
+│  Loss = CE(out[train], y[train])                                        │
+│       + w_mse · MSE(emb[u], emb[v])  ∀(u,v)∈tuned_edges                │
+│       + w_kl  · Σ KL( p(emb[pt_nodes]) || p(emb[non_pt_nodes]) )        │
+│       + w_con · || M(prompts) − overlap_matrix ||₂                      │
+│                                                                         │
+│  <span style="color:var(--danger);">梯度裁剪 1.0 → Adam(lr=0.01) → 仅更新 prompt + answering</span>              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+<span style="color:var(--text-secondary);font-style:italic;">
+═══════════════════════════════════════════════════════════════════════════
+  推理时：add_muti_pt → <span style="color:var(--accent);">GNN(单次 forward，不剪枝)</span> → Linear → pred
+  [2708,1433]→[2708,128]→[2708,7]
+═══════════════════════════════════════════════════════════════════════════
+</span>
+</pre>
+  </div>
+</div>
+
+<!-- ========== PHASE 7: KEY INSIGHTS ========== -->
+<h2>七、关键设计要点</h2>
+
+<div class="flow-card">
+  <h3>7.1 为什么 Prompt 是"加"而不是"拼"？</h3>
+  <p>
+    <code>g_mutiftpt_final_x = g.x + g_mutiftpt_final_output</code> (<a href="../prompt_graph/prompt/RobustPrompt_T.py#L316">RobustPrompt_T.py:316</a>)。
+    残差形式保证特征维度始终为 <code>[N, 1433]</code>，Backbone GNN 的 <code>input_dim</code> 不需要改变。
+    如果拼接（如 <code>[N, 1433+1433]</code>），则需要重新训练或适配 GNN 的第一层——这与"冻结 Backbone"的范式冲突。
+  </p>
+
+  <h3>7.2 三种 Filter 的互补性</h3>
+  <table class="dims">
+    <tr><th>Filter</th><th>识别目标</th><th>攻击者如何触发</th><th>选中的节点类型</th></tr>
+    <tr>
+      <td><code>sim_pt</code></td>
+      <td>邻居特征相似度低的节点</td>
+      <td>Metattack 连接特征不相似的节点对</td>
+      <td>邻居特征异质的节点</td>
+    </tr>
+    <tr>
+      <td><code>degree_pt</code></td>
+      <td>低度节点</td>
+      <td>低度节点信息少，易被少量扰动边淹没</td>
+      <td>度 ≤ 2 的节点</td>
+    </tr>
+    <tr>
+      <td><code>out_detect_pt</code></td>
+      <td>OOD 边端点</td>
+      <td>攻击边连接原本特征空间相距远的节点</td>
+      <td>参与至少一条"可疑边"的节点</td>
+    </tr>
+    <tr>
+      <td><code>other_pt</code></td>
+      <td>未被以上三种覆盖的节点</td>
+      <td>—</td>
+      <td>"正常"节点（增强提示）</td>
+    </tr>
+  </table>
+
+  <h3>7.3 τ-Tune 为什么有效？</h3>
+  <p>
+    τ-Tune 的核心思想是 <strong>Prompt 先让易受攻击的节点"矫正"其特征表示，再基于矫正后的表示剪除仍不相似的边</strong>。
+    攻击边两端节点的原始特征可能恰好相似（逃过 out_detect_pt），但经过 prompt 增强后，
+    正常节点和受攻击节点的 embedding 差异被放大，这些"漏网"攻击边在中间 embedding 空间的 cosine 相似度降低，
+    从而被 τ_tune 剪除。
+  </p>
+
+  <h3>7.4 p_plus 模式 vs 普通模式</h3>
+  <table class="dims">
+    <tr><th>模式</th><th>Prompt 参数</th><th>每个节点的 prompt</th><th>表达能力</th><th>过拟合风险</th></tr>
+    <tr>
+      <td>GPF (p_plus=False)</td>
+      <td>1 × 1433 per type</td>
+      <td>所有同类型节点共享相同 prompt</td>
+      <td>低</td>
+      <td>低</td>
+    </tr>
+    <tr>
+      <td>GPF-plus (p_plus=True)</td>
+      <td>20 × 1433 bank + Linear(1433,20)</td>
+      <td>每个节点学习 20 个 token 的加权组合</td>
+      <td>高</td>
+      <td>高（few-shot 下尤其明显）</td>
+    </tr>
+  </table>
+</div>
+
+<h2 style="text-align:center;margin-top:60px;color:var(--text-secondary);font-size:1em;">
+  — 文档基于 <code>prompt_graph/</code> 实际代码生成，2026-06-29 —
+</h2>
+
+</body>
+</html>

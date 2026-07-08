@@ -83,6 +83,11 @@ def get_args():
     parser.add_argument('--pt_out_detect_threshold',        type=float,               default=0.4,
                         help='Cosine similarity threshold for out_detect_pt OOD edge detection '
                              '(ood=0.4 most robust: clean 0.4490 attacked 0.2485; smallest gap)')
+    parser.add_argument('--pt_nsp_threshold',               type=float,               default=0.3,
+                        help='Neighbor-similarity threshold for nsp_pt (RobustPrompt-T-NSP): an edge whose '
+                             'endpoints have (A^order X) cosine <= this is flagged; both endpoints become anomalous nodes')
+    parser.add_argument('--nsp_order',                      type=int,                 default=2,
+                        help='Aggregation order for NSP neighbor embeddings N = (A^order) X (default 2)')
     parser.add_argument('--p_plus', dest='p_plus', action='store_true', default=True,
                         help='Use p_plus mode (20-token bank + learned combination)')
     parser.add_argument('--no_p_plus', dest='p_plus', action='store_false',
@@ -102,6 +107,18 @@ def get_args():
     # GraphCL 预训练专用的数据增强参数
     parser.add_argument('--aug1', type=str, default='dropN', choices=['dropN', 'permE', 'maskN'], help='GraphCL augmentation method 1')
     parser.add_argument('--aug2', type=str, default='permE', choices=['dropN', 'permE', 'maskN'], help='GraphCL augmentation method 2')
+    parser.add_argument('--aug_ratio', type=float, default=None, help='GraphCL augmentation ratio (0.0-1.0). If not set, randomly chosen from {0.1, 0.2, 0.3} per run.')
+
+    # GraphMAE 预训练专用参数
+    parser.add_argument('--mask_rate', type=float, default=0.75, help='GraphMAE node masking ratio (0.0-1.0)')
+    parser.add_argument('--drop_edge_rate', type=float, default=0.0, help='GraphMAE edge dropping ratio (0.0-1.0)')
+    parser.add_argument('--replace_rate', type=float, default=0.1, help='GraphMAE noise replacement ratio (0.0-1.0)')
+    parser.add_argument('--loss_fn', type=str, default='sce', choices=['sce', 'mse'], help='GraphMAE reconstruction loss function')
+    parser.add_argument('--alpha_l', type=float, default=2.0, help='GraphMAE SCE loss alpha')
+
+    # RobustPrompt-T 代码版本选择
+    parser.add_argument('--prompt_variant', type=str, default='ours', choices=['ours', 'original'],
+                        help='RobustPrompt-T variant: "ours" (modified) or "original" (paper code, with pass/假attention/特征级τ_tune)')
 
     args = parser.parse_args()
     return args

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meta-Attack 全链路精细化解析 — DFS_HK4</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #666;
+    --accent: #2563eb; --warn: #dc2626; --good: #16a34a; --amber: #d97706;
+    --border: #e5e7eb; --code-bg: #f3f4f6; --card-bg: #f8fafc;
+    --table-stripe: #f9fafb; --highlight: #fef3c7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; color: var(--fg); background: var(--bg); line-height: 1.6; max-width: 960px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 1.6rem; border-bottom: 2px solid var(--border); padding-bottom: 12px; margin: 32px 0 16px; }
+  h2 { font-size: 1.25rem; margin: 28px 0 12px; color: var(--accent); }
+  h3 { font-size: 1.05rem; margin: 20px 0 8px; }
+  p { margin: 8px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 0.92rem; }
+  th, td { padding: 8px 12px; text-align: left; border: 1px solid var(--border); }
+  th { background: var(--code-bg); font-weight: 600; white-space: nowrap; }
+  tr:nth-child(even) td { background: var(--table-stripe); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .highlight-row td { background: var(--highlight) !important; font-weight: 600; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  pre { background: var(--code-bg); padding: 14px 18px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 10px 0; border: 1px solid var(--border); }
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 12px 0; }
+  .callout { border-left: 4px solid var(--warn); background: #fef2f2; padding: 14px 18px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  .callout-info { border-left-color: var(--accent); background: #eff6ff; }
+  .callout-good { border-left-color: var(--good); background: #f0fdf4; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 12px 0 20px; }
+  .kpi { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; text-align: center; }
+  .kpi .value { font-size: 1.6rem; font-weight: 700; }
+  .kpi .label { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+  .kpi.warn .value { color: var(--warn); }
+  .kpi.accent .value { color: var(--accent); }
+  .kpi.amber .value { color: var(--amber); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .flow-step { display: flex; align-items: flex-start; gap: 12px; margin: 8px 0; }
+  .flow-num { background: var(--accent); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
+  .concern-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0; }
+  @media (max-width: 640px) { .concern-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>🔍 Meta-Attack 全链路精细化解析</h1>
+<p style="color: var(--muted);">DFS_HK4 Project · 2026-06-19 · 基于 Cora 2708 nodes / 5278 undirected edges</p>
+
+<!-- ====== KPI Cards ====== -->
+<div class="kpi-grid">
+  <div class="kpi warn">
+    <div class="value">75.9%</div>
+    <div class="label">ptb=0.05 新增边为 train↔test</div>
+  </div>
+  <div class="kpi warn">
+    <div class="value">230 条</div>
+    <div class="label">ptb=0.05 train↔test 假边 (303 新增中)</div>
+  </div>
+  <div class="kpi amber">
+    <div class="value">2 套 Split</div>
+    <div class="label">data_fewshot ≠ data_attack_fewshot</div>
+  </div>
+  <div class="kpi accent">
+    <div class="value">λ = 0</div>
+    <div class="label">Meta-Self: outer loss 全在 test nodes 上</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1. 数据分裂 (Split) 全景 — 两套独立体系</h2>
+
+<p>项目中存在 <strong>两套独立生成的 few-shot split</strong>，分别服务于不同数据加载路径：</p>
+
+<table>
+<tr><th>路径</th><th>用途</th><th>Train</th><th>Val</th><th>Test</th><th>总计</th><th>加载函数</th></tr>
+<tr>
+  <td><code>data_fewshot/Cora/shot_5/1/index/</code></td>
+  <td>eval_pretrain.py<br>clean 下游 (无 --attack_downstream)</td>
+  <td class="num">35</td><td class="num">265</td><td class="num"><strong>2,408</strong></td>
+  <td class="num">2,708</td>
+  <td><code>load4cora_downstream_clean</code></td>
+</tr>
+<tr class="highlight-row">
+  <td><code>data_attack_fewshot/Cora/shot_5/1/index/</code></td>
+  <td>攻击下游 (--attack_downstream --specified)<br>攻击生成时的 split</td>
+  <td class="num">35</td><td class="num">500</td><td class="num"><strong>1,000</strong></td>
+  <td class="num">1,535</td>
+  <td><code>load4node_attack_specified_shot_index</code></td>
+</tr>
+</table>
+
+<div class="callout">
+<strong>⚠️ 两套 split 完全不重合：</strong>
+<ul>
+  <li>Train 节点交集：<strong>0/35</strong> —— 完全不同的 5-shot 抽取</li>
+  <li>Val 节点交集：44/500 (仅 8.8%)</li>
+  <li>Test 节点交集：878/1000 (87.8% 重叠，但有 122 个不同)</li>
+</ul>
+<p style="margin-top:8px"><strong>这意味着：</strong>eval_pretrain.py (Linear Probe 0.626) 和 downstream prompt learning (RobustPrompt-T ~0.44-0.47) 不仅方法不同，<strong>评估的测试集也不同</strong>。直接比较这两个数字在方法论上不严谨。</p>
+</div>
+
+<p>攻击数据路径还有 <strong>1,173 个节点完全不参与 train/val/test</strong>（仅作为 message-passing 基础设施存在），而 <code>data_fewshot</code> 路径覆盖了全部 2,708 个节点。</p>
+
+<!-- ============================================================ -->
+<h2>2. 攻击生成全链路</h2>
+
+<h3>2.1 生成脚本与参数</h3>
+
+<p>入口：<code>generate_few_shot_attack.py</code></p>
+
+<pre>python generate_few_shot_attack.py \
+    --dataset Cora --model Meta_Self --ptb_rate 0.05 \
+    --shot_num 5 --run_split 1</pre>
+
+<p>核心攻击参数：</p>
+<table>
+<tr><th>参数</th><th>值</th><th>含义</th></tr>
+<tr><td><code>--model</code></td><td>Meta_Self</td><td>λ=0，outer loss 仅在 test nodes 上</td></tr>
+<tr><td><code>surrogate</code></td><td>GCN(hidden=16)</td><td>小容量代理模型，模拟目标 GNN</td></tr>
+<tr><td><code>attack_structure</code></td><td>True</td><td>仅攻击图结构（不改特征）</td></tr>
+<tr><td><code>perturbations</code></td><td>int(0.05 × 5278) = <strong>263</strong></td><td>允许修改的无向边数</td></tr>
+</table>
+
+<h3>2.2 六步攻击链路</h3>
+
+<div class="card">
+<div class="flow-step"><div class="flow-num">1</div><div><strong>加载预存 split</strong> — 从 <code>data_attack_fewshot/Cora/shot_5/1/index/</code> 加载 train(35) / val(500) / test(1000) 节点 ID，构建 mask。</div></div>
+<div class="flow-step"><div class="flow-num">2</div><div><strong>构建邻接矩阵</strong> — 从 clean edge_index 构建 <code>sp.csr_matrix</code>。原始 Cora: 5,278 条无向边 × 2 = 10,556 entries。</div></div>
+<div class="flow-step"><div class="flow-num">3</div><div><strong>训练 Surrogate GCN</strong> — 在 clean 图上用 35 个 train labels 训练 hid_dim=16 的小 GCN。这是攻击者的"代理模型"（模拟下游用户会训练的 GNN）。</div></div>
+<div class="flow-step"><div class="flow-num">4</div><div><strong>定义攻击目标</strong> — <code>idx_unlabeled = val ∪ test = 1500 nodes</code>。Meta_Self (λ=0) 的 outer loss 完全在这些节点上计算：最大化 GNN 对 test nodes 的预测错误。</div></div>
+<div class="flow-step"><div class="flow-num">5</div><div><strong>双层优化攻击</strong> — Metattack 计算 meta-gradient：∂(test loss)/∂(adjacency) through inner training。找出哪些边的增/删能最大程度提升 test loss。</div></div>
+<div class="flow-step"><div class="flow-num">6</div><div><strong>保存扰动图</strong> — <code>modified_adj → Meta_Self_Cora_0.05.pt</code> + 对应的 idx_train/val/test.npy。</div></div>
+</div>
+
+<h3>2.3 Metattack 双层优化公式</h3>
+
+<div class="card">
+<p><strong>Outer Loop（最大化 test loss）：</strong></p>
+<pre>max_{A'}  L( f_{θ*}(A', X),  Y<sub>unlabeled</sub> )</pre>
+<p style="margin-top:8px"><strong>Inner Loop（在扰动图上重训 surrogate）：</strong></p>
+<pre>θ* = argmin_θ  L( f_θ(A', X),  Y<sub>train</sub> )</pre>
+<p style="margin-top:8px"><strong>约束：</strong></p>
+<pre>||A' - A||₀ ≤ perturbations × 2    (每条无向边 = 2 个稀疏矩阵 entry)</pre>
+</div>
+
+<p><strong>关键：</strong>Meta-gradient ∇<sub>A</sub>L<sub>test</sub> 穿过 inner optimization (surrogate 在 train labels 上的训练过程)。这使得攻击可以预判"如果我在某处加一条边，surrogate 重训后会如何错误分类 test nodes"。</p>
+
+<p>由于 <strong>λ=0 (Meta_Self)</strong>，outer loss <strong>完全不考虑 train nodes 的预测质量</strong>。攻击的唯一目标是让 test nodes 被分错——这给了 Metattack 最大的自由度去植入 train↔test 假边。</p>
+
+<!-- ============================================================ -->
+<h2>3. 攻击效果量化 — 各浓度扰动分解</h2>
+
+<h3>3.1 宏观统计</h3>
+
+<table>
+<tr><th>ptb</th><th class="num">预算 (edges)</th><th class="num">稀疏 nnz</th><th class="num">无向边数</th><th class="num">新增边</th><th class="num">删除边</th><th class="num">净增边</th><th class="num">train↔test 新增</th><th class="num">占比</th></tr>
+<tr><td>0.00</td><td class="num">—</td><td class="num">13,264</td><td class="num">7,986</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>
+<tr class="highlight-row"><td>0.05</td><td class="num">263</td><td class="num">13,814</td><td class="num">8,261</td><td class="num">303</td><td class="num">28</td><td class="num">+275</td><td class="num"><strong>230</strong></td><td class="num"><strong>75.9%</strong></td></tr>
+<tr><td>0.10</td><td class="num">527</td><td class="num">14,274</td><td class="num">8,491</td><td class="num">584</td><td class="num">79</td><td class="num">+505</td><td class="num"><strong>414</strong></td><td class="num"><strong>70.9%</strong></td></tr>
+<tr><td>0.15</td><td class="num">791</td><td class="num">14,804</td><td class="num">8,756</td><td class="num">882</td><td class="num">112</td><td class="num">+770</td><td class="num"><strong>598</strong></td><td class="num"><strong>67.8%</strong></td></tr>
+<tr><td>0.20</td><td class="num">1,055</td><td class="num">15,412</td><td class="num">9,060</td><td class="num">1,200</td><td class="num">126</td><td class="num">+1,074</td><td class="num"><strong>787</strong></td><td class="num"><strong>65.6%</strong></td></tr>
+<tr><td>0.25</td><td class="num">1,319</td><td class="num">16,028</td><td class="num">9,368</td><td class="num">1,520</td><td class="num">138</td><td class="num">+1,382</td><td class="num"><strong>977</strong></td><td class="num"><strong>64.3%</strong></td></tr>
+</table>
+
+<div class="callout-info">
+<strong>模式：</strong>Metattack 压倒性地<strong>增加边</strong>而非删除（新增:删除 ≈ 10:1）。train↔test 假边占比从 75.9% (ptb=0.05) 递减至 64.3% (ptb=0.25)，因为随着预算增大，"最有效"的 train↔test 边对逐渐耗尽，攻击开始向其他组间边扩展。但即使 ptb=0.25，仍有近 <strong>2/3</strong> 的新增边连接 train↔test。
+</div>
+
+<h3>3.2 各浓度新增边详细分组</h3>
+
+<table>
+<tr><th>ptb</th><th class="num">train↔test</th><th class="num">train↔val</th><th class="num">train↔train</th><th class="num">test↔test</th><th class="num">test↔val</th><th class="num">val↔val</th></tr>
+<tr class="highlight-row"><td>0.05</td><td class="num">230 (75.9%)</td><td class="num">43 (14.2%)</td><td class="num">18 (5.9%)</td><td class="num">8 (2.6%)</td><td class="num">3 (1.0%)</td><td class="num">1 (0.3%)</td></tr>
+<tr><td>0.10</td><td class="num">414 (70.9%)</td><td class="num">81 (13.9%)</td><td class="num">45 (7.7%)</td><td class="num">28 (4.8%)</td><td class="num">14 (2.4%)</td><td class="num">2 (0.3%)</td></tr>
+<tr><td>0.15</td><td class="num">598 (67.8%)</td><td class="num">126 (14.3%)</td><td class="num">58 (6.6%)</td><td class="num">61 (6.9%)</td><td class="num">34 (3.9%)</td><td class="num">5 (0.6%)</td></tr>
+<tr><td>0.20</td><td class="num">787 (65.6%)</td><td class="num">175 (14.6%)</td><td class="num">72 (6.0%)</td><td class="num">98 (8.2%)</td><td class="num">62 (5.2%)</td><td class="num">6 (0.5%)</td></tr>
+<tr><td>0.25</td><td class="num">977 (64.3%)</td><td class="num">213 (14.0%)</td><td class="num">87 (5.7%)</td><td class="num">148 (9.7%)</td><td class="num">84 (5.5%)</td><td class="num">11 (0.7%)</td></tr>
+</table>
+
+<p style="color:var(--muted); font-size:0.85rem">train↔val 占比始终稳定在 14% 左右；test↔test 和 test↔val 随 ptb 增加而上升（攻击在高浓度下被迫在 test nodes 之间制造混淆）。</p>
+
+<h3>3.3 删除边分布</h3>
+
+<table>
+<tr><th>ptb</th><th class="num">总删除</th><th class="num">train↔test</th><th class="num">test↔test</th><th class="num">train↔val</th><th class="num">test↔val</th></tr>
+<tr><td>0.05</td><td class="num">28</td><td class="num">11 (39.3%)</td><td class="num">8 (28.6%)</td><td class="num">7 (25.0%)</td><td class="num">2 (7.1%)</td></tr>
+<tr><td>0.10</td><td class="num">79</td><td class="num">46 (58.2%)</td><td class="num">16 (20.3%)</td><td class="num">13 (16.5%)</td><td class="num">4 (5.1%)</td></tr>
+<tr><td>0.15</td><td class="num">112</td><td class="num">63 (56.2%)</td><td class="num">24 (21.4%)</td><td class="num">15 (13.4%)</td><td class="num">10 (8.9%)</td></tr>
+<tr><td>0.20</td><td class="num">126</td><td class="num">68 (54.0%)</td><td class="num">29 (23.0%)</td><td class="num">16 (12.7%)</td><td class="num">13 (10.3%)</td></tr>
+<tr><td>0.25</td><td class="num">138</td><td class="num">74 (53.6%)</td><td class="num">31 (22.5%)</td><td class="num">17 (12.3%)</td><td class="num">16 (11.6%)</td></tr>
+</table>
+
+<p style="color:var(--muted); font-size:0.85rem">删除边也以 train↔test 为主。删除量远小于新增量（约 1:10），说明 Metattack 的策略是 <strong>"建桥"为主、"拆桥"为辅</strong>。</p>
+
+<!-- ============================================================ -->
+<h2>4. 数据泄露 (Data Leakage) 深度分析</h2>
+
+<div class="callout">
+<strong>🔴 核心问题：在 transductive setting 下，攻击者拥有"明牌"优势。</strong>
+</div>
+
+<h3>4.1 攻击者知道什么？</h3>
+
+<table>
+<tr><th>信息</th><th>攻击者是否已知</th><th>来源</th></tr>
+<tr><td>全图结构 (edge_index)</td><td style="color:var(--good)">✓ 已知</td><td>公开数据集</td></tr>
+<tr><td>所有节点特征 (X)</td><td style="color:var(--good)">✓ 已知</td><td>公开数据集</td></tr>
+<tr><td>Train 节点 ID (35 nodes)</td><td style="color:var(--warn)">✓ 已知</td><td>攻击脚本显式加载 split 文件</td></tr>
+<tr><td>Val 节点 ID (500 nodes)</td><td style="color:var(--warn)">✓ 已知</td><td>同上</td></tr>
+<tr><td>Test 节点 ID (1000 nodes)</td><td style="color:var(--warn)">✓ 已知</td><td>同上</td></tr>
+<tr><td>Test 节点标签</td><td style="color:var(--good)">✗ 未知</td><td>攻击 loss 不直接使用标签，而是最大化预测不确定性</td></tr>
+<tr><td>下游使用的 GNN 架构</td><td style="color:var(--amber)">~ 近似已知</td><td>用 surrogate GCN 近似（可迁移到其他架构）</td></tr>
+<tr><td>预训练 backbone 权重</td><td style="color:var(--good)">✗ 未知</td><td>攻击基于随机初始化 surrogate，非预训练模型</td></tr>
+</table>
+
+<h3>4.2 为什么这是 "数据泄露"？</h3>
+
+<p>在实际部署中，<strong>攻击者不应该知道哪些节点会被用于测试</strong>。然而在当前 transductive pipeline 中：</p>
+
+<div class="card">
+<ol>
+  <li><strong>Split 在攻击前就已固定</strong> — <code>data_attack_fewshot/Cora/shot_5/1/index/</code> 在攻击生成时被显式读取</li>
+  <li><strong>攻击者看到 train/val/test 的完整划分</strong> — 75.9% 的新增边精准瞄准 train↔test 对</li>
+  <li><strong>攻击不需要猜测</strong> — Metattack 的 meta-gradient 直接计算 ∂(test node loss)/∂(edge)，它是"<strong>开卷考试</strong>"</li>
+  <li><strong>每 train node 平均被植入 6.6 条假边连接 test nodes</strong> (ptb=0.05) 到 <strong>27.9 条</strong> (ptb=0.25)</li>
+</ol>
+</div>
+
+<h3>4.3 攻击对 Message Passing 的污染机制</h3>
+
+<p>2 层 GCN 中，每个 test node 聚合其 2-hop 邻居信息：</p>
+
+<pre>
+GCN Layer 1:  hᵥ⁽¹⁾ = σ( Σ_{u∈N(v)} W⁽¹⁾ hᵤ⁽⁰⁾ )
+GCN Layer 2:  hᵥ⁽²⁾ = σ( Σ_{u∈N(v)} W⁽²⁾ hᵤ⁽¹⁾ )
+
+假边效果：
+  Layer 1: test node ← 聚合了 fake train neighbor 的特征
+  Layer 2: test node ← 通过 fake neighbor 间接聚合了更多错误信息
+</pre>
+
+<p>一条 train↔test 假边的影响范围：</p>
+<ul>
+  <li><strong>1-hop:</strong> 直接连接的 test node 被污染</li>
+  <li><strong>2-hop:</strong> 该 test node 的邻居也通过聚合被间接污染</li>
+  <li><strong>train node 侧:</strong> train node 的 embedding 也因多了 fake neighbor 而偏斜 → 影响下游分类头的训练</li>
+</ul>
+
+<div class="concern-grid">
+<div class="card" style="border-left: 4px solid var(--warn);">
+<strong>🔴 直接污染 (1-hop)</strong>
+<p style="font-size:0.9rem; margin-top:6px">假边两端的 test node 直接从不同类的 train node 接收错误信息。这是最主要的攻击效果——GNN 的同质性归纳偏置被系统性地利用。</p>
+</div>
+<div class="card" style="border-left: 4px solid var(--amber);">
+<strong>🟠 级联污染 (2-hop+)</strong>
+<p style="font-size:0.9rem; margin-top:6px">被污染的 test node 继续向其邻居传播错误 embedding。随着 GNN 层数增加，一圈污染扩散为一片。2 层 GCN 下影响半径 = 2 hops。</p>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>5. Transductive vs Inductive — 为什么论文用 Subgraph</h2>
+
+<div class="card">
+<table>
+<tr><th>维度</th><th>Transductive (当前)</th><th>Inductive (论文)</th></tr>
+<tr>
+  <td>图结构</td>
+  <td>单张全图，train+test 节点共存</td>
+  <td>每个节点提取 k-hop 子图为独立 sample</td>
+</tr>
+<tr>
+  <td>Message Passing</td>
+  <td>train↔test 直接通信</td>
+  <td>子图间隔离，test node 不与 train node 同图</td>
+</tr>
+<tr>
+  <td>攻击难度</td>
+  <td style="color:var(--warn)">低 — 攻击者知道 test nodes 身份</td>
+  <td style="color:var(--good)">高 — 攻击者不知哪些子图是 test</td>
+</tr>
+<tr>
+  <td>train↔test 假边效果</td>
+  <td style="color:var(--warn)">直接污染</td>
+  <td style="color:var(--good)">无法植入（不在同一子图）</td>
+</tr>
+<tr>
+  <td>污染浓度敏感性</td>
+  <td style="color:var(--warn)">极高 — 0.05 已致命</td>
+  <td>相对稀释 — 子图化自然减毒</td>
+</tr>
+</table>
+</div>
+
+<p>这解释了 CLAUDE.md 中记录的 Transductive vs Inductive gap：在 transductive 下，230 条精心瞄准的 train↔test 假边足以在 0.05 浓度下造成严重破坏（GPPT 0.435→0.279，RobustPrompt-T 0.44→0.24）。而在 inductive 子图设定中，攻击只能扰动子图内部，train↔test 边无法存在。</p>
+
+<!-- ============================================================ -->
+<h2>6. 发现的问题汇总与建议</h2>
+
+<h3>6.1 🔴 严重问题</h3>
+
+<table>
+<tr><th>#</th><th>问题</th><th>影响</th></tr>
+<tr>
+  <td>1</td>
+  <td><strong>两套 Split 不统一</strong> — data_fewshot ≠ data_attack_fewshot</td>
+  <td>eval_pretrain 和 downstream 实验测的是不同测试集，不可直接比较</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><strong>攻击者知道完整 split</strong> — 75.9% 假边精准打 train↔test</td>
+  <td>Transductive 设定下攻击效果被放大，低估了实际鲁棒性</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><strong>eval_pretrain 从未在被攻击图上评估</strong> — 只测了 clean</td>
+  <td>不知道 Linear Probe 在攻击下的真实表现。如果 LR 在攻击下暴跌，那就不是方法差异而是 embedding 被破坏</td>
+</tr>
+</table>
+
+<h3>6.2 🟡 改进方向</h3>
+
+<table>
+<tr><th>#</th><th>建议</th><th>优先级</th></tr>
+<tr>
+  <td>1</td>
+  <td><strong>统一 Split</strong> — 所有实验用同一套 data_fewshot 索引。需重新生成攻击数据（使用 data_fewshot 的 split 作为攻击输入）</td>
+  <td class="num" style="color:var(--warn)">高</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><strong>补做 eval_pretrain 在攻击图上的测试</strong> — 直接回答"Linear Probe 在攻击下垮不垮"</td>
+  <td class="num" style="color:var(--warn)">高</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><strong>跑 Inductive (RobustPrompt-I) 实验</strong> — 子图化天然防御 transductive 攻击</td>
+  <td class="num" style="color:var(--amber)">中</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><strong>考虑 Blind Attack 设定</strong> — 攻击者不知道 split，只能随机扰动。对比 White-box (当前) vs Grey-box vs Blind 的表现差距</td>
+  <td class="num" style="color:var(--muted)">低</td>
+</tr>
+</table>
+
+<h3>6.3 立即可做的快速验证</h3>
+
+<div class="card">
+<p><strong>用 eval_pretrain.py 在攻击图上跑一轮：</strong></p>
+<pre style="margin-top:8px">
+# 修改 eval_pretrain.py 使其加载攻击图而非 clean 图
+# 对每个 backbone checkpoint，在 ptb=0.05 的攻击图上做 LR
+# 对比 clean LR acc vs attacked LR acc
+# 预期：如果 attacked LR 也暴跌 → 问题在 embedding 被破坏，非 prompt 方法问题
+#       如果 attacked LR 仍高 → 问题在 prompt 优化，prompt 方法是负优化
+</pre>
+</div>
+
+<!-- ============================================================ -->
+<h2>7. 2026-06-20 更新：Split 统一 + 重新攻击</h2>
+
+<h3>7.1 统一方案</h3>
+
+<div class="callout-good">
+<strong>目标：</strong>eval_pretrain.py (Linear Probe) 和 downstream RobustPrompt-T 使用<strong>完全相同的 train/val/test split</strong>，消除此前两套独立 split 带来的不可比性。
+</div>
+
+<p><strong>具体操作：</strong></p>
+<ol>
+  <li>用 <code>data_fewshot/Cora/shot_5/1/index/</code> (train=35, val=265, test=2408, 全覆盖 2708 nodes) 覆盖 <code>data_attack_fewshot/Cora/shot_5/1/index/</code></li>
+  <li>修复 <code>generate_few_shot_attack.py</code>：底图加载源从缺失 ptb=0.0 的 <code>data_pyg/Attack_data</code> 改为 <code>data_attack_fewshot</code> (AttackDataset_specified)</li>
+  <li>清除全部 <code>*_processed/</code> 缓存，重新生成 6 个浓度的 Meta_Self 攻击</li>
+</ol>
+
+<h3>7.2 统一后验证</h3>
+
+<table>
+<tr><th>检查项</th><th>状态</th></tr>
+<tr><td>Split 统一 (data_fewshot == data_attack_fewshot/index)</td><td style="color:var(--good)">✅ train=35, val=265, test=2408 完全匹配</td></tr>
+<tr><td>Raw idx 与 index/ 一致 (全部 6 ptb)</td><td style="color:var(--good)">✅ 全部通过</td></tr>
+<tr><td>Stale cache 清理</td><td style="color:var(--good)">✅ 0.0_processed 已删除</td></tr>
+<tr><td>GCL 预训练权重 (275 checkpoints)</td><td style="color:var(--good)">✅ 随机抽检全部可加载</td></tr>
+<tr><td>data_pyg/Attack_data 依赖</td><td style="color:var(--amber)">⚠️ 仅非 specified 路径 + dead code 引用，当前主力方案不使用</td></tr>
+</table>
+
+<h3>7.3 新攻击扰动统计（统一 split 后）</h3>
+
+<div class="kpi-grid">
+  <div class="kpi warn">
+    <div class="value">84.6%</div>
+    <div class="label">ptb=0.05 train↔test 占比 (旧: 75.9%)</div>
+  </div>
+  <div class="kpi amber">
+    <div class="value">+2.4×</div>
+    <div class="label">test 节点从 1000 → 2408</div>
+  </div>
+  <div class="kpi accent">
+    <div class="value">2708/2708</div>
+    <div class="label">全节点覆盖 (旧: 1535/2708)</div>
+  </div>
+</div>
+
+<table>
+<tr><th>ptb</th><th class="num">预算</th><th class="num">nnz</th><th class="num">新增边</th><th class="num">删除边</th><th class="num">train↔test</th><th class="num">占比</th><th class="num">旧占比</th></tr>
+<tr class="highlight-row"><td>0.05</td><td class="num">263</td><td class="num">13,850</td><td class="num">312</td><td class="num">19</td><td class="num">264</td><td class="num"><strong>84.6%</strong></td><td class="num">75.9%</td></tr>
+<tr><td>0.10</td><td class="num">527</td><td class="num">14,378</td><td class="num">610</td><td class="num">53</td><td class="num">506</td><td class="num"><strong>83.0%</strong></td><td class="num">70.9%</td></tr>
+<tr><td>0.15</td><td class="num">791</td><td class="num">14,952</td><td class="num">919</td><td class="num">75</td><td class="num">745</td><td class="num"><strong>81.1%</strong></td><td class="num">67.8%</td></tr>
+<tr><td>0.20</td><td class="num">1,055</td><td class="num">15,484</td><td class="num">1,218</td><td class="num">108</td><td class="num">972</td><td class="num"><strong>79.8%</strong></td><td class="num">65.6%</td></tr>
+<tr><td>0.25</td><td class="num">1,319</td><td class="num">15,976</td><td class="num">1,507</td><td class="num">151</td><td class="num">1,182</td><td class="num"><strong>78.4%</strong></td><td class="num">64.3%</td></tr>
+</table>
+
+<div class="callout-info">
+<strong>变化分析：</strong>Train↔test 占比全面上升（84.6% vs 旧 75.9% at 0.05），因为 test 节点从 1000 扩到 2408，攻击者可用的 train↔test 边对增加。新增:删除比例从 ~11:1 升至 ~16:1——攻击策略更倾向于"建桥"而非"拆桥"。随着 ptb 增大，train↔test 占比递减（最好边对被先占满，溢出到其他组间边），模式与旧攻击一致。
+</div>
+
+<h3>7.4 新增边分组明细</h3>
+
+<table>
+<tr><th>ptb</th><th class="num">train↔test</th><th class="num">train↔val</th><th class="num">train↔train</th><th class="num">test↔test</th><th class="num">test↔val</th></tr>
+<tr class="highlight-row"><td>0.05</td><td class="num">264 (84.6%)</td><td class="num">36 (11.5%)</td><td class="num">4 (1.3%)</td><td class="num">7 (2.2%)</td><td class="num">1 (0.3%)</td></tr>
+<tr><td>0.10</td><td class="num">506 (83.0%)</td><td class="num">68 (11.1%)</td><td class="num">10 (1.6%)</td><td class="num">21 (3.4%)</td><td class="num">5 (0.8%)</td></tr>
+<tr><td>0.15</td><td class="num">745 (81.1%)</td><td class="num">104 (11.3%)</td><td class="num">18 (2.0%)</td><td class="num">42 (4.6%)</td><td class="num">10 (1.1%)</td></tr>
+<tr><td>0.20</td><td class="num">972 (79.8%)</td><td class="num">136 (11.2%)</td><td class="num">24 (2.0%)</td><td class="num">73 (6.0%)</td><td class="num">13 (1.1%)</td></tr>
+<tr><td>0.25</td><td class="num">1,182 (78.4%)</td><td class="num">177 (11.7%)</td><td class="num">33 (2.2%)</td><td class="num">100 (6.6%)</td><td class="num">15 (1.0%)</td></tr>
+</table>
+
+<h3>7.5 下游实验就绪确认</h3>
+
+<div class="card">
+<p><strong>✅ GCL 预训练权重：</strong>275 个 checkpoint 全部可加载，推荐 backbone (来自 meeting14_eval_pretrain_v2)：</p>
+<ul>
+  <li><strong>稳定型：</strong><code>permE/dropN/lr=0.001/ratio=0.2/seed=1</code> — 组均值 0.5424 ± 0.0416</li>
+  <li><strong>峰值型：</strong><code>permE/maskN/lr=0.001/ratio=0.3/seed=1</code> — 单点 0.6262</li>
+  <li><strong>旧默认：</strong><code>dropN/permE/lr=0.01</code> (seed=56, 无 ratio) — 注意此文件在 pre_trained_model_raw/ 中<strong>不存在</strong>，需从上述 275 个中重新选择</li>
+</ul>
+<p style="margin-top:8px"><strong>✅ 攻击数据：</strong>6 个浓度全部可用，split 统一，stale cache 已清。</p>
+<p><strong>⚠️ 注意：</strong>旧 CLAUDE.md 中的默认 backbone 路径 <code>pre_trained_model_raw/Cora...aug1_dropN.aug2_permE.lr_0.01.pth</code> 已不存在（被 5-seed 重新预训练覆盖）。所有 downstream 命令需更新 <code>--pre_train_model_path</code>。</p>
+</div>
+
+<hr>
+<p style="color:var(--muted); font-size:0.82rem;">
+  Generated by DFS_HK4 Meta-Attack Analysis · 2026-06-19 (updated 2026-06-20) ·
+  Data source: <code>data_attack_fewshot/Cora/shot_5/1/Meta_Self/</code> ·
+  Split source: <code>data_fewshot/</code> &amp; <code>data_attack_fewshot/</code> (now unified)
+</p>
+
+</body>
+</html>

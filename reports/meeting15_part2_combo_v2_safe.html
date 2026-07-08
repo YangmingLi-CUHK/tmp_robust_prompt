@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting 15 — Part 2: Edge Anomaly Detection (combo_filters_v2_safe)</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; font-size: 12px; line-height:1.5; }
+  .container { max-width: 1200px; margin:0 auto; padding: 28px 16px; }
+  header { margin-bottom: 24px; border-bottom: 1.5px solid #2563eb; padding-bottom: 12px; }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header .meta { font-size: 10px; color: #888; margin-top: 3px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 32px 0 12px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+  h3 { font-size: 13px; font-weight: 600; margin: 22px 0 8px; color: #444; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0 16px; font-variant-numeric: tabular-nums; }
+  table.data-table thead th { background: #f5f5f5; font-weight: 600; text-align: center; padding: 5px 6px; border-bottom: 1.5px solid #ddd; white-space: nowrap; }
+  table.data-table tbody td { text-align: center; padding: 3px 6px; border-bottom: 1px solid #eee; }
+  table.data-table tbody tr:nth-child(even) { background: #fafafa; }
+  .combo-header { background: #e8f0fe; font-weight: 700; }
+  .combo-header td { text-align: left !important; padding: 6px 6px !important; border-bottom: 1.5px solid #bbb !important; }
+  .edge-src { }
+  .tip-src { }
+  .tip-inactive { color: #ccc; }
+  .na { color: #bbb; font-style: italic; }
+  .note { font-size: 10px; color: #999; margin: 2px 0 8px; }
+  .def-box { background: #f8fafc; border: 1px solid #e0e0e0; border-radius: 6px; padding: 14px 18px; margin: 10px 0 18px; font-size: 11px; line-height: 1.7; }
+  .def-box table { border-collapse: collapse; margin: 6px 0; }
+  .def-box table td { padding: 2px 12px 2px 0; font-size: 11px; }
+  .formula { font-family: 'SF Mono', 'Consolas', monospace; background: #f0f0f0; padding: 1px 4px; border-radius: 3px; }
+  .config-table td { padding: 3px 10px; font-size: 11px; }
+  hr { border: none; border-top: 1px solid #eee; margin: 24px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Meeting 15 — Part 2: Intermediate Filter Edge Anomaly Detection (combo_filters_v2_safe)</h1>
+  <div class="meta">
+    Generated: 2026-07-02 20:52 &nbsp;|&nbsp; Cora / Meta_Self / 5-shot split-1 &nbsp;|&nbsp;
+    Peak BB: permE-maskN, lr=0.001, r=0.3 &nbsp;|&nbsp; Source: combo_filters_v2_safe.
+  </div>
+</header>
+
+<h2>Definitions</h2>
+<div class="def-box">
+  <p><strong>Task:</strong> binary classification of edges — <strong>Positive = Anomaly</strong> (attack edge, added/deleted by Metattack) vs <strong>Negative = Normal</strong> (clean original edge).</p>
+  <table>
+    <tr><td><strong>TP</strong> = attack edges correctly flagged</td><td><strong>FP</strong> = clean edges incorrectly flagged</td></tr>
+    <tr><td><strong>TN</strong> = clean edges correctly left alone</td><td><strong>FN</strong> = attack edges missed</td></tr>
+  </table>
+  <p style="margin-top:8px;">
+    <span class="formula">TPR (Recall) = TP / (TP + FN)</span> — attack edge detection rate.<br>
+    <span class="formula">TNR = TN / (TN + FP)</span> — clean edge preservation rate.<br>
+    <span class="formula">FPR = FP / (FP + TN) = 1 &minus; TNR</span> — false alarm rate. Should be low.<br>
+    <span class="formula">FNR = FN / (FN + TP) = 1 &minus; TPR</span> — miss rate. Should be low.<br>
+    <span class="formula">F1 = 2 &times; Prec &times; Recall / (Prec + Recall)</span>, where <span class="formula">Prec = TP / (TP + FP)</span>.<br>
+    <span class="formula">Binary Classification AUC = (TPR + TNR) / 2</span> — balanced accuracy of the single operating point. Ranges [0, 1], 0.5 = random.
+  </p>
+  <p style="margin-top:8px; color:#888;">
+    Tip TNR is estimated: <span class="formula">(N<sub>clean</sub> &minus; FP<sub>tip</sub>) / N<sub>clean</sub></span>
+    where N<sub>clean</sub> comes from the paired Edge Detection line. Inactive tips are grayed out.
+  </p>
+</div>
+
+<h2>1. Combo Configuration Overview</h2>
+<table class="data-table config-table">
+<thead><tr><th>Combo</th><th># Active</th><th>sim_pt</th><th>degree_pt</th><th>out_detect_pt</th></tr></thead>
+<tbody>
+<tr><td style="text-align:left;font-weight:600;">sim+deg</td><td>2</td><td style="color:#059669;font-weight:600;">0.3 (ON)</td><td style="color:#059669;font-weight:600;">1.0 (ON)</td><td style="color:#ccc;">-1.0 (off)</td></tr>
+<tr><td style="text-align:left;font-weight:600;">sim+ood</td><td>2</td><td style="color:#059669;font-weight:600;">0.3 (ON)</td><td style="color:#ccc;">-1 (off)</td><td style="color:#059669;font-weight:600;">0.5 (ON)</td></tr>
+<tr><td style="text-align:left;font-weight:600;">deg+ood</td><td>2</td><td style="color:#ccc;">-1.0 (off)</td><td style="color:#059669;font-weight:600;">1.0 (ON)</td><td style="color:#059669;font-weight:600;">0.5 (ON)</td></tr>
+<tr><td style="text-align:left;font-weight:600;">all3</td><td>3</td><td style="color:#059669;font-weight:600;">0.3 (ON)</td><td style="color:#059669;font-weight:600;">1.0 (ON)</td><td style="color:#059669;font-weight:600;">0.5 (ON)</td></tr>
+</tbody></table>
+<p class="note">Active thresholds: sim=0.3, deg=1, ood=0.5. Inactive tips are set to -1.0 / -1 so they never trigger. Progression: 2-filter combos → 3-filter combo (all3). Values below are mean &plusmn; std across 5 seeds when non-deterministic.</p>
+
+<h2>2. Edge Anomaly Detection by Combo Context</h2>
+<p class="note">Each table below uses <code>combo_filters_v2_safe</code> logs. Rows are grouped by combo with edge detection sources and active/inactive tip sources nested underneath.</p>
+<h3>2.A TPR (Recall)</h3>
+<table class="data-table">
+<thead>
+<tr>
+<th>Combo / Source</th>
+<th>0.05</th><th>0.10</th><th>0.15</th><th>0.20</th><th>0.25</th>
+</tr>
+</thead>
+<tbody>
+<tr class="combo-header"><td>sim+deg</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0391&plusmn;0.0245</td><td>0.0282&plusmn;0.0099</td><td>0.0411&plusmn;0.0202</td><td>0.0379&plusmn;0.0208</td><td>0.0439&plusmn;0.0249</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.9679</td><td>0.9689</td><td>0.9597</td><td>0.9573</td><td>0.9589</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.9968</td><td>0.9934</td><td>0.9935</td><td>0.9926</td><td>0.9934</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-inactive"><td>  out_detect_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="combo-header"><td>sim+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0519&plusmn;0.0068</td><td>0.0285&plusmn;0.0127</td><td>0.0231&plusmn;0.0139</td><td>0.0184&plusmn;0.0055</td><td>0.0162&plusmn;0.0128</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.9679</td><td>0.9689</td><td>0.9597</td><td>0.9573</td><td>0.9589</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>1.0000</td><td>1.0000</td><td>0.9967</td><td>0.9951</td><td>0.9947</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.9968</td><td>0.9934</td><td>0.9935</td><td>0.9926</td><td>0.9934</td></tr>
+<tr class="tip-inactive"><td>  degree_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="combo-header"><td>deg+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0442&plusmn;0.0180</td><td>0.0400&plusmn;0.0056</td><td>0.0248&plusmn;0.0014</td><td>0.0117&plusmn;0.0008</td><td>0.0068&plusmn;0.0010</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.9679</td><td>0.9689</td><td>0.9597</td><td>0.9573</td><td>0.9589</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>1.0000</td><td>1.0000</td><td>0.9967</td><td>0.9951</td><td>0.9947</td></tr>
+<tr class="tip-inactive"><td>  sim_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="combo-header"><td>all3</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0519&plusmn;0.0068</td><td>0.0282&plusmn;0.0130</td><td>0.0235&plusmn;0.0147</td><td>0.0184&plusmn;0.0055</td><td>0.0162&plusmn;0.0128</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.9679</td><td>0.9689</td><td>0.9597</td><td>0.9573</td><td>0.9589</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>1.0000</td><td>1.0000</td><td>0.9967</td><td>0.9951</td><td>0.9947</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.9968</td><td>0.9934</td><td>0.9935</td><td>0.9926</td><td>0.9934</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+</tbody>
+</table>
+<h3>2.B TNR</h3>
+<table class="data-table">
+<thead>
+<tr>
+<th>Combo / Source</th>
+<th>0.05</th><th>0.10</th><th>0.15</th><th>0.20</th><th>0.25</th>
+</tr>
+</thead>
+<tbody>
+<tr class="combo-header"><td>sim+deg</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.9919&plusmn;0.0080</td><td>0.9866&plusmn;0.0093</td><td>0.9800&plusmn;0.0178</td><td>0.9861&plusmn;0.0099</td><td>0.9801&plusmn;0.0133</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.2063</td><td>0.2067</td><td>0.2064</td><td>0.2068</td><td>0.2083</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.2932</td><td>0.2808</td><td>0.2714</td><td>0.2673</td><td>0.2588</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="tip-inactive"><td>  out_detect_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="combo-header"><td>sim+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.9921&plusmn;0.0014</td><td>0.9947&plusmn;0.0046</td><td>0.9955&plusmn;0.0067</td><td>0.9985&plusmn;0.0020</td><td>0.9965&plusmn;0.0044</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.2063</td><td>0.2067</td><td>0.2064</td><td>0.2068</td><td>0.2083</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.0183</td><td>0.0184</td><td>0.0183</td><td>0.0184</td><td>0.0185</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.2932</td><td>0.2808</td><td>0.2714</td><td>0.2673</td><td>0.2588</td></tr>
+<tr class="tip-inactive"><td>  degree_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.0002</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="combo-header"><td>deg+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.9994&plusmn;0.0005</td><td>0.9985&plusmn;0.0004</td><td>0.9977&plusmn;0.0009</td><td>0.9998&plusmn;0.0002</td><td>1.0000&plusmn;0.0001</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.2063</td><td>0.2067</td><td>0.2064</td><td>0.2068</td><td>0.2083</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.0183</td><td>0.0184</td><td>0.0183</td><td>0.0184</td><td>0.0185</td></tr>
+<tr class="tip-inactive"><td>  sim_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.0002</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="combo-header"><td>all3</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.9921&plusmn;0.0011</td><td>0.9947&plusmn;0.0046</td><td>0.9952&plusmn;0.0072</td><td>0.9985&plusmn;0.0020</td><td>0.9965&plusmn;0.0044</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.2063</td><td>0.2067</td><td>0.2064</td><td>0.2068</td><td>0.2083</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.0183</td><td>0.0184</td><td>0.0183</td><td>0.0184</td><td>0.0185</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.2932</td><td>0.2808</td><td>0.2714</td><td>0.2673</td><td>0.2588</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.0002</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+</tbody>
+</table>
+<h3>2.C F1</h3>
+<table class="data-table">
+<thead>
+<tr>
+<th>Combo / Source</th>
+<th>0.05</th><th>0.10</th><th>0.15</th><th>0.20</th><th>0.25</th>
+</tr>
+</thead>
+<tbody>
+<tr class="combo-header"><td>sim+deg</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0626&plusmn;0.0299</td><td>0.0484&plusmn;0.0136</td><td>0.0685&plusmn;0.0269</td><td>0.0673&plusmn;0.0322</td><td>0.0765&plusmn;0.0400</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.1261</td><td>0.2211</td><td>0.2975</td><td>0.3596</td><td>0.4122</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.1433</td><td>0.2437</td><td>0.3247</td><td>0.3891</td><td>0.4400</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-inactive"><td>  out_detect_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="combo-header"><td>sim+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0874&plusmn;0.0093</td><td>0.0523&plusmn;0.0205</td><td>0.0430&plusmn;0.0239</td><td>0.0357&plusmn;0.0102</td><td>0.0309&plusmn;0.0239</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.1261</td><td>0.2211</td><td>0.2975</td><td>0.3596</td><td>0.4122</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.1078</td><td>0.1922</td><td>0.2639</td><td>0.3230</td><td>0.3730</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.1433</td><td>0.2437</td><td>0.3247</td><td>0.3891</td><td>0.4400</td></tr>
+<tr class="tip-inactive"><td>  degree_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.1061</td><td>0.1893</td><td>0.2610</td><td>0.3203</td><td>0.3702</td></tr>
+<tr class="combo-header"><td>deg+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0832&plusmn;0.0318</td><td>0.0759&plusmn;0.0102</td><td>0.0478&plusmn;0.0026</td><td>0.0230&plusmn;0.0016</td><td>0.0135&plusmn;0.0021</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.1261</td><td>0.2211</td><td>0.2975</td><td>0.3596</td><td>0.4122</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.1078</td><td>0.1922</td><td>0.2639</td><td>0.3230</td><td>0.3730</td></tr>
+<tr class="tip-inactive"><td>  sim_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.1061</td><td>0.1893</td><td>0.2610</td><td>0.3203</td><td>0.3702</td></tr>
+<tr class="combo-header"><td>all3</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0875&plusmn;0.0097</td><td>0.0516&plusmn;0.0211</td><td>0.0436&plusmn;0.0249</td><td>0.0357&plusmn;0.0102</td><td>0.0309&plusmn;0.0239</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.1261</td><td>0.2211</td><td>0.2975</td><td>0.3596</td><td>0.4122</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.1078</td><td>0.1922</td><td>0.2639</td><td>0.3230</td><td>0.3730</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.1433</td><td>0.2437</td><td>0.3247</td><td>0.3891</td><td>0.4400</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.1061</td><td>0.1893</td><td>0.2610</td><td>0.3203</td><td>0.3702</td></tr>
+</tbody>
+</table>
+<h3>2.D FPR (False Positive Rate)</h3>
+<table class="data-table">
+<thead>
+<tr>
+<th>Combo / Source</th>
+<th>0.05</th><th>0.10</th><th>0.15</th><th>0.20</th><th>0.25</th>
+</tr>
+</thead>
+<tbody>
+<tr class="combo-header"><td>sim+deg</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0081&plusmn;0.0080</td><td>0.0134&plusmn;0.0093</td><td>0.0200&plusmn;0.0178</td><td>0.0139&plusmn;0.0099</td><td>0.0199&plusmn;0.0133</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.7937</td><td>0.7933</td><td>0.7936</td><td>0.7932</td><td>0.7917</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.7068</td><td>0.7192</td><td>0.7286</td><td>0.7327</td><td>0.7412</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-inactive"><td>  out_detect_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="combo-header"><td>sim+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0079&plusmn;0.0014</td><td>0.0053&plusmn;0.0046</td><td>0.0045&plusmn;0.0067</td><td>0.0015&plusmn;0.0020</td><td>0.0035&plusmn;0.0044</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.7937</td><td>0.7933</td><td>0.7936</td><td>0.7932</td><td>0.7917</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.9817</td><td>0.9816</td><td>0.9817</td><td>0.9816</td><td>0.9815</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.7068</td><td>0.7192</td><td>0.7286</td><td>0.7327</td><td>0.7412</td></tr>
+<tr class="tip-inactive"><td>  degree_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.9998</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="combo-header"><td>deg+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0006&plusmn;0.0005</td><td>0.0015&plusmn;0.0004</td><td>0.0023&plusmn;0.0009</td><td>0.0002&plusmn;0.0002</td><td>0.0000&plusmn;0.0001</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.7937</td><td>0.7933</td><td>0.7936</td><td>0.7932</td><td>0.7917</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.9817</td><td>0.9816</td><td>0.9817</td><td>0.9816</td><td>0.9815</td></tr>
+<tr class="tip-inactive"><td>  sim_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.9998</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="combo-header"><td>all3</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.0079&plusmn;0.0011</td><td>0.0053&plusmn;0.0046</td><td>0.0048&plusmn;0.0072</td><td>0.0015&plusmn;0.0020</td><td>0.0035&plusmn;0.0044</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.7937</td><td>0.7933</td><td>0.7936</td><td>0.7932</td><td>0.7917</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.9817</td><td>0.9816</td><td>0.9817</td><td>0.9816</td><td>0.9815</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.7068</td><td>0.7192</td><td>0.7286</td><td>0.7327</td><td>0.7412</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.9998</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+</tbody>
+</table>
+<h3>2.E FNR (False Negative Rate)</h3>
+<table class="data-table">
+<thead>
+<tr>
+<th>Combo / Source</th>
+<th>0.05</th><th>0.10</th><th>0.15</th><th>0.20</th><th>0.25</th>
+</tr>
+</thead>
+<tbody>
+<tr class="combo-header"><td>sim+deg</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.9609&plusmn;0.0245</td><td>0.9718&plusmn;0.0099</td><td>0.9589&plusmn;0.0202</td><td>0.9621&plusmn;0.0208</td><td>0.9561&plusmn;0.0249</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.0321</td><td>0.0311</td><td>0.0403</td><td>0.0427</td><td>0.0411</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.0032</td><td>0.0066</td><td>0.0065</td><td>0.0074</td><td>0.0066</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="tip-inactive"><td>  out_detect_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="combo-header"><td>sim+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.9481&plusmn;0.0068</td><td>0.9715&plusmn;0.0127</td><td>0.9769&plusmn;0.0139</td><td>0.9816&plusmn;0.0055</td><td>0.9838&plusmn;0.0128</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.0321</td><td>0.0311</td><td>0.0403</td><td>0.0427</td><td>0.0411</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.0000</td><td>0.0000</td><td>0.0033</td><td>0.0049</td><td>0.0053</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.0032</td><td>0.0066</td><td>0.0065</td><td>0.0074</td><td>0.0066</td></tr>
+<tr class="tip-inactive"><td>  degree_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="combo-header"><td>deg+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.9558&plusmn;0.0180</td><td>0.9600&plusmn;0.0056</td><td>0.9752&plusmn;0.0014</td><td>0.9883&plusmn;0.0008</td><td>0.9932&plusmn;0.0010</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.0321</td><td>0.0311</td><td>0.0403</td><td>0.0427</td><td>0.0411</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.0000</td><td>0.0000</td><td>0.0033</td><td>0.0049</td><td>0.0053</td></tr>
+<tr class="tip-inactive"><td>  sim_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+<tr class="combo-header"><td>all3</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.9481&plusmn;0.0068</td><td>0.9718&plusmn;0.0130</td><td>0.9765&plusmn;0.0147</td><td>0.9816&plusmn;0.0055</td><td>0.9838&plusmn;0.0128</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.0321</td><td>0.0311</td><td>0.0403</td><td>0.0427</td><td>0.0411</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.0000</td><td>0.0000</td><td>0.0033</td><td>0.0049</td><td>0.0053</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.0032</td><td>0.0066</td><td>0.0065</td><td>0.0074</td><td>0.0066</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr>
+</tbody>
+</table>
+<h3>2.F Binary Classification AUC = (TPR+TNR)/2</h3>
+<table class="data-table">
+<thead>
+<tr>
+<th>Combo / Source</th>
+<th>0.05</th><th>0.10</th><th>0.15</th><th>0.20</th><th>0.25</th>
+</tr>
+</thead>
+<tbody>
+<tr class="combo-header"><td>sim+deg</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.5155&plusmn;0.0084</td><td>0.5074&plusmn;0.0015</td><td>0.5106&plusmn;0.0015</td><td>0.5120&plusmn;0.0055</td><td>0.5120&plusmn;0.0060</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.5871</td><td>0.5878</td><td>0.5831</td><td>0.5820</td><td>0.5836</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.5000</td><td>0.5000</td><td>0.5000</td><td>0.5000</td><td>0.5000</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.6450</td><td>0.6371</td><td>0.6324</td><td>0.6300</td><td>0.6261</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.5000</td><td>0.5000</td><td>0.5000</td><td>0.5000</td><td>0.5000</td></tr>
+<tr class="tip-inactive"><td>  out_detect_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="combo-header"><td>sim+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.5220&plusmn;0.0028</td><td>0.5116&plusmn;0.0046</td><td>0.5093&plusmn;0.0044</td><td>0.5085&plusmn;0.0018</td><td>0.5064&plusmn;0.0045</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.5871</td><td>0.5878</td><td>0.5831</td><td>0.5820</td><td>0.5836</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.5091</td><td>0.5092</td><td>0.5075</td><td>0.5067</td><td>0.5066</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.6450</td><td>0.6371</td><td>0.6324</td><td>0.6300</td><td>0.6261</td></tr>
+<tr class="tip-inactive"><td>  degree_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.5001</td><td>0.5000</td><td>0.5000</td><td>0.5000</td><td>0.5000</td></tr>
+<tr class="combo-header"><td>deg+ood</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.5218&plusmn;0.0088</td><td>0.5192&plusmn;0.0027</td><td>0.5113&plusmn;0.0007</td><td>0.5057&plusmn;0.0003</td><td>0.5034&plusmn;0.0005</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.5871</td><td>0.5878</td><td>0.5831</td><td>0.5820</td><td>0.5836</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.5091</td><td>0.5092</td><td>0.5075</td><td>0.5067</td><td>0.5066</td></tr>
+<tr class="tip-inactive"><td>  sim_pt (inactive)</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.5000</td><td>0.5000</td><td>0.5000</td><td>0.5000</td><td>0.5000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.5001</td><td>0.5000</td><td>0.5000</td><td>0.5000</td><td>0.5000</td></tr>
+<tr class="combo-header"><td>all3</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td><td class="na">—</td></tr>
+<tr class="edge-src"><td>  tau_tune</td><td>0.5220&plusmn;0.0029</td><td>0.5114&plusmn;0.0047</td><td>0.5093&plusmn;0.0045</td><td>0.5085&plusmn;0.0018</td><td>0.5064&plusmn;0.0045</td></tr>
+<tr class="edge-src"><td>  filter_module</td><td>0.5871</td><td>0.5878</td><td>0.5831</td><td>0.5820</td><td>0.5836</td></tr>
+<tr class="edge-src"><td>  out_detect_pt_edges</td><td>0.5091</td><td>0.5092</td><td>0.5075</td><td>0.5067</td><td>0.5066</td></tr>
+<tr class="tip-src"><td>  sim_pt (tip)</td><td>0.6450</td><td>0.6371</td><td>0.6324</td><td>0.6300</td><td>0.6261</td></tr>
+<tr class="tip-src"><td>  degree_pt (tip)</td><td>0.5000</td><td>0.5000</td><td>0.5000</td><td>0.5000</td><td>0.5000</td></tr>
+<tr class="tip-src"><td>  out_detect_pt (tip)</td><td>0.5001</td><td>0.5000</td><td>0.5000</td><td>0.5000</td><td>0.5000</td></tr>
+</tbody>
+</table>
+
+</div>
+</body>
+</html>

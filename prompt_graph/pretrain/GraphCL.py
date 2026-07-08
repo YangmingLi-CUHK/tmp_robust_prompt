@@ -115,7 +115,7 @@ class GraphCL(PreTrain):
         optimizer = Adam(self.parameters(), lr=lr, weight_decay=decay)
 
         train_loss_min = 1000000
-        patience = 10
+        patience = 99999  # 设为极大值，禁用早停（lr=0.001 等低学习率下 loss 下降慢，patience=10 过早触发）
         cnt_wait = 0
         for epoch in range(1, epochs + 1):  # 1..100
             train_loss = self.train_graphcl(loader1, loader2, optimizer)
@@ -136,8 +136,8 @@ class GraphCL(PreTrain):
         # torch.save(self.gnn.state_dict(),
         #                    "./pre_trained_model_adaptive/{}.{}.{}.{}.pth".format(self.dataset_name, 'GraphCL', self.gnn_type, str(self.hid_dim) + 'hidden_dim'))
         
-        file_suffix = "{}.{}.{}.{}_hidden_dim.aug1_{}.aug2_{}.lr_{}.seed_{}.pth".format(
-                    self.dataset_name, 'GraphCL', self.gnn_type, str(self.hid_dim), aug1, aug2, str(lr), str(self.seed)
+        file_suffix = "{}.{}.{}.{}_hidden_dim.aug1_{}.aug2_{}.lr_{}.ratio_{}.seed_{}.pth".format(
+                    self.dataset_name, 'GraphCL', self.gnn_type, str(self.hid_dim), aug1, aug2, str(lr), str(aug_ratio), str(self.seed)
                 )
         
         torch.save(self.gnn.state_dict(), "./pre_trained_model_raw/" + file_suffix)

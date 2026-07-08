@@ -7,6 +7,7 @@ args = get_args()
 for seed in args.seed:
     seed_everything(seed)
     mkdir('./pre_trained_model/')
+    mkdir('./pre_trained_model_raw/')
 
     if args.task == 'GraphCL':
         pt = GraphCL(dataset_name = args.dataset_name, gnn_type = args.gnn_type, hid_dim = args.hid_dim, gln = args.num_layer, num_epoch=args.epochs, preprocess_method = args.preprocess_method, device=args.device, seed=seed)
@@ -15,8 +16,9 @@ for seed in args.seed:
         aug1 = getattr(args, 'aug1', 'dropN')
         aug2 = getattr(args, 'aug2', 'permE')
         lr = getattr(args, 'lr', 0.01)
-        
-        pt.pretrain(aug1=aug1, aug2=aug2, lr=lr)
+        aug_ratio = getattr(args, 'aug_ratio', None)
+
+        pt.pretrain(aug1=aug1, aug2=aug2, lr=lr, aug_ratio=aug_ratio)
 
         # Cora 256
         
@@ -30,7 +32,7 @@ for seed in args.seed:
 
     if args.task == 'GraphMAE':
         pt = GraphMAE(dataset_name = args.dataset_name, gnn_type = args.gnn_type, hid_dim = args.hid_dim, gln = args.num_layer, num_epoch=args.epochs, device=args.device,
-                    mask_rate=0.75, drop_edge_rate=0.0, replace_rate=0.1, loss_fn='sce', alpha_l=2)
+                    mask_rate=args.mask_rate, drop_edge_rate=args.drop_edge_rate, replace_rate=args.replace_rate, loss_fn=args.loss_fn, alpha_l=args.alpha_l, lr=args.lr)
 
     # if args.task == 'GraphMultiGprompt':
     #     nonlinearity = 'prelu'

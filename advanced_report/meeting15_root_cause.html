@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting 15 — Root Cause Analysis</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; font-size: 12px; line-height:1.6; }
+  .container { max-width: 1100px; margin:0 auto; padding: 28px 20px; }
+  header { margin-bottom: 28px; border-bottom: 1.5px solid #2563eb; padding-bottom: 14px; }
+  header h1 { font-size: 20px; font-weight: 700; }
+  header .meta { font-size: 10px; color: #888; margin-top: 4px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 36px 0 14px; border-bottom: 1px solid #e0e0e0; padding-bottom: 6px; }
+  h3 { font-size: 13px; font-weight: 600; margin: 22px 0 8px; color: #333; }
+  .finding { background: #fef9e7; border-left: 3px solid #d97706; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  .good { background: #f0fdf4; border-left: 3px solid #059669; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  .bad { background: #fef2f2; border-left: 3px solid #dc2626; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  .critical { background: #fef2f2; border: 2px solid #dc2626; padding: 12px 16px; margin: 12px 0; font-size: 11px; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 8px 0 16px; font-variant-numeric: tabular-nums; }
+  table.data-table thead th { background: #f5f5f5; font-weight: 600; text-align: center; padding: 5px 8px; border-bottom: 1.5px solid #ddd; white-space: nowrap; }
+  table.data-table tbody td { text-align: center; padding: 4px 8px; border-bottom: 1px solid #eee; }
+  table.data-table tbody tr:nth-child(even) { background: #fafafa; }
+  .code { font-family: 'SF Mono', 'Consolas', monospace; background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  .eq { font-family: 'SF Mono', 'Consolas', monospace; background: #f8fafc; padding: 8px 12px; margin: 6px 0; border-radius: 4px; font-size: 12px; border: 1px solid #e0e0e0; }
+  .note { font-size: 10px; color: #999; margin-top: 2px; }
+  .tldr { background: #e8f0fe; padding: 16px 20px; margin: 16px 0; border-radius: 6px; font-size: 12px; }
+  hr { border: none; border-top: 1px solid #eee; margin: 28px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>GPromptShield 不可复现 — 根因分析报告</h1>
+  <div class="meta">Generated: 2026-07-06 &nbsp;|&nbsp; Cora / Meta_Self / 5-shot split-1 &nbsp;|&nbsp; 排查范围：数据、攻击、预训练、Prompt 代码、超参数、维度</div>
+</header>
+
+<div class="tldr">
+  <strong>TL;DR</strong> — 论文 Table 1 Cora + GraphCL 列无法复现。用原版代码、64-dim backbone、对齐所有能对齐的设定后，
+  clean 精度从线性探测的 64% 跌到 34-46%，M-0.25 只有 ~10%。根本原因不是单一 bug，而是设计层面的多个结构性缺陷叠加。
+  此外，IA-PT 的"鲁棒性"受益于 <strong>训练时使用了 560 个测试集节点的伪标签</strong>（训练集从 35 膨胀到 595）。
+</div>
+
+<!-- ============================================================ -->
+<h2>1. IA-PT: "Few-Shot" 实际上是 595 个标签</h2>
+
+<h3>1.1 伪标签扩展流程</h3>
+<div class="code" style="padding:8px 12px; margin:8px 0;">
+Step 1: MLP(input=1433, hidden=1024) 在 35 个原始标签上训练（不看图结构）<br>
+Step 2: MLP 对全图 2708 个节点打分<br>
+Step 3: 每类取 top-80 最置信的 <strong>测试集</strong> 节点 = 7 × 80 = 560 个伪标签<br>
+Step 4: 训练集 = 35 (原始) + 560 (伪标签) = <strong>595 个标签</strong><br>
+Step 5: 用这 595 个标签做 prompt tuning（此时可以使用图结构）
+</div>
+
+<div class="critical">
+  <strong>数据泄露：</strong>伪标签来自 <span class="code">idx_test</span>（测试集），而不是验证集或未标注节点。
+  <span class="code">get_psu_labels()</span> 从 <span class="code">idx_test</span> 中挑选高置信度节点加入训练集。
+  模型在测试节点上训练，又在同样的测试节点上评估。
+</div>
+
+<table class="data-table">
+  <thead><tr><th></th><th>MD-PT (论文 Table 1)</th><th>IA-PT (论文 Table 1)</th><th>我们的复现</th></tr></thead>
+  <tbody>
+    <tr><td>标签数</td><td>35</td><td><strong>595</strong></td><td>35</td></tr>
+    <tr><td>数据源</td><td>仅训练节点</td><td>训练 + 测试节点</td><td>仅训练节点</td></tr>
+    <tr><td>Cora+GraphCL Clean</td><td>49.39</td><td>57.82</td><td>34-46</td></tr>
+    <tr><td>Cora+GraphCL M-0.25</td><td>48.06</td><td>58.82</td><td>~10</td></tr>
+  </tbody>
+</table>
+
+<div class="finding">
+  <strong>MD-PT 的 clean 也只有 49.39——论文自己也承认纯 prompt tuning 在 35 标签下会损伤性能。</strong>
+  但 IA-PT 的 58.82 不是来自"鲁棒的 prompt 设计"，而是来自 595 个标签（含测试集泄露）。
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>2. τ_tune: 论文 Eq 15 vs 原版代码 vs 我们的代码</h2>
+
+<table class="data-table">
+  <thead><tr><th></th><th>论文 Eq 15</th><th>原版代码 (GPromptShield-master)</th><th>我们的代码（"对齐版"）</th></tr></thead>
+  <tbody>
+    <tr><td>剪枝依据</td><td>GNN 中间 embedding <span class="code">eH</span> 的 cosine</td><td><strong>Prompt 修改后的原始特征</strong> cosine</td><td>GNN 中间 embedding 的 cosine</td></tr>
+    <tr><td>GNN forward</td><td>至少 2 次</td><td><strong>1 次</strong></td><td>2 次</td></tr>
+    <tr><td>MSE 计算</td><td>未明确</td><td>全图边（剪枝前）</td><td>剪枝后边</td></tr>
+  </tbody>
+</table>
+
+<div class="bad">
+  <strong>原版代码没有实现论文 Eq 15。</strong> 论文写的是基于 GNN 中间 embedding 剪枝，原版代码做的是基于 prompt 修改后的原始特征 cosine 剪枝。我们的"对齐版"才真正实现了论文描述的方案。
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>3. p_plus Token Bank: 231K 参数 / 35 标签</h2>
+
+<h3>3.1 参数量分析</h3>
+<div class="eq">
+  p_plus=True: 4 × (20×1433 token bank + Linear(1433,20)) = <strong>229,360</strong> 参数<br>
+  Readout token: 1,433<br>
+  Classifier: Linear(64, 7) = 455<br>
+  ─────────────────────────<br>
+  TOTAL: <strong>231,248</strong> 参数 / 35 标签 = <strong>6,607 参数/标签</strong>
+</div>
+
+<div class="eq">
+  p_plus=False: 4 × 1,433 + 1,433 + 455 = <strong>7,620</strong> 参数 / 35 标签 = <strong>218 参数/标签</strong>
+</div>
+
+<div class="bad">
+  <strong>p_plus 的 Linear(1433,20) 每个有 28,680 个权重，用 35 个标签根本无法学到有意义的东西。</strong>
+  Token bank 权重基本是随机初始化。但 20 个 1433-dim dense token 仍然强力覆盖了 ~19 个非零值的稀疏 BoW 特征。
+</div>
+
+<h3>3.2 实验验证</h3>
+<table class="data-table">
+  <thead><tr><th>配置</th><th>Clean</th><th>M-0.25</th></tr></thead>
+  <tbody>
+    <tr><td>原版代码 + p_plus=True (231K params)</td><td>46.4%</td><td>8.4%</td></tr>
+    <tr><td>原版代码 + p_plus=False (7.6K params)</td><td><strong>34.4%</strong></td><td><strong>12.0%</strong></td></tr>
+    <tr><td>线性探测 (455 params, 无 prompt)</td><td><strong>64.0%</strong></td><td>—</td></tr>
+  </tbody>
+</table>
+
+<div class="finding">
+  <strong>p_plus=False 的 clean 比 p_plus=True 更差（34% vs 46%）</strong>——因为 229K 参数的过参数化模型反而找到了更好的训练损失（过拟合到 35 个标签的噪声上），在测试集上也碰巧恢复了一部分精度。但 M-0.25 下 p_plus=False 微有提升（12% vs 8%），说明减少参数在受攻击时有助于减少过拟合。
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>4. 输入空间污染：Dense Prompt 淹没 Sparse BoW</h2>
+
+<table class="data-table">
+  <thead><tr><th></th><th>Cora BoW 特征</th><th>Prompt Token</th></tr></thead>
+  <tbody>
+    <tr><td>维度</td><td>1433</td><td>1433</td></tr>
+    <tr><td>非零值</td><td>~19 (1.3%)</td><td><strong>1433 (100%)</strong></td></tr>
+    <tr><td>L0 范数比</td><td>1×</td><td><strong>~77×</strong></td></tr>
+  </tbody>
+</table>
+
+<div class="eq">
+  GNN 输入 = x<sub>BoW</sub> (19 non-zeros) + p<sub>dense</sub> (1433 non-zeros)<br>
+  → GNN 看到的几乎全是 prompt，不是论文内容<br>
+  → GNN 是在 BoW 上预训练的，冻结后面对 BoW+dense_prompt 分布偏移 → 第一层 GCNConv 产出垃圾
+</div>
+
+<div class="bad">
+  <strong>Prompt 设计在特征空间（1433-dim），而不是 embedding 空间（64-dim）。</strong>
+  在特征空间加 prompt 等价于改写整篇论文的词频向量——对每个词都加一个偏移——而不是在语义层面调整表示。
+  如果在 GNN 的输出端（64-dim）加 prompt，线性探测已经证明这个空间是线性可分的，小偏移不会破坏它。
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>5. 只有 4 种 Prompt 组合</h2>
+
+<table class="data-table">
+  <thead><tr><th>Prompt 组合</th><th>节点数</th><th>占比</th></tr></thead>
+  <tbody>
+    <tr><td>p_s + p_e</td><td>790</td><td>29.2%</td></tr>
+    <tr><td>p_s + p_d + p_e</td><td>1003</td><td>37.0%</td></tr>
+    <tr><td>p_e only</td><td>850</td><td>31.4%</td></tr>
+    <tr><td>p_d + p_e</td><td>65</td><td>2.4%</td></tr>
+  </tbody>
+</table>
+
+<div class="finding">
+  <strong>2708 个节点只有 4 种 prompt。</strong> 由于 sim_pt(cos≤0.2) 覆盖 66%、degree_pt(deg≤1) 覆盖 39%，整个图的 prompt 分配退化为 group-embedding：
+  每个节点被分到 4 个 group 之一，获得 group-specific 的 1433-dim 偏移。GraphCL 学到的细粒度论文表示被 4 个 group embedding 覆盖。
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>6. KL Loss 反噬 (weight=0.3, 3× MSE)</h2>
+
+<div class="eq">
+  KL(prompt_node_embedding || no_prompt_node_embedding) weight=0.3<br>
+  → 把带 defense prompt 的节点 embedding 拉向不带 defense prompt 的节点<br>
+  → 但"不带 defense prompt"只有 p_e only 那 850 个节点<br>
+  → 其余 1858 个带 defense prompt 的节点被强行拉向它们<br>
+  → defense 效果被 KL loss 抵消
+</div>
+
+<div class="bad">
+  KL loss 的设计意图是"让 biased 节点分布对齐 unbiased 节点"，但实际上变成了让所有带 defense prompt 的节点退化为不带 defense prompt 的节点——等于关掉了 defense。
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>7. 已排除的变量</h2>
+
+<table class="data-table">
+  <thead><tr><th>检查项</th><th>结论</th></tr></thead>
+  <tbody>
+    <tr><td>数据源</td><td>干净 Cora，Jaccard 1.000 vs Planetoid ✓</td></tr>
+    <tr><td>BoW 处理</td><td>L1 归一化一致，AttackDataset 和 Planetoid 产出相同 ✓</td></tr>
+    <tr><td>Split</td><td>5-shot × 7-class，train/val/test 全部对齐 ✓</td></tr>
+    <tr><td>攻击代码</td><td>Metattack 参数完全一致（diff 仅路径和预算修正）✓</td></tr>
+    <tr><td>攻击预算</td><td>已修正（排除自环，ptb 精确匹配名义值）✓</td></tr>
+    <tr><td>GraphCL 预训练</td><td>64-dim 最优 0.640，优于 256-dim 的 0.626 ✓</td></tr>
+    <tr><td>Prompt 代码</td><td>用原版代码（out_detect_pt=pass, 假 attention, 特征级 τ_tune）复现，效果更差 ✓</td></tr>
+    <tr><td>hid_dim</td><td>64 vs 256，64 更好，但仍无法拯救 M-0.25 ✓</td></tr>
+    <tr><td>p_plus</td><td>True→False 减少 30× 参数，clean 更差，M-0.25 微升 ✓</td></tr>
+    <tr><td>预训练路径</td><td>pre_trained_model_raw ✓</td></tr>
+    <tr><td>Cora 大小写</td><td>全部一致 ✓</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>8. 综合判断</h2>
+
+<div class="critical">
+  <strong>论文 Table 1 的 Cora + GraphCL 列（MD-PT: Clean 49.39/M-0.25 48.06, IA-PT: Clean 57.82/M-0.25 58.82）无法通过复现验证。</strong><br><br>
+  五个独立的结构性缺陷共同导致了这个结果：<br>
+  1. IA-PT 使用了 560 个测试集伪标签（训练集从 35→595），论文未强调此差异<br>
+  2. p_plus token bank (231K params) 在 35 标签下无法学习，但 dense prompt 仍淹没稀疏 BoW<br>
+  3. 特征空间 prompt（1433-dim dense）被冻结 GNN 视为分布偏移，而非增强<br>
+  4. KL loss (weight=0.3) 主动抵消了 defense prompt 的效果<br>
+  5. 仅有 4 种 prompt 组合覆盖 2708 个节点，退化为 group embedding<br><br>
+  即使论文的 MD-PT 行（35 标签）claim 的 48% M-0.25 也与我们的 ~10% 差距过大（38pp），无法用调参或 backbone 质量解释。该行数据的可信度存疑。
+</div>
+
+</div>
+</body>
+</html>

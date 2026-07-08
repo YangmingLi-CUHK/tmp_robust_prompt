@@ -1,0 +1,1201 @@
+load LLC or attacked data with specified split
+Successfully loaded the attack of dataname with few shot 5, split 1
+Attack method : Meta_Self | Attack ptb : 0.1 | Dataset: Cora
+======================
+Number of graphs: 1
+Number of features: 1433
+Number of classes: 7
+
+Data(x=[2708, 1433], edge_index=[2, 14378], y=[2708], train_mask=[2708], val_mask=[2708], test_mask=[2708])
+===========================================================================================================
+Number of nodes: 2708
+Number of edges: 14378
+Average node degree: 5.31
+Has isolated nodes: False
+Has self-loops: True
+Is undirected: True
+GCN(
+  (conv_layers): ModuleList(
+    (0): GCNConv(1433, 256)
+    (1): GCNConv(256, 256)
+  )
+)
+Successfully loaded pre-trained weights!
+use RobustPrompt Tranductive
+defense pt dict :  {'sim_pt': 0.3, 'degree_pt': 1, 'out_detect_pt': 0.5, 'other_pt': 'all'}
+use_attention :  False
+cosine_constraint :  True
+pt_threshold :  0.5
+filter_module :  OriginalFilter
+temperature :  1.0
+weight_mse 0.1
+weight_kl :  0.3
+weight_constraint :  0.2
+run RobustPrompt-T
+Epoch 001 |  Time(s) 0.2637 | RobustPrompt-T Loss 1.9496  
+Epoch 002 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.9519  
+Epoch 003 |  Time(s) 0.0130 | RobustPrompt-T Loss 1.9320  
+Epoch 004 |  Time(s) 0.0129 | RobustPrompt-T Loss 1.9225  
+Epoch 005 |  Time(s) 0.0126 | RobustPrompt-T Loss 1.9237  
+Epoch 006 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.9123  
+Epoch 007 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.9025  
+Epoch 008 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.8983  
+Epoch 009 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.8829  
+Epoch 010 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.8711  
+Epoch 011 |  Time(s) 0.0132 | RobustPrompt-T Loss 1.8619  
+Epoch 012 |  Time(s) 0.0130 | RobustPrompt-T Loss 1.8430  
+Epoch 013 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.8174  
+Epoch 014 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.8096  
+Epoch 015 |  Time(s) 0.0142 | RobustPrompt-T Loss 1.8211  
+Epoch 016 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.7854  
+Epoch 017 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.7595  
+Epoch 018 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.7766  
+Epoch 019 |  Time(s) 0.0142 | RobustPrompt-T Loss 1.7509  
+Epoch 020 |  Time(s) 0.0142 | RobustPrompt-T Loss 1.7462  
+Epoch 021 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.7305  
+Epoch 022 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.7218  
+Epoch 023 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.7012  
+Epoch 024 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.7191  
+Epoch 025 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.6931  
+Epoch 026 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.6636  
+Epoch 027 |  Time(s) 0.0130 | RobustPrompt-T Loss 1.6573  
+Epoch 028 |  Time(s) 0.0128 | RobustPrompt-T Loss 1.6302  
+Epoch 029 |  Time(s) 0.0126 | RobustPrompt-T Loss 1.5831  
+Epoch 030 |  Time(s) 0.0130 | RobustPrompt-T Loss 1.5638  
+Epoch 031 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.6152  
+Epoch 032 |  Time(s) 0.0143 | RobustPrompt-T Loss 1.5958  
+Epoch 033 |  Time(s) 0.0142 | RobustPrompt-T Loss 1.4613  
+Epoch 034 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.5196  
+Epoch 035 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.5193  
+Epoch 036 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.4093  
+Epoch 037 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.4607  
+Epoch 038 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.3591  
+Epoch 039 |  Time(s) 0.0128 | RobustPrompt-T Loss 1.3879  
+Epoch 040 |  Time(s) 0.0125 | RobustPrompt-T Loss 1.3136  
+Epoch 041 |  Time(s) 0.0129 | RobustPrompt-T Loss 1.3157  
+Epoch 042 |  Time(s) 0.0127 | RobustPrompt-T Loss 1.3020  
+Epoch 043 |  Time(s) 0.0132 | RobustPrompt-T Loss 1.2641  
+Epoch 044 |  Time(s) 0.0126 | RobustPrompt-T Loss 1.2648  
+Epoch 045 |  Time(s) 0.0131 | RobustPrompt-T Loss 1.2087  
+Epoch 046 |  Time(s) 0.0131 | RobustPrompt-T Loss 1.2063  
+Epoch 047 |  Time(s) 0.0128 | RobustPrompt-T Loss 1.1448  
+Epoch 048 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.1606  
+Epoch 049 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.1279  
+Epoch 050 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.0865  
+Epoch 051 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.0565  
+Epoch 052 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.0623  
+Epoch 053 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.0332  
+Epoch 054 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.9884  
+Epoch 055 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.9791  
+Epoch 056 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.9527  
+Epoch 057 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.9478  
+Epoch 058 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.8958  
+Epoch 059 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.8786  
+Epoch 060 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.8673  
+Epoch 061 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.8357  
+Epoch 062 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.8401  
+Epoch 063 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.7894  
+Epoch 064 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.7848  
+Epoch 065 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.7694  
+Epoch 066 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.7560  
+Epoch 067 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.7127  
+Epoch 068 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.7014  
+Epoch 069 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.6665  
+Epoch 070 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.6431  
+Epoch 071 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.6319  
+Epoch 072 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.6149  
+Epoch 073 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.6575  
+Epoch 074 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.7222  
+Epoch 075 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.5711  
+Epoch 076 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.9830  
+Epoch 077 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.8869  
+Epoch 078 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.6585  
+Epoch 079 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.9408  
+Epoch 080 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.6603  
+Epoch 081 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.8289  
+Epoch 082 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.9916  
+Epoch 083 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.8352  
+Epoch 084 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.6687  
+Epoch 085 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.9083  
+Epoch 086 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.8400  
+Epoch 087 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.6009  
+Epoch 088 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.6797  
+Epoch 089 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.6983  
+Epoch 090 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.5060  
+Epoch 091 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.6623  
+Epoch 092 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.7351  
+Epoch 093 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.5157  
+Epoch 094 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.5663  
+Epoch 095 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.6086  
+Epoch 096 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.4501  
+Epoch 097 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.5881  
+Epoch 098 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.5294  
+Epoch 099 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.4331  
+Epoch 100 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.5275  
+Epoch 101 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.4204  
+Epoch 102 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.4510  
+Epoch 103 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.4811  
+Epoch 104 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.3957  
+Epoch 105 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.3961  
+Epoch 106 |  Time(s) 0.0145 | RobustPrompt-T Loss 0.4154  
+Epoch 107 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.3649  
+Epoch 108 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3675  
+Epoch 109 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.4186  
+Epoch 110 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.3536  
+Epoch 111 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.3838  
+Epoch 112 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.3359  
+Epoch 113 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3794  
+Epoch 114 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.3165  
+Epoch 115 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.4459  
+Epoch 116 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.4483  
+Epoch 117 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3044  
+Epoch 118 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3588  
+Epoch 119 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2945  
+Epoch 120 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.4653  
+Epoch 121 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.6092  
+Epoch 122 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3202  
+Epoch 123 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3645  
+Epoch 124 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.5095  
+Epoch 125 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.3103  
+Epoch 126 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.3492  
+Epoch 127 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.4540  
+Epoch 128 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.2647  
+Epoch 129 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3959  
+Epoch 130 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.6008  
+Epoch 131 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3513  
+Epoch 132 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2992  
+Epoch 133 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.4242  
+Epoch 134 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2660  
+Epoch 135 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3037  
+Epoch 136 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.4145  
+Epoch 137 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.2575  
+Epoch 138 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3113  
+Epoch 139 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.4404  
+Epoch 140 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.2715  
+Epoch 141 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.2948  
+Epoch 142 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.3622  
+Epoch 143 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.2331  
+Epoch 144 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3378  
+Epoch 145 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.4792  
+Epoch 146 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.2656  
+Epoch 147 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.2357  
+Epoch 148 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.2952  
+Epoch 149 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2220  
+Epoch 150 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3190  
+Epoch 151 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.4556  
+Epoch 152 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2594  
+Epoch 153 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.2031  
+Epoch 154 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.2676  
+Epoch 155 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1883  
+Epoch 156 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.2742  
+Epoch 157 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3990  
+Epoch 158 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.2178  
+Epoch 159 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.1937  
+Epoch 160 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.2562  
+Epoch 161 |  Time(s) 0.0129 | RobustPrompt-T Loss 0.1655  
+Epoch 162 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2263  
+Epoch 163 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2704  
+Epoch 164 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1542  
+Epoch 165 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2333  
+Epoch 166 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2732  
+Epoch 167 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1678  
+Epoch 168 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.2111  
+Epoch 169 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3432  
+Epoch 170 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.1904  
+Epoch 171 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.1575  
+Epoch 172 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.1761  
+Epoch 173 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1276  
+Epoch 174 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1647  
+Epoch 175 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1553  
+Epoch 176 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1154  
+Epoch 177 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1560  
+Epoch 178 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1142  
+Epoch 179 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1266  
+Epoch 180 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1197  
+Epoch 181 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1076  
+Epoch 182 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1181  
+Epoch 183 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0919  
+Epoch 184 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1092  
+Epoch 185 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0872  
+Epoch 186 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1006  
+Epoch 187 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0907  
+Epoch 188 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0921  
+Epoch 189 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0877  
+Epoch 190 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0810  
+Epoch 191 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0865  
+Epoch 192 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0807  
+Epoch 193 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.0865  
+Epoch 194 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0740  
+Epoch 195 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0791  
+Epoch 196 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0712  
+Epoch 197 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0777  
+Epoch 198 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0746  
+Epoch 199 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0714  
+Epoch 200 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0718  
+Final True Accuracy: 0.1561 | Macro F1 Score: 0.1487
+best_loss [tensor(0.0718, device='cuda:0', grad_fn=<AddBackward0>)]
+load LLC or attacked data with specified split
+Successfully loaded the attack of dataname with few shot 5, split 1
+Attack method : Meta_Self | Attack ptb : 0.1 | Dataset: Cora
+======================
+Number of graphs: 1
+Number of features: 1433
+Number of classes: 7
+
+Data(x=[2708, 1433], edge_index=[2, 14378], y=[2708], train_mask=[2708], val_mask=[2708], test_mask=[2708])
+===========================================================================================================
+Number of nodes: 2708
+Number of edges: 14378
+Average node degree: 5.31
+Has isolated nodes: False
+Has self-loops: True
+Is undirected: True
+GCN(
+  (conv_layers): ModuleList(
+    (0): GCNConv(1433, 256)
+    (1): GCNConv(256, 256)
+  )
+)
+Successfully loaded pre-trained weights!
+use RobustPrompt Tranductive
+defense pt dict :  {'sim_pt': 0.3, 'degree_pt': 1, 'out_detect_pt': 0.5, 'other_pt': 'all'}
+use_attention :  False
+cosine_constraint :  True
+pt_threshold :  0.5
+filter_module :  OriginalFilter
+temperature :  1.0
+weight_mse 0.1
+weight_kl :  0.3
+weight_constraint :  0.2
+run RobustPrompt-T
+Epoch 001 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.9481  
+Epoch 002 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.9314  
+Epoch 003 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.9281  
+Epoch 004 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.9128  
+Epoch 005 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.9081  
+Epoch 006 |  Time(s) 0.0131 | RobustPrompt-T Loss 1.9034  
+Epoch 007 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.8839  
+Epoch 008 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.8733  
+Epoch 009 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.8592  
+Epoch 010 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.8588  
+Epoch 011 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.8309  
+Epoch 012 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.8088  
+Epoch 013 |  Time(s) 0.0132 | RobustPrompt-T Loss 1.7786  
+Epoch 014 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.7788  
+Epoch 015 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.7430  
+Epoch 016 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.7379  
+Epoch 017 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.7205  
+Epoch 018 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.7285  
+Epoch 019 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.7263  
+Epoch 020 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.7351  
+Epoch 021 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.7845  
+Epoch 022 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.6751  
+Epoch 023 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.7190  
+Epoch 024 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.7350  
+Epoch 025 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.6439  
+Epoch 026 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.6466  
+Epoch 027 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.6406  
+Epoch 028 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.5941  
+Epoch 029 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.5838  
+Epoch 030 |  Time(s) 0.0132 | RobustPrompt-T Loss 1.5376  
+Epoch 031 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.5515  
+Epoch 032 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.5229  
+Epoch 033 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.4492  
+Epoch 034 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.4559  
+Epoch 035 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.4076  
+Epoch 036 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.3614  
+Epoch 037 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.3389  
+Epoch 038 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.3320  
+Epoch 039 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.2773  
+Epoch 040 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.2504  
+Epoch 041 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.2275  
+Epoch 042 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.2001  
+Epoch 043 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.1531  
+Epoch 044 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.1011  
+Epoch 045 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.1046  
+Epoch 046 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.0673  
+Epoch 047 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.0303  
+Epoch 048 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.0227  
+Epoch 049 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.9683  
+Epoch 050 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.9521  
+Epoch 051 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.9044  
+Epoch 052 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.9259  
+Epoch 053 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.8702  
+Epoch 054 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.8896  
+Epoch 055 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.9482  
+Epoch 056 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.8284  
+Epoch 057 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.8105  
+Epoch 058 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.8372  
+Epoch 059 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.7815  
+Epoch 060 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.7597  
+Epoch 061 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.7902  
+Epoch 062 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.7375  
+Epoch 063 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.7133  
+Epoch 064 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.7048  
+Epoch 065 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.7306  
+Epoch 066 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.7150  
+Epoch 067 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.6760  
+Epoch 068 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.6388  
+Epoch 069 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.6274  
+Epoch 070 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.6206  
+Epoch 071 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.6015  
+Epoch 072 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.5963  
+Epoch 073 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.5854  
+Epoch 074 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.5759  
+Epoch 075 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.6402  
+Epoch 076 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.6058  
+Epoch 077 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.5458  
+Epoch 078 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.5256  
+Epoch 079 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.5333  
+Epoch 080 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.5481  
+Epoch 081 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.5204  
+Epoch 082 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4938  
+Epoch 083 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.4755  
+Epoch 084 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.4652  
+Epoch 085 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.4576  
+Epoch 086 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4552  
+Epoch 087 |  Time(s) 0.0131 | RobustPrompt-T Loss 0.4570  
+Epoch 088 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.4691  
+Epoch 089 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4544  
+Epoch 090 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.4328  
+Epoch 091 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4410  
+Epoch 092 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.4167  
+Epoch 093 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.4053  
+Epoch 094 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.3938  
+Epoch 095 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.3994  
+Epoch 096 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3983  
+Epoch 097 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.4090  
+Epoch 098 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3597  
+Epoch 099 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.3597  
+Epoch 100 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.4206  
+Epoch 101 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3420  
+Epoch 102 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3878  
+Epoch 103 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3740  
+Epoch 104 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3336  
+Epoch 105 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.3315  
+Epoch 106 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.3820  
+Epoch 107 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3207  
+Epoch 108 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.3958  
+Epoch 109 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.3061  
+Epoch 110 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3950  
+Epoch 111 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2984  
+Epoch 112 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3941  
+Epoch 113 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2951  
+Epoch 114 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.4906  
+Epoch 115 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.4136  
+Epoch 116 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3469  
+Epoch 117 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3388  
+Epoch 118 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3553  
+Epoch 119 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.3127  
+Epoch 120 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3993  
+Epoch 121 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.4260  
+Epoch 122 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2981  
+Epoch 123 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2917  
+Epoch 124 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.3887  
+Epoch 125 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3360  
+Epoch 126 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3172  
+Epoch 127 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3206  
+Epoch 128 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.3421  
+Epoch 129 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.2866  
+Epoch 130 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3655  
+Epoch 131 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3540  
+Epoch 132 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2690  
+Epoch 133 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2610  
+Epoch 134 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.3487  
+Epoch 135 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3350  
+Epoch 136 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.2471  
+Epoch 137 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.2386  
+Epoch 138 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.3062  
+Epoch 139 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2661  
+Epoch 140 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2786  
+Epoch 141 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2723  
+Epoch 142 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.2448  
+Epoch 143 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2261  
+Epoch 144 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.2832  
+Epoch 145 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.2374  
+Epoch 146 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2718  
+Epoch 147 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.2643  
+Epoch 148 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1948  
+Epoch 149 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1952  
+Epoch 150 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.2077  
+Epoch 151 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1834  
+Epoch 152 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2215  
+Epoch 153 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1912  
+Epoch 154 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.2233  
+Epoch 155 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2337  
+Epoch 156 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1477  
+Epoch 157 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2692  
+Epoch 158 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1487  
+Epoch 159 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1900  
+Epoch 160 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1718  
+Epoch 161 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1448  
+Epoch 162 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1501  
+Epoch 163 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1360  
+Epoch 164 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.1438  
+Epoch 165 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1139  
+Epoch 166 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.1342  
+Epoch 167 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1059  
+Epoch 168 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1264  
+Epoch 169 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1088  
+Epoch 170 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1057  
+Epoch 171 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1116  
+Epoch 172 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0938  
+Epoch 173 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1110  
+Epoch 174 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0964  
+Epoch 175 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0942  
+Epoch 176 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1041  
+Epoch 177 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0880  
+Epoch 178 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.0956  
+Epoch 179 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0997  
+Epoch 180 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0857  
+Epoch 181 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0890  
+Epoch 182 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1007  
+Epoch 183 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0903  
+Epoch 184 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0901  
+Epoch 185 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1116  
+Epoch 186 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.1076  
+Epoch 187 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0834  
+Epoch 188 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1465  
+Epoch 189 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0827  
+Epoch 190 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.1008  
+Epoch 191 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0813  
+Epoch 192 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.0916  
+Epoch 193 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0765  
+Epoch 194 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0811  
+Epoch 195 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0840  
+Epoch 196 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0831  
+Epoch 197 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0801  
+Epoch 198 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0730  
+Epoch 199 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0922  
+Epoch 200 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0726  
+Final True Accuracy: 0.1557 | Macro F1 Score: 0.1470
+best_loss [tensor(0.0726, device='cuda:0', grad_fn=<AddBackward0>)]
+load LLC or attacked data with specified split
+Successfully loaded the attack of dataname with few shot 5, split 1
+Attack method : Meta_Self | Attack ptb : 0.1 | Dataset: Cora
+======================
+Number of graphs: 1
+Number of features: 1433
+Number of classes: 7
+
+Data(x=[2708, 1433], edge_index=[2, 14378], y=[2708], train_mask=[2708], val_mask=[2708], test_mask=[2708])
+===========================================================================================================
+Number of nodes: 2708
+Number of edges: 14378
+Average node degree: 5.31
+Has isolated nodes: False
+Has self-loops: True
+Is undirected: True
+GCN(
+  (conv_layers): ModuleList(
+    (0): GCNConv(1433, 256)
+    (1): GCNConv(256, 256)
+  )
+)
+Successfully loaded pre-trained weights!
+use RobustPrompt Tranductive
+defense pt dict :  {'sim_pt': 0.3, 'degree_pt': 1, 'out_detect_pt': 0.5, 'other_pt': 'all'}
+use_attention :  False
+cosine_constraint :  True
+pt_threshold :  0.5
+filter_module :  OriginalFilter
+temperature :  1.0
+weight_mse 0.1
+weight_kl :  0.3
+weight_constraint :  0.2
+run RobustPrompt-T
+Epoch 001 |  Time(s) 0.0143 | RobustPrompt-T Loss 1.9441  
+Epoch 002 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.9289  
+Epoch 003 |  Time(s) 0.0132 | RobustPrompt-T Loss 1.9459  
+Epoch 004 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.9112  
+Epoch 005 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.9187  
+Epoch 006 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.8977  
+Epoch 007 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.8911  
+Epoch 008 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.8811  
+Epoch 009 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.8703  
+Epoch 010 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.8541  
+Epoch 011 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.8315  
+Epoch 012 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.7939  
+Epoch 013 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.7780  
+Epoch 014 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.8092  
+Epoch 015 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.7392  
+Epoch 016 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.7255  
+Epoch 017 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.7403  
+Epoch 018 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.6995  
+Epoch 019 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.6899  
+Epoch 020 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.6832  
+Epoch 021 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.6610  
+Epoch 022 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.6481  
+Epoch 023 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.6532  
+Epoch 024 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.7449  
+Epoch 025 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.6689  
+Epoch 026 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.6443  
+Epoch 027 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.7236  
+Epoch 028 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.6216  
+Epoch 029 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.6361  
+Epoch 030 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.5859  
+Epoch 031 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.5486  
+Epoch 032 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.5827  
+Epoch 033 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.5360  
+Epoch 034 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.4240  
+Epoch 035 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.4920  
+Epoch 036 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.3898  
+Epoch 037 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.4399  
+Epoch 038 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.3960  
+Epoch 039 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.3534  
+Epoch 040 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.3495  
+Epoch 041 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.3343  
+Epoch 042 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.2980  
+Epoch 043 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.2961  
+Epoch 044 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.2229  
+Epoch 045 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.2533  
+Epoch 046 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.2110  
+Epoch 047 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.2161  
+Epoch 048 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.1579  
+Epoch 049 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.1670  
+Epoch 050 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.1290  
+Epoch 051 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.1311  
+Epoch 052 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.0762  
+Epoch 053 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.0840  
+Epoch 054 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.0492  
+Epoch 055 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.0337  
+Epoch 056 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.0148  
+Epoch 057 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.9876  
+Epoch 058 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.9673  
+Epoch 059 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.9363  
+Epoch 060 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.9322  
+Epoch 061 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.9126  
+Epoch 062 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.9295  
+Epoch 063 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.9339  
+Epoch 064 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.8924  
+Epoch 065 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.8279  
+Epoch 066 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.7989  
+Epoch 067 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.7843  
+Epoch 068 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.7980  
+Epoch 069 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.8480  
+Epoch 070 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.7242  
+Epoch 071 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.7306  
+Epoch 072 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.7653  
+Epoch 073 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.6943  
+Epoch 074 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.6879  
+Epoch 075 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.7270  
+Epoch 076 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.6318  
+Epoch 077 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.7163  
+Epoch 078 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.6004  
+Epoch 079 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.7041  
+Epoch 080 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.6462  
+Epoch 081 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.6525  
+Epoch 082 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.6664  
+Epoch 083 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.5332  
+Epoch 084 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.5772  
+Epoch 085 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.5222  
+Epoch 086 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.6703  
+Epoch 087 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.4742  
+Epoch 088 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.6072  
+Epoch 089 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.4874  
+Epoch 090 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.6564  
+Epoch 091 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.5982  
+Epoch 092 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.4357  
+Epoch 093 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.5391  
+Epoch 094 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.4808  
+Epoch 095 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.4376  
+Epoch 096 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.4360  
+Epoch 097 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.4492  
+Epoch 098 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.4057  
+Epoch 099 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3968  
+Epoch 100 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.4390  
+Epoch 101 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3370  
+Epoch 102 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.4045  
+Epoch 103 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.3272  
+Epoch 104 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3769  
+Epoch 105 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3166  
+Epoch 106 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.2999  
+Epoch 107 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3075  
+Epoch 108 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.3306  
+Epoch 109 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2700  
+Epoch 110 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.2722  
+Epoch 111 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.2587  
+Epoch 112 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.2520  
+Epoch 113 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.2632  
+Epoch 114 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2399  
+Epoch 115 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.2387  
+Epoch 116 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2243  
+Epoch 117 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.2314  
+Epoch 118 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.2179  
+Epoch 119 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.2113  
+Epoch 120 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2130  
+Epoch 121 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.1967  
+Epoch 122 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1950  
+Epoch 123 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1802  
+Epoch 124 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1889  
+Epoch 125 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1907  
+Epoch 126 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1860  
+Epoch 127 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1699  
+Epoch 128 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1603  
+Epoch 129 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1546  
+Epoch 130 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1524  
+Epoch 131 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1561  
+Epoch 132 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1407  
+Epoch 133 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1412  
+Epoch 134 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1360  
+Epoch 135 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1338  
+Epoch 136 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1317  
+Epoch 137 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1296  
+Epoch 138 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1249  
+Epoch 139 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1245  
+Epoch 140 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1211  
+Epoch 141 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1192  
+Epoch 142 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1188  
+Epoch 143 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1160  
+Epoch 144 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1126  
+Epoch 145 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1117  
+Epoch 146 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1093  
+Epoch 147 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1074  
+Epoch 148 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.1066  
+Epoch 149 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1038  
+Epoch 150 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1034  
+Epoch 151 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.1014  
+Epoch 152 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0985  
+Epoch 153 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0968  
+Epoch 154 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0959  
+Epoch 155 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0903  
+Epoch 156 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0916  
+Epoch 157 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0893  
+Epoch 158 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0868  
+Epoch 159 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0848  
+Epoch 160 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0845  
+Epoch 161 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0832  
+Epoch 162 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0810  
+Epoch 163 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0805  
+Epoch 164 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0795  
+Epoch 165 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0780  
+Epoch 166 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0764  
+Epoch 167 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0759  
+Epoch 168 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0746  
+Epoch 169 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0735  
+Epoch 170 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0721  
+Epoch 171 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0712  
+Epoch 172 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0732  
+Epoch 173 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0700  
+Epoch 174 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.0706  
+Epoch 175 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0712  
+Epoch 176 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0688  
+Epoch 177 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0664  
+Epoch 178 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0654  
+Epoch 179 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0641  
+Epoch 180 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0640  
+Epoch 181 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0629  
+Epoch 182 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0619  
+Epoch 183 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0615  
+Epoch 184 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0626  
+Epoch 185 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0614  
+Epoch 186 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0609  
+Epoch 187 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0585  
+Epoch 188 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0588  
+Epoch 189 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0565  
+Epoch 190 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.0562  
+Epoch 191 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0557  
+Epoch 192 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0557  
+Epoch 193 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0553  
+Epoch 194 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0547  
+Epoch 195 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0541  
+Epoch 196 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0535  
+Epoch 197 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.0523  
+Epoch 198 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0528  
+Epoch 199 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.0522  
+Epoch 200 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0519  
+Final True Accuracy: 0.1674 | Macro F1 Score: 0.1658
+best_loss [tensor(0.0519, device='cuda:0', grad_fn=<AddBackward0>)]
+load LLC or attacked data with specified split
+Successfully loaded the attack of dataname with few shot 5, split 1
+Attack method : Meta_Self | Attack ptb : 0.1 | Dataset: Cora
+======================
+Number of graphs: 1
+Number of features: 1433
+Number of classes: 7
+
+Data(x=[2708, 1433], edge_index=[2, 14378], y=[2708], train_mask=[2708], val_mask=[2708], test_mask=[2708])
+===========================================================================================================
+Number of nodes: 2708
+Number of edges: 14378
+Average node degree: 5.31
+Has isolated nodes: False
+Has self-loops: True
+Is undirected: True
+GCN(
+  (conv_layers): ModuleList(
+    (0): GCNConv(1433, 256)
+    (1): GCNConv(256, 256)
+  )
+)
+Successfully loaded pre-trained weights!
+use RobustPrompt Tranductive
+defense pt dict :  {'sim_pt': 0.3, 'degree_pt': 1, 'out_detect_pt': 0.5, 'other_pt': 'all'}
+use_attention :  False
+cosine_constraint :  True
+pt_threshold :  0.5
+filter_module :  OriginalFilter
+temperature :  1.0
+weight_mse 0.1
+weight_kl :  0.3
+weight_constraint :  0.2
+run RobustPrompt-T
+Epoch 001 |  Time(s) 0.0147 | RobustPrompt-T Loss 1.9459  
+Epoch 002 |  Time(s) 0.0144 | RobustPrompt-T Loss 1.9374  
+Epoch 003 |  Time(s) 0.0143 | RobustPrompt-T Loss 1.9193  
+Epoch 004 |  Time(s) 0.0145 | RobustPrompt-T Loss 1.9135  
+Epoch 005 |  Time(s) 0.0143 | RobustPrompt-T Loss 1.8979  
+Epoch 006 |  Time(s) 0.0142 | RobustPrompt-T Loss 1.8771  
+Epoch 007 |  Time(s) 0.0146 | RobustPrompt-T Loss 1.8609  
+Epoch 008 |  Time(s) 0.0144 | RobustPrompt-T Loss 1.8545  
+Epoch 009 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.8102  
+Epoch 010 |  Time(s) 0.0144 | RobustPrompt-T Loss 1.7887  
+Epoch 011 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.7801  
+Epoch 012 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.8098  
+Epoch 013 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.8258  
+Epoch 014 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.7712  
+Epoch 015 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.7907  
+Epoch 016 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.7381  
+Epoch 017 |  Time(s) 0.0142 | RobustPrompt-T Loss 1.7415  
+Epoch 018 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.7442  
+Epoch 019 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.7177  
+Epoch 020 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.7148  
+Epoch 021 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.7004  
+Epoch 022 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.7086  
+Epoch 023 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.7044  
+Epoch 024 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.6677  
+Epoch 025 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.6383  
+Epoch 026 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.6255  
+Epoch 027 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.5922  
+Epoch 028 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.6215  
+Epoch 029 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.6327  
+Epoch 030 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.6713  
+Epoch 031 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.5344  
+Epoch 032 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.6059  
+Epoch 033 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.4898  
+Epoch 034 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.5321  
+Epoch 035 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.5106  
+Epoch 036 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.4450  
+Epoch 037 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.4775  
+Epoch 038 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.3966  
+Epoch 039 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.4707  
+Epoch 040 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.4454  
+Epoch 041 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.3795  
+Epoch 042 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.3310  
+Epoch 043 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.3239  
+Epoch 044 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.3262  
+Epoch 045 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.1943  
+Epoch 046 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.2611  
+Epoch 047 |  Time(s) 0.0142 | RobustPrompt-T Loss 1.1566  
+Epoch 048 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.1454  
+Epoch 049 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.1868  
+Epoch 050 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.0708  
+Epoch 051 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.1033  
+Epoch 052 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.0535  
+Epoch 053 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.0517  
+Epoch 054 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.9504  
+Epoch 055 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.0194  
+Epoch 056 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.9689  
+Epoch 057 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.8981  
+Epoch 058 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.8851  
+Epoch 059 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.8208  
+Epoch 060 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.8234  
+Epoch 061 |  Time(s) 0.0142 | RobustPrompt-T Loss 0.7499  
+Epoch 062 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.7655  
+Epoch 063 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.6880  
+Epoch 064 |  Time(s) 0.0131 | RobustPrompt-T Loss 0.7077  
+Epoch 065 |  Time(s) 0.0130 | RobustPrompt-T Loss 0.6477  
+Epoch 066 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.6312  
+Epoch 067 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.6137  
+Epoch 068 |  Time(s) 0.0143 | RobustPrompt-T Loss 0.5693  
+Epoch 069 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.5933  
+Epoch 070 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.5388  
+Epoch 071 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.5358  
+Epoch 072 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.5365  
+Epoch 073 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.4933  
+Epoch 074 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.4806  
+Epoch 075 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.4959  
+Epoch 076 |  Time(s) 0.0143 | RobustPrompt-T Loss 0.4713  
+Epoch 077 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.4435  
+Epoch 078 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4598  
+Epoch 079 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4421  
+Epoch 080 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4405  
+Epoch 081 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4128  
+Epoch 082 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.4093  
+Epoch 083 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4372  
+Epoch 084 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3804  
+Epoch 085 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.3731  
+Epoch 086 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.3776  
+Epoch 087 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.3581  
+Epoch 088 |  Time(s) 0.0146 | RobustPrompt-T Loss 0.3560  
+Epoch 089 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.3423  
+Epoch 090 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.3366  
+Epoch 091 |  Time(s) 0.0147 | RobustPrompt-T Loss 0.3339  
+Epoch 092 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3154  
+Epoch 093 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.3040  
+Epoch 094 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.2931  
+Epoch 095 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.2867  
+Epoch 096 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.2778  
+Epoch 097 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.2679  
+Epoch 098 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2589  
+Epoch 099 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.2455  
+Epoch 100 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.2359  
+Epoch 101 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2191  
+Epoch 102 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.2086  
+Epoch 103 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.1993  
+Epoch 104 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.1914  
+Epoch 105 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1961  
+Epoch 106 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.2203  
+Epoch 107 |  Time(s) 0.0131 | RobustPrompt-T Loss 0.1977  
+Epoch 108 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1876  
+Epoch 109 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.1973  
+Epoch 110 |  Time(s) 0.0130 | RobustPrompt-T Loss 0.1583  
+Epoch 111 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.1452  
+Epoch 112 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.1541  
+Epoch 113 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.1767  
+Epoch 114 |  Time(s) 0.0143 | RobustPrompt-T Loss 0.1339  
+Epoch 115 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.1235  
+Epoch 116 |  Time(s) 0.0130 | RobustPrompt-T Loss 0.1607  
+Epoch 117 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1419  
+Epoch 118 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1219  
+Epoch 119 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.1090  
+Epoch 120 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1621  
+Epoch 121 |  Time(s) 0.0144 | RobustPrompt-T Loss 0.0948  
+Epoch 122 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.1374  
+Epoch 123 |  Time(s) 0.0129 | RobustPrompt-T Loss 0.0999  
+Epoch 124 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.1032  
+Epoch 125 |  Time(s) 0.0131 | RobustPrompt-T Loss 0.1002  
+Epoch 126 |  Time(s) 0.0131 | RobustPrompt-T Loss 0.1185  
+Epoch 127 |  Time(s) 0.0131 | RobustPrompt-T Loss 0.0827  
+Epoch 128 |  Time(s) 0.0130 | RobustPrompt-T Loss 0.0831  
+Epoch 129 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1171  
+Epoch 130 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.0769  
+Epoch 131 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0884  
+Epoch 132 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0879  
+Epoch 133 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0717  
+Epoch 134 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.0688  
+Epoch 135 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0788  
+Epoch 136 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0717  
+Epoch 137 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0615  
+Epoch 138 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.0699  
+Epoch 139 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0652  
+Epoch 140 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0599  
+Epoch 141 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0619  
+Epoch 142 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0594  
+Epoch 143 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0581  
+Epoch 144 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0563  
+Epoch 145 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0570  
+Epoch 146 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0569  
+Epoch 147 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0567  
+Epoch 148 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0552  
+Epoch 149 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0544  
+Epoch 150 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0524  
+Epoch 151 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0516  
+Epoch 152 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0554  
+Epoch 153 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0559  
+Epoch 154 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0520  
+Epoch 155 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0500  
+Epoch 156 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0499  
+Epoch 157 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0524  
+Epoch 158 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0521  
+Epoch 159 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0529  
+Epoch 160 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0510  
+Epoch 161 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0505  
+Epoch 162 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0506  
+Epoch 163 |  Time(s) 0.0144 | RobustPrompt-T Loss 0.0475  
+Epoch 164 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.0499  
+Epoch 165 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0527  
+Epoch 166 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0491  
+Epoch 167 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0468  
+Epoch 168 |  Time(s) 0.0143 | RobustPrompt-T Loss 0.0510  
+Epoch 169 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0521  
+Epoch 170 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0505  
+Epoch 171 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0496  
+Epoch 172 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0476  
+Epoch 173 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.0477  
+Epoch 174 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0478  
+Epoch 175 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0462  
+Epoch 176 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0445  
+Epoch 177 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.0473  
+Epoch 178 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0498  
+Epoch 179 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0467  
+Epoch 180 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0438  
+Epoch 181 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0436  
+Epoch 182 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0478  
+Epoch 183 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0480  
+Epoch 184 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0457  
+Epoch 185 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0430  
+Epoch 186 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0446  
+Epoch 187 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0444  
+Epoch 188 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0424  
+Epoch 189 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0420  
+Epoch 190 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0445  
+Epoch 191 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0432  
+Epoch 192 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0435  
+Epoch 193 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0416  
+Epoch 194 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0432  
+Epoch 195 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0414  
+Epoch 196 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0424  
+Epoch 197 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0409  
+Epoch 198 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0435  
+Epoch 199 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0422  
+Epoch 200 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0431  
+Final True Accuracy: 0.1948 | Macro F1 Score: 0.1771
+best_loss [tensor(0.0431, device='cuda:0', grad_fn=<AddBackward0>)]
+load LLC or attacked data with specified split
+Successfully loaded the attack of dataname with few shot 5, split 1
+Attack method : Meta_Self | Attack ptb : 0.1 | Dataset: Cora
+======================
+Number of graphs: 1
+Number of features: 1433
+Number of classes: 7
+
+Data(x=[2708, 1433], edge_index=[2, 14378], y=[2708], train_mask=[2708], val_mask=[2708], test_mask=[2708])
+===========================================================================================================
+Number of nodes: 2708
+Number of edges: 14378
+Average node degree: 5.31
+Has isolated nodes: False
+Has self-loops: True
+Is undirected: True
+GCN(
+  (conv_layers): ModuleList(
+    (0): GCNConv(1433, 256)
+    (1): GCNConv(256, 256)
+  )
+)
+Successfully loaded pre-trained weights!
+use RobustPrompt Tranductive
+defense pt dict :  {'sim_pt': 0.3, 'degree_pt': 1, 'out_detect_pt': 0.5, 'other_pt': 'all'}
+use_attention :  False
+cosine_constraint :  True
+pt_threshold :  0.5
+filter_module :  OriginalFilter
+temperature :  1.0
+weight_mse 0.1
+weight_kl :  0.3
+weight_constraint :  0.2
+run RobustPrompt-T
+Epoch 001 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.9487  
+Epoch 002 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.9283  
+Epoch 003 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.9266  
+Epoch 004 |  Time(s) 0.0145 | RobustPrompt-T Loss 1.9161  
+Epoch 005 |  Time(s) 0.0132 | RobustPrompt-T Loss 1.8989  
+Epoch 006 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.8912  
+Epoch 007 |  Time(s) 0.0132 | RobustPrompt-T Loss 1.8797  
+Epoch 008 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.8454  
+Epoch 009 |  Time(s) 0.0143 | RobustPrompt-T Loss 1.8268  
+Epoch 010 |  Time(s) 0.0147 | RobustPrompt-T Loss 1.7942  
+Epoch 011 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.7767  
+Epoch 012 |  Time(s) 0.0130 | RobustPrompt-T Loss 1.7735  
+Epoch 013 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.7994  
+Epoch 014 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.7829  
+Epoch 015 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.7726  
+Epoch 016 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.7616  
+Epoch 017 |  Time(s) 0.0142 | RobustPrompt-T Loss 1.7377  
+Epoch 018 |  Time(s) 0.0127 | RobustPrompt-T Loss 1.7370  
+Epoch 019 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.7143  
+Epoch 020 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.7087  
+Epoch 021 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.7041  
+Epoch 022 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.6844  
+Epoch 023 |  Time(s) 0.0130 | RobustPrompt-T Loss 1.6793  
+Epoch 024 |  Time(s) 0.0130 | RobustPrompt-T Loss 1.6471  
+Epoch 025 |  Time(s) 0.0132 | RobustPrompt-T Loss 1.6328  
+Epoch 026 |  Time(s) 0.0128 | RobustPrompt-T Loss 1.6012  
+Epoch 027 |  Time(s) 0.0128 | RobustPrompt-T Loss 1.5978  
+Epoch 028 |  Time(s) 0.0122 | RobustPrompt-T Loss 1.7024  
+Epoch 029 |  Time(s) 0.0130 | RobustPrompt-T Loss 1.6198  
+Epoch 030 |  Time(s) 0.0136 | RobustPrompt-T Loss 1.5512  
+Epoch 031 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.6254  
+Epoch 032 |  Time(s) 0.0134 | RobustPrompt-T Loss 1.4601  
+Epoch 033 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.5785  
+Epoch 034 |  Time(s) 0.0141 | RobustPrompt-T Loss 1.4371  
+Epoch 035 |  Time(s) 0.0130 | RobustPrompt-T Loss 1.5341  
+Epoch 036 |  Time(s) 0.0147 | RobustPrompt-T Loss 1.3940  
+Epoch 037 |  Time(s) 0.0131 | RobustPrompt-T Loss 1.4452  
+Epoch 038 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.3496  
+Epoch 039 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.3678  
+Epoch 040 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.3525  
+Epoch 041 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.2879  
+Epoch 042 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.2688  
+Epoch 043 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.2607  
+Epoch 044 |  Time(s) 0.0147 | RobustPrompt-T Loss 1.2485  
+Epoch 045 |  Time(s) 0.0140 | RobustPrompt-T Loss 1.1991  
+Epoch 046 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.2055  
+Epoch 047 |  Time(s) 0.0139 | RobustPrompt-T Loss 1.1847  
+Epoch 048 |  Time(s) 0.0142 | RobustPrompt-T Loss 1.1622  
+Epoch 049 |  Time(s) 0.0129 | RobustPrompt-T Loss 1.0979  
+Epoch 050 |  Time(s) 0.0133 | RobustPrompt-T Loss 1.0813  
+Epoch 051 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.0745  
+Epoch 052 |  Time(s) 0.0138 | RobustPrompt-T Loss 1.1601  
+Epoch 053 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.0455  
+Epoch 054 |  Time(s) 0.0137 | RobustPrompt-T Loss 1.0003  
+Epoch 055 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.9655  
+Epoch 056 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.9941  
+Epoch 057 |  Time(s) 0.0135 | RobustPrompt-T Loss 1.0227  
+Epoch 058 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.9268  
+Epoch 059 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.8966  
+Epoch 060 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.8454  
+Epoch 061 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.8444  
+Epoch 062 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.8375  
+Epoch 063 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.8746  
+Epoch 064 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.7850  
+Epoch 065 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.7406  
+Epoch 066 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.8118  
+Epoch 067 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.7398  
+Epoch 068 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.6636  
+Epoch 069 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.6932  
+Epoch 070 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.6986  
+Epoch 071 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.6355  
+Epoch 072 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.6284  
+Epoch 073 |  Time(s) 0.0121 | RobustPrompt-T Loss 0.6489  
+Epoch 074 |  Time(s) 0.0127 | RobustPrompt-T Loss 0.5706  
+Epoch 075 |  Time(s) 0.0126 | RobustPrompt-T Loss 0.5861  
+Epoch 076 |  Time(s) 0.0130 | RobustPrompt-T Loss 0.5998  
+Epoch 077 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.5283  
+Epoch 078 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.5392  
+Epoch 079 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.4940  
+Epoch 080 |  Time(s) 0.0131 | RobustPrompt-T Loss 0.5271  
+Epoch 081 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4648  
+Epoch 082 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.4556  
+Epoch 083 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.4679  
+Epoch 084 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.4513  
+Epoch 085 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4179  
+Epoch 086 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.4094  
+Epoch 087 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.4158  
+Epoch 088 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.3770  
+Epoch 089 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.3775  
+Epoch 090 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.3444  
+Epoch 091 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.3377  
+Epoch 092 |  Time(s) 0.0130 | RobustPrompt-T Loss 0.3054  
+Epoch 093 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.3140  
+Epoch 094 |  Time(s) 0.0130 | RobustPrompt-T Loss 0.2778  
+Epoch 095 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.2701  
+Epoch 096 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.2516  
+Epoch 097 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.2640  
+Epoch 098 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.2466  
+Epoch 099 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.2402  
+Epoch 100 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.2322  
+Epoch 101 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2158  
+Epoch 102 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.2011  
+Epoch 103 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.1911  
+Epoch 104 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1819  
+Epoch 105 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1788  
+Epoch 106 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1647  
+Epoch 107 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1657  
+Epoch 108 |  Time(s) 0.0131 | RobustPrompt-T Loss 0.1524  
+Epoch 109 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1565  
+Epoch 110 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1515  
+Epoch 111 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.1484  
+Epoch 112 |  Time(s) 0.0130 | RobustPrompt-T Loss 0.1518  
+Epoch 113 |  Time(s) 0.0130 | RobustPrompt-T Loss 0.1844  
+Epoch 114 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.2990  
+Epoch 115 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1399  
+Epoch 116 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3377  
+Epoch 117 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.1461  
+Epoch 118 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.4016  
+Epoch 119 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.3613  
+Epoch 120 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1532  
+Epoch 121 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.2283  
+Epoch 122 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1795  
+Epoch 123 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1954  
+Epoch 124 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1709  
+Epoch 125 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1607  
+Epoch 126 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1522  
+Epoch 127 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.1202  
+Epoch 128 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.1712  
+Epoch 129 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.1172  
+Epoch 130 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.1131  
+Epoch 131 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.1391  
+Epoch 132 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0868  
+Epoch 133 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.1211  
+Epoch 134 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.1087  
+Epoch 135 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0883  
+Epoch 136 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0955  
+Epoch 137 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0846  
+Epoch 138 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0852  
+Epoch 139 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0770  
+Epoch 140 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0875  
+Epoch 141 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0756  
+Epoch 142 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0751  
+Epoch 143 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0759  
+Epoch 144 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0804  
+Epoch 145 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0728  
+Epoch 146 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0713  
+Epoch 147 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0768  
+Epoch 148 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0663  
+Epoch 149 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0738  
+Epoch 150 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0723  
+Epoch 151 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0687  
+Epoch 152 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0691  
+Epoch 153 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0676  
+Epoch 154 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0678  
+Epoch 155 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0655  
+Epoch 156 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0599  
+Epoch 157 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0652  
+Epoch 158 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0644  
+Epoch 159 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0610  
+Epoch 160 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0687  
+Epoch 161 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0642  
+Epoch 162 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0643  
+Epoch 163 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0635  
+Epoch 164 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0599  
+Epoch 165 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0615  
+Epoch 166 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0582  
+Epoch 167 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0569  
+Epoch 168 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0580  
+Epoch 169 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0638  
+Epoch 170 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0581  
+Epoch 171 |  Time(s) 0.0140 | RobustPrompt-T Loss 0.0550  
+Epoch 172 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0562  
+Epoch 173 |  Time(s) 0.0139 | RobustPrompt-T Loss 0.0566  
+Epoch 174 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0544  
+Epoch 175 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0574  
+Epoch 176 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0605  
+Epoch 177 |  Time(s) 0.0141 | RobustPrompt-T Loss 0.0591  
+Epoch 178 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0555  
+Epoch 179 |  Time(s) 0.0129 | RobustPrompt-T Loss 0.0518  
+Epoch 180 |  Time(s) 0.0130 | RobustPrompt-T Loss 0.0563  
+Epoch 181 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0575  
+Epoch 182 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0515  
+Epoch 183 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0501  
+Epoch 184 |  Time(s) 0.0137 | RobustPrompt-T Loss 0.0554  
+Epoch 185 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0499  
+Epoch 186 |  Time(s) 0.0135 | RobustPrompt-T Loss 0.0498  
+Epoch 187 |  Time(s) 0.0130 | RobustPrompt-T Loss 0.0562  
+Epoch 188 |  Time(s) 0.0131 | RobustPrompt-T Loss 0.0489  
+Epoch 189 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0500  
+Epoch 190 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0527  
+Epoch 191 |  Time(s) 0.0138 | RobustPrompt-T Loss 0.0489  
+Epoch 192 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0512  
+Epoch 193 |  Time(s) 0.0136 | RobustPrompt-T Loss 0.0500  
+Epoch 194 |  Time(s) 0.0131 | RobustPrompt-T Loss 0.0491  
+Epoch 195 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0565  
+Epoch 196 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0528  
+Epoch 197 |  Time(s) 0.0134 | RobustPrompt-T Loss 0.0484  
+Epoch 198 |  Time(s) 0.0133 | RobustPrompt-T Loss 0.0491  
+Epoch 199 |  Time(s) 0.0132 | RobustPrompt-T Loss 0.0482  
+Epoch 200 |  Time(s) 0.0131 | RobustPrompt-T Loss 0.0543  
+Final True Accuracy: 0.1449 | Macro F1 Score: 0.1404
+best_loss [tensor(0.0543, device='cuda:0', grad_fn=<AddBackward0>)]
+{1: {1: 0.15614618360996246}, 2: {1: 0.15573090314865112}, 3: {1: 0.16735880076885223}, 4: {1: 0.19476744532585144}, 5: {1: 0.1449335515499115}}
+{1: {1: 0.15614618360996246, 2: 0.15573090314865112, 3: 0.16735880076885223, 4: 0.19476744532585144, 5: 0.1449335515499115}}
+########################################################################################
+seed: 1 | split 1 : 0.15614618360996246
+# Seed 1 Muti Split Final Acc: 0.1561±0.0000
+seed: 2 | split 1 : 0.15573090314865112
+# Seed 2 Muti Split Final Acc: 0.1557±0.0000
+seed: 3 | split 1 : 0.16735880076885223
+# Seed 3 Muti Split Final Acc: 0.1674±0.0000
+seed: 4 | split 1 : 0.19476744532585144
+# Seed 4 Muti Split Final Acc: 0.1948±0.0000
+seed: 5 | split 1 : 0.1449335515499115
+# Seed 5 Muti Split Final Acc: 0.1449±0.0000
+########################################################################################
+split: 1 | seed 1 : 0.15614618360996246
+split: 1 | seed 2 : 0.15573090314865112
+split: 1 | seed 3 : 0.16735880076885223
+split: 1 | seed 4 : 0.19476744532585144
+split: 1 | seed 5 : 0.1449335515499115
+# Split 1 Muti Seed Acc without min value: 0.1685±0.0159
+########################################################################################

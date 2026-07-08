@@ -1,0 +1,564 @@
+
+=== PAGE 4 ===
+Published as a conference paper at ICLR 2025
+pioneering studies have already been conducted to explore this area. GPPT (Sun et al., 2022) applies
+the pairwise token template (the task token for downstream problem and the structure token contain-
+ing the node information) to modify nodes. All-in-one (Sun et al., 2023a) reformulates node-level
+and edge-level tasks as graph-level tasks, introducing meta-learning technique to learn a prompt.
+GPF/GPF-plus (Fang et al., 2024) proposes a universal prompt tuning method by introducing addi-
+tional learnable parameter as a prompt in the feature space of the input graph. To achieve effective
+knowledge transfer from pre-training to a downstream task, GraphPrompt (Liu et al., 2023b) pro-
+poses a unified framework based on subgraph similarity, aiming to retain graph properties that are
+compatible with the given task during pre-training. MultiGPrompt (Yu et al., 2024) argues that a
+single pretext task is not sufficient. Therefore, it designs a series of pretext tokens to collaboratively
+address different pretext tasks during pre-training. It also introduces a dual-prompt mechanism that
+uses both a composed prompt and an open prompt to leverage task-specific and global pre-training
+knowledge. However, all of these prompts focus on the compatibility between pre-training and
+downstream tasks, neglecting potential security issues.
+3 P RELIMINARIES
+In this paper, we primarily discuss the robustness of graph prompt tuning in downstream node clas-
+sification tasks, as most mainstream attacks are centered around this scenario. We do not focus on
+the compatibility between upstream and downstream tasks, as existing studies have already provided
+excellent discussions on this aspect. Instead, we place greater emphasis on the resilience of prompts
+when faced with biased data.
+Notations. Define an undirected, unweighted graph G= (V,E)withNnodes, N=|V|.V=
+{v1, v2,···, vN}andE ⊆ V × V represent the set of nodes and edges, respectively. Its feature
+matrix X= [x1, x2,···, xn]∈RN×din, where xnis adin-dimensional feature vector of the n-
+thnode. A ∈ { 0,1}N×Nis the symmetric adjacency matrix where Aij= 1 if(vi, vi)∈ E.
+Moreover, the labels of all nodes are denoted as y. Each node is associated with a label yi∈ C,
+where C={c1, c2,···, cK}.
+Fine-Tuning. Define a pre-trained GNN model f, a learnable projection head θ. Next, we re-
+formulate the node task as a subgraph classification task and define a downstream task dataset
+D={(Sx1, y1),···,(Sxm, ym)}, where Sxi= (Si, XnSi)is the multi-hop neighbor subgraph
+of node iextracted from G.Siis the structure of the node subgraph. nSiis the set of nodes con-
+tained in Si.XnSirepresents the features of the contained nodes. We adjust the parameters of the
+pre-trained model fand the projection head θto maximize the likelihood of predicting the correct
+labels yiof the downstream local subgraph Sxi. Fine-Tuning aims to maximize the classification
+likelihoods for nodes in the graph, which can be expressed as follows:
+max
+f,θnX
+i=1pf,θ(yi|XnSi, Si) (1)
+Prompt-Tuning. In prompt-tuning for downstream node classification tasks, the parameters of the
+pre-trained model fare frozen, and instead introduces a lightweight graph prompt function ψ.ψ
+can be attached in the form of structure or features, transforming the input subgraph into a prompt
+subgraph for pre-trained model f’s input. The prompt subgraph can be expressed as follows:
+S∗
+xi: (S∗
+i, X∗
+nSi) =ψ(Sxi) (2)
+Therefore, the process of prompt-tuning can be described as:
+max
+ψ,θnX
+i=1pf,θ(yi|S∗
+xi) (3)
+In the evaluation phase after prompt-tuning, by adding a prompt ψto the subgraph of a test node,
+the frozen model fcan process it directly.
+4
+
+=== PAGE 5 ===
+Published as a conference paper at ICLR 2025
+Effectiveness Analysis. This study explores prompt effectiveness from the perspective of data dis-
+tribution. Following (Li et al., 2022b), define ˆS∗xias a prompt subgraph embedding output. As-
+sume subgraph embeddings follow p(ˆS∗x|y)and are sampled from the joint distribution p(ˆS∗x, y).
+Existing prompts seek general templates. Their effectiveness relies on unbiased data in down-
+stream tasks ( ptrain(ˆS∗x, y) =ptest(ˆS∗x, y) =ptrue(ˆS∗x, y)), as analyzed in (Li et al., 2022b). With
+consistent distributions, prompts work well even with few samples. But attacks cause distribu-
+tion deviations ( ptrain(ˆS∗x, y)̸=ptest(ˆS∗x, y)̸=ptrue(ˆS∗x, y)), leading to overfitting to erroneous
+data. Despite fixed pre-trained model parameters, misleading prompt harm is underestimated. As
+p(ˆS∗x, y) =p(y)p(ˆS∗x|y)andp(y)is consistent, inconsistent p(ˆS∗x|y)causes differences. Therefore,
+when the prompts obtained through prompt tuning with few-shot samples on the training data are
+added to the test data based on the principle of distribution consistency, it will result in catastrophic
+performance. This phenomenon is well reflected in Figure 3.
+Attacks. In this paper, we mainly adopt two attack scenarios: the commonly used gray-box global
+poisoning attack and the white-box adaptive attack. We focus on attacks against the graph struc-
+ture. In the setting of the former scenario, attackers have visibility into the graph data and labels
+but lacks visibility into the details of the model. MetaAttack (Z ¨ugner & G ¨unnemann, 2019) as a
+classic gray-box poisoning attack, utilizes a surrogate model for the attack, which can be formulated
+mathematically as a bilevel optimization problem:
+min
+ˆG∈Φ(G)Latk(fθ∗(ˆG))s.t. θ∗=argmin
+θLtrain(fθ(ˆG)) (4)
+Φ(G)represents a set of graphs that satisfies the disturbance budget constraint ∆.∆indicates a
+limit on the number of changes ∥A−ˆA∥ ≤∆.Latkis the attack loss function, could be −Ltrain
+or−Lself.
+Adaptive attacks (Gosch et al., 2024) are a type of white-box attack with stronger capabilities, where
+the attacker possesses complete information, including the defender’s model features, graph struc-
+ture, labels, and all details. (Gosch et al., 2024) categorizes defenses into seven types and designs
+adaptive attacks for the most representative method in each category.
+Problem Statement. This paper explores the robustness of prompt strategies in node classification
+tasks. To mimic real-world situations, we pretrain a GNN model on clean graphs and freeze its
+parameters. Our target is to design a robust prompt and optimization strategy. When the downstream
+graph data is biased by attacks, our prompt strategy leverages few-shot samples for robust tuning,
+improving the classification accuracy of unlabelled nodes.
+4 M ETHODS
+In this section, we will introduce a highly extensible shield defense system designed for the prompts,
+which enhances their robustness from two perspectives: Direct Handling andIndirect Amplifica-
+tion. They provide viable solutions for enhancing the resilience of prompts at two different stages:
+robust prompt design and robust optimization strategy.
+4.1 D IRECT HANDLING
+We have previously analyzed that when the data distribution is biased, prompts that are effective for
+certain nodes may mislead others. Therefore, when the downstream graph is attacked, we do not use
+a universal prompt like GPF. Instead, we designed a hybrid multi-defense prompt. Since we cannot
+know in advance the tactics employed by attackers, we customize a specific prompt for each node’s
+situation by organizing the commonalities and analyzing the focal points of different attacks.
+Downstream unbiased subgraphs that share consistent properties with pre-training data often do not
+require complex prompts. A typical example is subgraphs with high homophily similar to the pre-
+training data, which inherently exhibit strong compatibility. The nodes that truly require focused
+prompting are the biased ones resulting from attacks. For these biased nodes, adding prompts iden-
+tical to those of unbiased nodes is obviously irrational.
+5
+
+=== PAGE 6 ===
+Published as a conference paper at ICLR 2025
+We aim for the prompts on these biased nodes capable of mitigating the impact of biased infor-
+mation. Therefore, we propose several different node filtering strategies based on various sensi-
+tive points that the attacks may target. These strategies identify potential biased nodes with dif-
+ferent properties and apply attribute-specific prompts to each of them. For a perturbed subgraph
+eSxi= (eSi, XneSi)in a few-shot training set, we will next demonstrate how to add a hybrid multi-
+defense prompt to it.
+Filtering Tip 1: Degree Some indiscriminate attacks (such as DICE (Waniek et al., 2018) and
+Random attack) apply the same attack probability to all nodes. In this context, nodes with higher
+degrees tend to exhibit more stable community features and maintain good consistency with the
+pre-training data. Under the same attack cost, low-degree nodes are more likely to generate biased
+community features. Therefore, we filter out the set of nodes with low degree, denoted as nld=
+{u||Nu|< τdegree}, where Nuisu’s neighbors and τdegree is the degree threshold. We provide
+an auxiliary degree defense prompt pd∈Rdinapplied to their feature space, where dinis the
+dimensionality of the node features. this process can be expressed as:
+X∗
+neSi[nld] =XneSi[nld] +pd (5)
+Filtering Tip 2: Node Centrality Similarity. Most mainstream attacks aim to disrupt the ho-
+mophily assumption in graphs, where nodes with the same label and similar features are often con-
+nected. They utilize low-cost, high-reward tactics to increase the graph’s heterophily as much as
+possible. This change in heterophily is typically reflected in the central similarity of nodes, where
+the attacked biased nodes connect with nodes that have different labels and features, thus confusing
+the assessment of their own community characteristics. Therefore, we filter out the set of nodes with
+low central similarity, denoted as nls=n
+u|1
+|Nu|P
+v∈Nusim(Xu,Xv)< τsimo
+, where τsimis the
+similarity threshold. We provide an auxiliary similarity defense prompt ps∈Rdinapplied to their
+feature space. This process can be expressed as:
+X∗
+neSi[nls] =XneSi[nls] +ps (6)
+Filtering Tip 3: Out-of-distribution nodes. (Li et al.) proposes a novel adversarial training
+paradigm that generates perturbations through adversarial attacks during training, using adversarial
+edges as out-of-distribution samples and initial edges as in-distribution samples to train multiple de-
+tectors fD=
+f1
+d, f2
+d,···	
+. Using this detector, we can identify out-of-distribution edges generated
+by attacks when faced with a biased graph. More detailed description is provided in Appendix A.2.
+By detecting these edges, the nodes at both ends of the edges become the focal points of the attack
+method. We add prompts to these nodes and denote them as nod={u|∃fD(e) = 1 , e∈ E, u∈e}.
+We provide an auxiliary out-of-distribution defense prompt po∈Rdinapplied to their feature space.
+This process can be expressed as:
+X∗
+neSi[nod] =XneSi[nod] +po (7)
+In this paper, we initially propose above-mentioned three feasible solutions. As attacks continue
+to evolve, node sets can be selected based on a wider range of sensitive properties. After ob-
+taining different sets of vulnerable nodes, the prompt selection for a node is actually included in
+set{(),(pd, ps, po),(pd, ps),(po),···}. In the experiments, we also design an enhanced prompt
+pe∈Rdinfor nodes that do not have any sensitive prompts added.
+Since each node has a different number of prompts, integrating all the prompts that belong to each
+node on graph is a challenge. Defining a node’s prompt set as PSi, we propose two fusion strategies:
+one is the weighted average Mean , and the other is the self-attention mechanism SA(Vaswani, 2017)
+used in language models. Therefore, a node’s hybrid muti-defense prompt can be expressed as:
+X∗
+neSi[i] =X|PSi|
+n=1wnpnorX|PSi|
+n=1ai,npnpn∈PSi (8)
+6
+
+=== PAGE 7 ===
+Published as a conference paper at ICLR 2025
+2 6
+435
+1
+79
+8
+Hybrid Muti Defense Prompt 
+Multi
+ -
+Prompt Pool
+Different Sensitivity Prompts
+SA
+ *368 124579
+ 𝐷𝐷
+𝐾𝐾𝐾𝐾
+(
+ |
+|
+                         
+ )
+𝐷𝐷𝐷𝐷𝐷𝐷
+𝑛𝑛𝑛𝑛
+ 𝐷𝐷𝐷𝐷𝐷𝐷
+𝑛𝑛
+256 134789
+𝐷𝐷𝐷𝐷𝐷𝐷
+𝑛𝑛𝑛𝑛
+ 𝐷𝐷𝐷𝐷𝐷𝐷
+𝑛𝑛
+𝐷𝐷
+𝐾𝐾𝐾𝐾
+(
+ |
+|
+      
+ )
+789 12356 4
+𝐷𝐷𝐷𝐷𝐷𝐷
+𝑛𝑛𝑛𝑛
+ 𝐷𝐷𝐷𝐷𝐷𝐷
+𝑛𝑛
+𝐷𝐷
+𝐾𝐾𝐾𝐾
+(
+ |
+|
+      
+ )
++
++11
+919
+1
+910
+1901
+Pruning Based on 
+ 𝐻𝐻
+𝑆𝑆
+𝑖𝑖
+𝐿𝐿
+𝐾𝐾𝐾𝐾
+Overlap Matrix
+ 𝐸𝐸
+Figure 4: Robust Prompt Optimization Workflow for Hybrid Multi-Defense Prompt.
+We present the fusion strategy of SAin Figure 4. Finally, the process of adding hybrid muti-defense
+prompt to the perturbed subgraph eSxiis described as follows:
+eS∗
+xi= (eSi, XneSi+X∗
+neSi) (9)
+Our prompt is applied in the feature space. We do not choose structure-based prompts like All-
+in-one (Sun et al., 2023a). Instead, feature-based prompts allow for real-time adjustments to the
+structure of the disturbed subgraphs based on the current state of prompt tuning.
+Prompt Tuning. To optimize the learnable prompts, we propose three robust auxiliary con-
+straints. Consider a biased node classification task with a few-shot labeled training set T.
+Under the few-shot setting, there are only klabeled cases for each class in C, i.e., T=n
+(eSx1, y1),···,(eSxk×|C|, yk×|C|)o
+. We define eSxiwith prompt added as eS∗
+xi. After inputting eS∗
+xi
+into the pre-trained model f, we define the output node embeddings as eHneS∗
+i, and the graph em-
+bedding as eG∗
+i. To enhance the denoising capability of our prompt, we hope that the output node
+embeddings better satisfy the first-order proximity. Therefore, we use hidden feature smoothness as
+a regularizer, as shown below:
+Ls=Xk×|C|
+i=1X
+m,n∈eS∗
+i∥eHneS∗
+i[m]−eHneS∗
+i[n]∥2 (10)
+In each filtering scenario t, we hope to reduce the distance between the output distribution of bi-
+ased nodes and unbiased nodes. To elaborate clearly, we define the nodes with prompt added in
+filtering scenario tasnt
+pand the set of remaining nodes as nt
+np, i.e., the complement nodes ∁neS∗
+int
+p.
+(nt
+p, nt
+np)∈NT, where NT=n
+(nld,∁neS∗
+inld),(nls,∁neS∗
+inls),(nod,∁neS∗
+inod),···o
+. Therefore,
+we utilize a distribution loss to minimize the distance between the distributions of biased nodes and
+unbiased nodes in each perturbed subgraph across all filtering scenarios, enabling the prompt to
+guide and correct the biased distributions. This can be specifically expressed as follows:
+Lkl=k×|C|X
+i1
+|NT|X
+(ntp,ntnp)∈NTDKL(p(eHneS∗
+i[nt
+p])||p(eHneS∗
+i[nt
+np])) (11)
+Additionally, to impose constraint on the correlation between different defense prompts, we propose
+a node overlap matrix Efor each eS∗
+i. Assuming there are Tfiltering scenarios corresponding to T
+defense prompts, Eis an T×Tsymmetric matrix. Eijrepresents the degree of overlap between
+the biased node sets of the two filtering scenarios. Take nldandnlsfor example, this implies:
+Eij=Eji=|nld∩nls|
+|nld∪nls|(12)
+7
+
+=== PAGE 8 ===
+Published as a conference paper at ICLR 2025
+The matrix Eindicates that defense prompts with a higher node overlap should be more similar,
+while those with lower overlap should exhibit greater differences. Defining the defense prompt
+matrix of eS∗
+iasPi∈RT×din, we obtain the following multi-prompt constraint loss.
+Lo=k×|C|X
+i∥PiPT
+i−E∥2 (13)
+With these three auxiliary robust constraints, we perform robust prompt tuning by optimizing the
+following expression:
+min
+θ,pd,ps,po···k×|C|X
+iL(eG∗
+i, yi) +αLs+βLkl+γLo (14)
+Lis the downstream loss function (e.g., cross entropy). During the tuning process, we prune each
+eS∗
+iin training set using a tuning similarity threshold τtune, based on the intermediate state of the
+current eHneS∗
+i, denoted as
+ˆeS∗
+i=n
+(i, j)∈eS∗
+i|sim(eHneS∗
+i[i],eHneS∗
+i[j])> τtuneo
+. (15)
+After the tuning process, during the evaluation phase, we add the tuned prompt to different biased
+nodes of a biased test graph. Subsequently, we obtain the classification result using the frozen pre-
+trained model fand the projection head θ. We clearly illustrate our hybrid multi-defense prompt
+tuning workflow in Figure 4.
+4.2 I NDIRECT AMPLIFICATION
+Inspired by (Li et al., 2022b), given the contaminated local structure but consistent global feature
+distribution in the downstream task, we commence by training a multi-layer perceptron (MLP) de-
+void of structural information with few-shot training samples. Subsequently, the trained MLP is
+employed to generate pseudo-labels for subgraphs. Through a comparison of softmax scores, we
+identify the most confident predictions for each class and incorporate them into a new label set Vpsu.
+Compute cross-entropy loss with Vpsuto tune prompts while freezing the pre-trained model. This
+method applies to any prompt template. By reducing bias focus and improving unbiased understand-
+ing, it effectively alleviates the interference of irrelevant information during prompt tuning.
+4.3 T HEORETICAL ANALYSIS
+We are inspired by the theory of GPF (Fang et al., 2024) to prove the existence of the robust prompt
+we proposed under specific conditions.
+Theorem 1. Given a pre-trained GNN model fand an unbiased input graph G= (A, X). An attack
+yields a biased graph structure eA, where eA=A+C◦S(C= 11T−I−2A, and Sij=Sji= 1
+means the edge between nodes uandvis modified). Taking f(A, X)as the output of the model
+on unbiased data, there exists a hybrid multi-defense prompt P=N×Min the feature space
+(N∈R|V|×Tis the prompt selection matrix, M∈RT×dinis the prompt matrix, Tis the number
+of defense prompts) satisfying:
+f(eA, X +P) =f(A, X) (16)
+The proof is in Appendix A.3. Thus, for biased downstream tasks, under certain assumptions, a
+hybrid multi prompt can help the model produce unbiased outputs on biased data.
+8
+
+=== PAGE 9 ===
+Published as a conference paper at ICLR 2025
+5 E XPERIMENTS
+5.1 E XPERIMENT SETUP
+This paper primarily investigates the robust tuning of prompts on biased data in downstream node
+tasks across various attack scenarios. Thus, we use several datasets that are the focus of most attacks,
+including Cora-ML (McCallum et al., 2000), citation graph ( Cora, Citeseer ) (Sen et al., 2008). We
+use a wide range of attacks for experiments. For non-adaptive attacks, we select four representative
+attacks of different types, including gradient-based attack ( MetaAttack (Z¨ugner & G ¨unnemann,
+2019)), distribution-based attack ( Heuristic attack (Li et al., 2022b)), heuristic-based attack ( DICE
+(Waniek et al., 2018)), and Random attack . We attack downstream graph data used for prompt
+tuning with relatively large perturbation ratios, where MetaAttack is 25%, while the others are 50%.
+For convenience, it is abbreviated as M-0.25 in the Tables. For adaptive attacks, (Mujkanovic et al.,
+2022) proposes a unit test that includes 2,700 testable graphs. We select perturbed graphs targeting
+four defenses, including GCNSVD (Entezari et al., 2020), GRAND (Feng et al., 2020), GNNGuard
+(Zhang & Zitnik, 2020), and GCNJaccard (Wu et al., 2019), which basically cover most of the de-
+sign principles of defense models. We have also conducted a general exploration on link prediction
+and graph classification tasks, with only the robustness-related results presented in the main text.
+All detailed experimental data can be found in Appendix A.4.
+5.2 P RE-TRAINING STRATEGIES AND PROMPT TUNING
+To better showcase the applicability of the prompt function, we select the most representative gen-
+erative method GraphMAE (Hou et al., 2022) and contrastive method GraphCL (You et al., 2020)
+in the field of graph self-supervised learning as pre-training strategies. Additionally, we select the
+following widely-used prompts to explore their robustness, including GPF/GPF-plus (Fang et al.,
+2024), All-in-one (Sun et al., 2023a), GPPT (Sun et al., 2022), GraphPrompt (Liu et al., 2023b)
+and MultiGPrompt (Yu et al., 2024). GraphPrompt and MultiGPrompt require specific pre-training
+methods, so we follow their templates. The implementations of all prompts are available in Ap-
+pendix A.5.
+Table 1: Performance of Different Prompts in 5-shot scenario under Non-Adaptive Attacks.
+Pre-Training
+StrategiesPromptsCora Citeseer CoraML
+Clean M-0.25 D-0.5 R-0.5 H-0.5 Clean M-0.25 D-0.5 R-0.5 H-0.5 Clean M-0.25 D-0.5 R-0.5 H-0.5
+GraphPrompt 57.68 34.06 36.01 42.68 35.19 67.20 40.22 34.24 34.29 31.68 67.17 41.96 36.75 44.68 44.32
+MultiGPrompt 48.34 39.37 32.97 43.71 29.52 50.37 41.99 38.09 42.31 48.34 56.24 36.99 39.75 46.68 26.90
+GraphCLAll-in-one 50.93 31.02 17.91 34.29 28.34 43.96 37.18 37.29 27.72 21.31 37.43 28.38 26.50 35.35 27.46
+GPF 54.06 33.83 27.62 29.43 15.92 56.46 38.78 44.07 14.37 22.12 41.95 30.26 28.58 39.31 24.46
+GPF-plus 66.39 36.83 30.52 42.22 26.53 66.19 45.30 38.68 31.68 14.37 71.30 35.43 38.59 30.74 26.30
+GPPT 45.24 20.86 24.04 19.50 27.71 41.41 30.18 33.33 23.88 24.57 41.75 34.67 38.51 30.90 32.15
+*MD-PT 49.39 48.06 40.15 44.94 44.67 54.86 53.69 48.02 43.70 54.38 67.45 52.84 50.44 55.24 59.81
+*IA-PT 57.82 58.82 51.07 53.65 62.27 52.08 50.80 44.71 47.92 52.24 70.34 60.53 47.80 60.25 62.77
+GraphMAEAll-in-one 44.67 29.75 30.25 35.83 29.98 67.84 55.36 40.38 44.71 39.00 45.20 32.43 13.21 24.50 28.82
+GPF 66.71 38.82 33.15 48.53 39.27 73.24 53.31 41.45 41.61 29.38 61.01 15.73 20.42 10.57 16.65
+GPF-plus 63.40 39.46 33.38 49.84 36.46 75.16 51.87 40.33 36.81 28.26 70.26 22.62 40.95 45.36 21.70
+GPPT 67.79 43.17 47.71 42.40 35.46 61.70 46.90 49.11 43.86 50.05 71.62 41.55 48.08 54.84 41.59
+*MD-PT 62.49 62.49 52.61 48.03 51.61 62.87 58.81 50.32 50.11 56.89 65.45 68.37 57.29 55.24 50.72
+*IA-PT 68.93 68.30 61.90 67.30 66.62 59.72 60.63 57.26 59.40 61.22 75.90 57.85 54.32 66.41 64.65
+5.3 P ROMPT TUNING UNDER NON -ADAPTIVE ATTACKS
+We conduct experiments in both 5-shot and 10-shot scenarios. We demonstrate the robustness per-
+formance under the 5-shot setting here. 10-shot results can be found in Appendix A.6. We denote
+our hybrid multi-defense prompt as MD-PT and the indirect amplification prompt as IA-PT . In Table
+1, we can see that our prompts offer viable solutions to the potential security issues of prompts from
+two different perspectives. When the data is biased due to attacks, our tuning process can effectively
+avoid these invalid pieces of information to prevent the generation of misleading prompts. Aside
+from individual cases, the data in the Table also shows that the robustness of our prompts generally
+remains within a range of ±10%, unlike other prompts, which can vary by more than 40%. Notably,
+on clean unbiased tuning data, our prompts still maintain a state-of-the-art performance in many
+cases, without sacrificing excessive accuracy for the sake of robustness.
+9
+
+=== PAGE 10 ===
+Published as a conference paper at ICLR 2025
+5.4 P ROMPT TUNING UNDER ADAPTIVE ATTACKS
+We conduct experiments on adaptive poisoning attack graphs targeting classical defenses to demon-
+strate the versatility of our prompt tuning process. We still present the 5-shot results, while the
+10-shot results can be found in Appendix A.7. In Table 2, it can be seen that the defense capability
+ofMD-PT appears slightly inferior to that of IA-PT when facing more targeted attacks. This is
+understandable, “as directly ignoring a problem is often easier than dealing with more challenging
+issues”. However, our two strategies still remain highly competitive compared to other prompts.
+Table 2: Performance of Different Prompts in 5-shot scenario under Adaptive Attacks.
+Pre-Training
+StrategiesPromptsCoraML Citeseer
+GCNSVD GRAND GNNGuard GCNJaccard GCNSVD GRAND GNNGuard GCNJaccard
+GraphPrompt 47.66 35.24 37.64 41.90 48.72 34.99 40.71 38.25
+MultiGPrompt 24.22 30.20 15.56 14.97 25.16 25.96 31.41 33.55
+GraphCLProG 37.32 31.02 52.78 32.38 23.93 30.56 33.92 31.14
+GPF 30.88 23.08 27.39 35.42 29.59 21.85 18.43 25.53
+GPF-plus 52.29 28.93 41.41 38.37 24.95 21.85 24.95 18.38
+GPPT 35.69 26.53 40.14 40.45 43.96 30.88 32.05 43.48
+*MD-PT 47.85 45.54 49.67 41.35 51.60 51.60 51.01 53.90
+*IA-PT 61.27 58.73 53.83 46.08 59.35 57.05 62.61 57.10
+GraphMAEProG 17.05 23.22 27.62 23.45 34.35 27.14 39.05 44.34
+GPF 48.56 25.12 50.84 41.00 45.83 31.46 50.37 44.98
+GPF-plus 47.21 30.75 48.48 46.26 45.57 35.84 50.75 46.37
+GPPT 29.52 20.32 32.06 29.80 44.76 33.01 46.85 36.43
+*MD-PT 49.17 45.60 54.60 49.24 57.26 54.70 53.37 53.47
+*IA-PT 66.17 63.54 63.17 63.49 65.54 64.21 64.42 65.60
+5.5 A BLATION STUDY
+Since IA-PT is nested within any prompt, we primarily discusses MD-PT . We compare MD-PT
+with six prompt variants: “w/o pd” is a variant that does not use degree prompt. “w/o ps” is a
+variant that does not use similarity prompt. “w/o po” is a variant that does not use prompt for out-
+of-distribution nodes. “w/o Lkl” indicates that no distribution alignment is used during the tuning
+process. “w/o Lo” signifies that multi-prompt constraints are not employed. “w/o Ls” indicates
+that feature smoother is not used. Table 3 illustrates the key modules of the robust prompt tuning
+phase across different biased environments. Additionally, we have implemented a transfer attack
+experiment in Appendix A.10 to validate the scalability and transferability of GPromptShield.
+Table 3: Performance of Hybrid Multi-Defense Prompt by Ablating Different Modules.
+Ablation VariantsCora 5-shot Citeseer 5-shot Cora 10-shot Citeseer 10-shot
+Meta 0.25 DICE 0.5 Meta 0.25 DICE 0.5 Meta 0.25 DICE 0.5 Meta 0.25 DICE 0.5
+MD-PT 60.12% 54.55 64.20% 52.39 71.02% 62.30% 67.04% 55.35
+MD-PT w/o pd 62.31% 53.05% 63.68% 51.76% 67.87% 61.36% 66.67% 56.31%
+MD-PT w/o ps 58.46% 52.02% 58.97% 53.21% 69.92% 59.48% 61.57% 54.39%
+MD-PT w/o po 59.32% 55.37% 60.42% 51.98% 69.09% 60.99% 65.69% 55.18%
+MD-PT w/o Lkl 59.86% 55.28% 60.42% 52.14% 69.83% 60.81% 64.42% 54.23%
+MD-PT w/o Lo 59.59% 51.20% 59.94% 50.00% 69.23% 58.33% 65.64% 55.01%
+MD-PT w/o Ls 58.32% 56.46% 60.84% 51.50% 69.87% 60.72% 66.34% 54.58%
+6 C ONCLUSION
+In this paper, we shift the primary focus of graph prompts from compatibility to vulnerability issues
+in adversarial attack scenarios. We design a highly extensible shield defense system for the prompts.
+Specifically, we design a hybrid multi-defense prompt based on the principle of direct handling and
+an adaptable tuning strategy based on the principle of indirect amplification. We theoretically prove
+the feasibility of our strategies and achieve outstanding robustness performance in both adaptive and
+non-adaptive attack scenarios.
+10
+
+=== PAGE 11 ===
+Published as a conference paper at ICLR 2025
+7 R EPRODUCIBILITY STATEMENT
+The code for this paper is provided at https://github.com/GTLSysGraph/GPromptShield. All de-
+tailed experimental data can be found in Appendix A.4. The implementations of all baselines are
+available in Appendix A.5. The explanations of the theoretical part in the paper can be found in
+Appendix A.3.
+8 E THIC STATEMENT
+The robustness of graph prompts in the face of adversarial attacks is a key research focus. In this
+work, we have opened up a new perspective on graph prompt tuning focused on robustness, we
+shift the primary focus of graph prompts from compatibility to vulnerability issues in adversarial
+attack scenarios. We design a shield defense system for prompts, including direct handling with a
+hybrid multi-defense prompt and indirect amplification through a robust tuning strategy. Our work
+is aimed at improving the security of graph-based applications. Overall, we believe our research can
+positively contribute to the field without introducing new security risks.
+9 A CKNOWLEDGEMENT
+The research work supported by National Key Research and Development Program (Grant
+No.2023YFB4502305), the Beijing Natural Science Foundation (4232036).
+REFERENCES
+Heng Chang, Yu Rong, Tingyang Xu, Yatao Bian, Shiji Zhou, Xin Wang, Junzhou Huang, and
+Wenwu Zhu. Not all low-pass filters are robust in graph convolutional networks. Advances in
+Neural Information Processing Systems , 34:25058–25071, 2021.
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. Bert: Pre-training of deep
+bidirectional transformers for language understanding. arXiv preprint arXiv:1810.04805 , 2018.
+Negin Entezari, Saba A Al-Sayouri, Amirali Darvishzadeh, and Evangelos E Papalexakis. All you
+need is low (rank) defending against adversarial attacks on graphs. In Proceedings of the 13th
+International Conference on Web Search and Data Mining , pp. 169–177, 2020.
+Taoran Fang, Yunchao Zhang, Yang Yang, Chunping Wang, and Lei Chen. Universal prompt tuning
+for graph neural networks. Advances in Neural Information Processing Systems , 36, 2024.
+Wenzheng Feng, Jie Zhang, Yuxiao Dong, Yu Han, Huanbo Luan, Qian Xu, Qiang Yang, Evgeny
+Kharlamov, and Jie Tang. Graph random neural networks for semi-supervised learning on graphs.
+Advances in neural information processing systems , 33:22092–22103, 2020.
+Lukas Gosch, Simon Geisler, Daniel Sturm, Bertrand Charpentier, Daniel Z ¨ugner, and Stephan
+G¨unnemann. Adversarial training for graph neural networks: Pitfalls, solutions, and new direc-
+tions. Advances in Neural Information Processing Systems , 36, 2024.
+Kai Greshake, Sahar Abdelnabi, Shailesh Mishra, Christoph Endres, Thorsten Holz, and Mario
+Fritz. Not what you’ve signed up for: Compromising real-world llm-integrated applications with
+indirect prompt injection. In Proceedings of the 16th ACM Workshop on Artificial Intelligence
+and Security , pp. 79–90, 2023.
+Kaveh Hassani and Amir Hosein Khasahmadi. Contrastive multi-view representation learning on
+graphs. In International conference on machine learning , pp. 4116–4126. PMLR, 2020.
+Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Doll ´ar, and Ross Girshick. Masked au-
+toencoders are scalable vision learners. In Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition , pp. 16000–16009, 2022.
+11
+
+=== PAGE 12 ===
+Published as a conference paper at ICLR 2025
+Zhenyu Hou, Xiao Liu, Yukuo Cen, Yuxiao Dong, Hongxia Yang, Chunjie Wang, and Jie Tang.
+Graphmae: Self-supervised masked graph autoencoders. In Proceedings of the 28th ACM
+SIGKDD Conference on Knowledge Discovery and Data Mining , pp. 594–604, 2022.
+Zhenyu Hou, Yufei He, Yukuo Cen, Xiao Liu, Yuxiao Dong, Evgeny Kharlamov, and Jie
+Tang. Graphmae2: A decoding-enhanced masked self-supervised graph learner. arXiv preprint
+arXiv:2304.04779 , 2023.
+Weihua Hu, Matthias Fey, Marinka Zitnik, Yuxiao Dong, Hongyu Ren, Bowen Liu, Michele Catasta,
+and Jure Leskovec. Open graph benchmark: Datasets for machine learning on graphs. Advances
+in neural information processing systems , 33:22118–22133, 2020.
+Nils Kriege and Petra Mutzel. Subgraph matching kernels for attributed graphs. arXiv preprint
+arXiv:1206.6483 , 2012.
+Jintang Li, Ruofan Wu, Wangbin Sun, Liang Chen, Sheng Tian, Liang Zhu, Changhua Meng, Zibin
+Zheng, and Weiqiang Wang. Maskgae: masked graph modeling meets graph autoencoders. arXiv
+preprint arXiv:2205.10053 , 2022a.
+Kuan Li, YiWen Chen, Yang Liu, Jin Wang, Qing He, Minhao Cheng, and Xiang Ao. Boosting the
+adversarial robustness of graph neural networks: An ood perspective. In The Twelfth International
+Conference on Learning Representations .
+Kuan Li, Yang Liu, Xiang Ao, and Qing He. Revisiting graph adversarial attack and defense from a
+data distribution perspective. In The Eleventh International Conference on Learning Representa-
+tions , 2022b.
+Ralph Linsker. Self-organization in a perceptual network. Computer , 21(3):105–117, 1988.
+Pengfei Liu, Weizhe Yuan, Jinlan Fu, Zhengbao Jiang, Hiroaki Hayashi, and Graham Neubig. Pre-
+train, prompt, and predict: A systematic survey of prompting methods in natural language pro-
+cessing. ACM Computing Surveys , 55(9):1–35, 2023a.
+Yuxi Liu, Lianghao Xia, and Chao Huang. Selfgnn: Self-supervised graph neural networks for
+sequential recommendation. In Proceedings of the 47th International ACM SIGIR Conference on
+Research and Development in Information Retrieval , pp. 1609–1618, 2024.
+Zemin Liu, Xingtong Yu, Yuan Fang, and Xinming Zhang. Graphprompt: Unifying pre-training and
+downstream tasks for graph neural networks. In Proceedings of the ACM Web Conference 2023 ,
+pp. 417–428, 2023b.
+Andrew Kachites McCallum, Kamal Nigam, Jason Rennie, and Kristie Seymore. Automating the
+construction of internet portals with machine learning. Information Retrieval , 3:127–163, 2000.
+Moran Mizrahi, Guy Kaplan, Dan Malkin, Rotem Dror, Dafna Shahaf, and Gabriel Stanovsky. State
+of what art? a call for multi-prompt llm evaluation. Transactions of the Association for Compu-
+tational Linguistics , 12:933–949, 2024.
+Felix Mujkanovic, Simon Geisler, Stephan G ¨unnemann, and Aleksandar Bojchevski. Are defenses
+for graph neural networks robust? Advances in Neural Information Processing Systems , 35:
+8954–8968, 2022.
+Galileo Namata, Ben London, Lise Getoor, Bert Huang, and U Edu. Query-driven active surveying
+for collective classification. In 10th international workshop on mining and learning with graphs ,
+volume 8, pp. 1, 2012.
+Hongbin Pei, Bingzhe Wei, Kevin Chen-Chuan Chang, Yu Lei, and Bo Yang. Geom-gcn: Geometric
+graph convolutional networks. arXiv preprint arXiv:2002.05287 , 2020.
+Prithviraj Sen, Galileo Namata, Mustafa Bilgic, Lise Getoor, Brian Galligher, and Tina Eliassi-Rad.
+Collective classification in network data. AI magazine , 29(3):93–93, 2008.
+Zezhi Shao, Zhao Zhang, Wei Wei, Fei Wang, Yongjun Xu, Xin Cao, and Christian S Jensen. De-
+coupled dynamic spatial-temporal graph neural network for traffic forecasting. arXiv preprint
+arXiv:2206.09112 , 2022.
+12
