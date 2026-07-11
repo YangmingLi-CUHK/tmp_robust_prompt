@@ -50,7 +50,7 @@ class BaseTask:
         # RobustPrompt-T 超参数
         pt_threshold=0.5,
         weight_mse=0.1,
-        weight_kl=0.1,
+        weight_kl=0.3,
         weight_constraint=0.2,
         temperature=1.0,
         pt_sim_threshold=0.2,

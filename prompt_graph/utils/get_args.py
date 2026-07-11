@@ -89,7 +89,7 @@ def get_args():
                         help='τ_tune: cosine similarity threshold for edge pruning in Tune()')
     parser.add_argument('--weight_mse', type=float, default=0.1,
                         help='Weight for MSE smoothness loss (L_s)')
-    parser.add_argument('--weight_kl', type=float, default=0.1,
+    parser.add_argument('--weight_kl', type=float, default=0.3,
                         help='Weight for KL distribution alignment loss')
     parser.add_argument('--weight_constraint', type=float, default=0.2,
                         help='Weight for prompt orthogonality constraint loss')

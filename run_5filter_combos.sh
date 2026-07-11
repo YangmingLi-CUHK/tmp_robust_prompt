@@ -31,7 +31,7 @@ FC_OFF=-1.0
 BASE_PARAMS="--task NodeTask --dataset_name Cora --preprocess_method none \
   --gnn_type GCN --prompt_type RobustPrompt-T-NSP --shot_num 5 --run_split 1 \
   --hid_dim 256 --num_layer 2 --epochs 200 \
-  --pt_threshold 0.25 --weight_mse 0.0 --weight_kl 0.001 --weight_constraint 0.2 \
+  --pt_threshold 0.25 --weight_mse 0.1 --weight_kl 0.1 --weight_constraint 0.2 \
   --filter_mode original"
 
 declare -A TIP_LABELS=(
