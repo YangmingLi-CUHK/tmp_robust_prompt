@@ -1,6 +1,6 @@
 import torch
 from prompt_graph.model import GAT, GCN, GCov, GIN, GraphSAGE, GraphTransformer
-from prompt_graph.prompt import RobustPrompt_GPF, RobustPrompt_GPFplus, RobustPrompt_T, RobustPrompt_T_NSP, RobustPrompt_I, HeavyPrompt, GPPTPrompt,Gprompt, GPF, GPF_plus
+from prompt_graph.prompt import RobustPrompt_GPF, RobustPrompt_GPFplus, RobustPrompt_T, RobustPrompt_T_NSP, RobustPrompt_I, HeavyPrompt, GPPTPrompt, Gprompt, GPF, GPF_plus
 from prompt_graph.filters import build_filter
 from torch import nn, optim
 # load4graph removed (non-Cora GraphTask deprecated 2026-06-16)
@@ -10,16 +10,63 @@ from prompt_graph.utils import Gprompt_tuning_loss
 import numpy as np
 from types import SimpleNamespace
 
+
 class BaseTask:
-    def __init__(self, pre_train_model_path=None, gnn_type='TransformerConv', hid_dim = 128, num_layer = 2, dataset_name='Cora', prompt_type='GPF', preprocess_method ='None',attack_downstream = False, attack_method = None, epochs=100, shot_num=10, run_split = 1, specified = False, adaptive = False, adaptive_scenario='', adaptive_split= 0, adaptive_attack_model='', adaptive_ptb_rate= 0., filter_mode='original', filter_sim1_weight=0.5, filter_sim2_weight=0.5, filter_hybrid_alpha=0.5, device : int = 0, lr =0.001, wd = 5e-4, batch_size = 16,
-                 # RobustPrompt-T 超参数
-                 pt_threshold=0.5, weight_mse=0.1, weight_kl=0.3, weight_constraint=0.2,
-                 temperature=1.0, pt_sim_threshold=0.2, pt_degree_threshold=1,
-                 pt_out_detect_threshold=0.4, pt_nsp_threshold=0.3, nsp_order=2, p_plus=True, use_attention=False,
-                 cosine_constraint=True, prompt_lr=0.01, prompt_variant='ours'):
+    def __init__(
+        self,
+        pre_train_model_path=None,
+        gnn_type='TransformerConv',
+        hid_dim=128,
+        num_layer=2,
+        dataset_name='Cora',
+        prompt_type='GPF',
+        preprocess_method='None',
+        attack_downstream=False,
+        attack_method=None,
+        epochs=100,
+        shot_num=10,
+        run_split=1,
+        specified=False,
+        adaptive=False,
+        adaptive_scenario='',
+        adaptive_split=0,
+        adaptive_attack_model='',
+        adaptive_ptb_rate=0.,
+        filter_mode='original',
+        filter_sim1_weight=0.5,
+        filter_sim2_weight=0.5,
+        filter_hybrid_alpha=0.5,
+        filter_lp_hidden_dim=0,
+        filter_lp_epochs=50,
+        filter_lp_lr=0.1,
+        filter_lp_neg_ratio=1.0,
+        filter_lp_threshold_mode='gmean',
+        filter_lp_max_train_pairs=200000,
+        filter_lp_pca_dim=-1,
+        device: int = 0,
+        lr=0.001,
+        wd=5e-4,
+        batch_size=16,
+        # RobustPrompt-T 超参数
+        pt_threshold=0.5,
+        weight_mse=0.1,
+        weight_kl=0.3,
+        weight_constraint=0.2,
+        temperature=1.0,
+        pt_sim_threshold=0.2,
+        pt_degree_threshold=1,
+        pt_out_detect_threshold=0.4,
+        pt_nsp_threshold=0.3,
+        nsp_order=2,
+        p_plus=True,
+        use_attention=False,
+        cosine_constraint=True,
+        prompt_lr=0.01,
+        prompt_variant='ours',
+    ):
         self.pre_train_model_path = pre_train_model_path
         self.pre_train_type = self.return_pre_train_type(pre_train_model_path)
-        self.device = torch.device('cuda:'+ str(device) if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda:' + str(device) if torch.cuda.is_available() else 'cpu')
         self.preprocess_method = preprocess_method
         self.hid_dim = hid_dim
         self.num_layer = num_layer
@@ -33,45 +80,68 @@ class BaseTask:
         # add by ssh
         self.attack_downstream = attack_downstream
         self.attack_method = attack_method
-        self.specified     = specified
+        self.specified = specified
         # adaptive use
-        self.adaptive              = adaptive
-        self.adaptive_scenario     = adaptive_scenario
-        self.adaptive_split        = adaptive_split
+        self.adaptive = adaptive
+        self.adaptive_scenario = adaptive_scenario
+        self.adaptive_split = adaptive_split
         self.adaptive_attack_model = adaptive_attack_model
-        self.adaptive_ptb_rate     = adaptive_ptb_rate
-        self.filter_mode           = filter_mode
-        self.filter_sim1_weight    = filter_sim1_weight
-        self.filter_sim2_weight    = filter_sim2_weight
-        self.filter_hybrid_alpha   = filter_hybrid_alpha
+        self.adaptive_ptb_rate = adaptive_ptb_rate
+        self.filter_mode = filter_mode
+        self.filter_sim1_weight = filter_sim1_weight
+        self.filter_sim2_weight = filter_sim2_weight
+        self.filter_hybrid_alpha = filter_hybrid_alpha
+        self.filter_lp_hidden_dim = filter_lp_hidden_dim
+        self.filter_lp_epochs = filter_lp_epochs
+        self.filter_lp_lr = filter_lp_lr
+        self.filter_lp_neg_ratio = filter_lp_neg_ratio
+        self.filter_lp_threshold_mode = filter_lp_threshold_mode
+        self.filter_lp_max_train_pairs = filter_lp_max_train_pairs
+        self.filter_lp_pca_dim = filter_lp_pca_dim
         # RobustPrompt-T 超参数
-        self.pt_threshold           = pt_threshold
-        self.weight_mse             = weight_mse
-        self.weight_kl              = weight_kl
-        self.weight_constraint      = weight_constraint
-        self.temperature            = temperature
-        self.pt_sim_threshold       = pt_sim_threshold
-        self.pt_degree_threshold    = pt_degree_threshold
+        self.pt_threshold = pt_threshold
+        self.weight_mse = weight_mse
+        self.weight_kl = weight_kl
+        self.weight_constraint = weight_constraint
+        self.temperature = temperature
+        self.pt_sim_threshold = pt_sim_threshold
+        self.pt_degree_threshold = pt_degree_threshold
         self.pt_out_detect_threshold = pt_out_detect_threshold
-        self.pt_nsp_threshold       = pt_nsp_threshold
-        self.nsp_order              = nsp_order
-        self.p_plus                 = p_plus
-        self.use_attention          = use_attention
-        self.cosine_constraint      = cosine_constraint
-        self.prompt_lr              = prompt_lr
-        self.prompt_variant         = prompt_variant
+        self.pt_nsp_threshold = pt_nsp_threshold
+        self.nsp_order = nsp_order
+        self.p_plus = p_plus
+        self.use_attention = use_attention
+        self.cosine_constraint = cosine_constraint
+        self.prompt_lr = prompt_lr
+        self.prompt_variant = prompt_variant
 
         self.initialize_lossfn()
-
 
     def initialize_lossfn(self):
         self.criterion = torch.nn.CrossEntropyLoss()
         if self.prompt_type == 'Gprompt':
             self.criterion = Gprompt_tuning_loss()
 
+    def _build_filter_config(self, pt_threshold):
+        lp_pca_dim = self.output_dim if self.filter_lp_pca_dim < 0 else self.filter_lp_pca_dim
+        return SimpleNamespace(
+            filter_mode=self.filter_mode,
+            filter_sim1_weight=self.filter_sim1_weight,
+            filter_sim2_weight=self.filter_sim2_weight,
+            filter_hybrid_alpha=self.filter_hybrid_alpha,
+            filter_lp_hidden_dim=self.filter_lp_hidden_dim,
+            filter_lp_epochs=self.filter_lp_epochs,
+            filter_lp_lr=self.filter_lp_lr,
+            filter_lp_neg_ratio=self.filter_lp_neg_ratio,
+            filter_lp_threshold_mode=self.filter_lp_threshold_mode,
+            filter_lp_max_train_pairs=self.filter_lp_max_train_pairs,
+            filter_lp_pca_dim=lp_pca_dim,
+            nsp_order=self.nsp_order,
+            pt_threshold=pt_threshold,
+        )
 
     def initialize_optimizer(self):
-        if self.prompt_type == 'None': 
+        if self.prompt_type == 'None':
             # finetune  GNN和answer头一起调整，表示的是fintune
             # model_param_group = []
             # model_param_group.append({"params": self.gnn.parameters()})
@@ -83,12 +153,11 @@ class BaseTask:
         elif self.prompt_type in ['GPPT']:
             self.pg_opi = optim.Adam(self.prompt.parameters(), lr=2e-3, weight_decay=5e-4)
         elif self.prompt_type == 'All-in-one':
-            self.pg_opi = optim.Adam(filter(lambda p: p.requires_grad, self.prompt.parameters()), lr=1e-6, weight_decay= 0.00001)
-            self.answer_opi = optim.Adam(filter(lambda p: p.requires_grad, self.answering.parameters()), lr=0.001, weight_decay= 0.00001)
-        
-        
+            self.pg_opi = optim.Adam(filter(lambda p: p.requires_grad, self.prompt.parameters()), lr=1e-6, weight_decay=0.00001)
+            self.answer_opi = optim.Adam(filter(lambda p: p.requires_grad, self.answering.parameters()), lr=0.001, weight_decay=0.00001)
+
         # add by ssh
-        # 两种训练优化方式 
+        # 两种训练优化方式
         # prompt和anwser头一起优化，为了使用知识蒸馏训练，维度对齐
         elif self.prompt_type == 'RobustPrompt-I':
             model_param_group = []
@@ -106,8 +175,6 @@ class BaseTask:
             model_param_group.append({"params": self.answering.parameters()})
             self.optimizer = optim.Adam(model_param_group, lr=self.prompt_lr, weight_decay=5e-4)
 
-
-
         elif self.prompt_type in ['GPF', 'GPF-plus']:
             model_param_group = []
             model_param_group.append({"params": self.prompt.parameters()})
@@ -117,13 +184,9 @@ class BaseTask:
             self.pg_opi = optim.Adam(self.prompt.parameters(), lr=0.01, weight_decay=5e-4)
         elif self.prompt_type == 'MultiGprompt':
             if self.task_type == 'NodeTask':
-                self.optimizer = optim.Adam([*self.DownPrompt.parameters(),*self.feature_prompt.parameters()], lr=0.01)
+                self.optimizer = optim.Adam([*self.DownPrompt.parameters(), *self.feature_prompt.parameters()], lr=0.01)
             elif self.task_type == 'GraphTask':
                 self.optimizer = optim.Adam(self.DownPrompt.parameters(), lr=0.001)
-
-
-
-
 
     def initialize_prompt(self):
         if self.prompt_type == 'None':
@@ -134,14 +197,8 @@ class BaseTask:
             # train_ids = torch.nonzero(self.data.train_mask, as_tuple=False).squeeze()
             # node_embedding = self.gnn(self.data.x, self.data.edge_index)
             # self.prompt.weigth_init(node_embedding,self.data.edge_index, self.data.y, train_ids)
-            if self.task_type=='NodeTask':
-                prompt_filter = build_filter(SimpleNamespace(
-                    filter_mode=self.filter_mode,
-                    filter_sim1_weight=self.filter_sim1_weight,
-                    filter_sim2_weight=self.filter_sim2_weight,
-                    filter_hybrid_alpha=self.filter_hybrid_alpha,
-                    pt_threshold=0.0,
-                ))
+            if self.task_type == 'NodeTask':
+                prompt_filter = build_filter(self._build_filter_config(pt_threshold=0.0))
                 if self.dataset_name == 'Texas':
                     self.prompt = GPPTPrompt(
                         self.hid_dim, 5, self.output_dim,
@@ -154,35 +211,32 @@ class BaseTask:
                         device=self.device,
                         filter_module=prompt_filter
                     )
-                    
+
                 train_ids = torch.nonzero(self.data.train_mask, as_tuple=False).squeeze()
                 node_embedding = self.gnn(self.data.x, self.data.edge_index)
-                self.prompt.weigth_init(node_embedding,self.data.edge_index, self.data.y, train_ids)
+                self.prompt.weigth_init(node_embedding, self.data.edge_index, self.data.y, train_ids)
 
-
-            elif self.task_type in ['GraphTask','LinkTask']:
+            elif self.task_type in ['GraphTask', 'LinkTask']:
                 self.prompt = GPPTPrompt(
                     self.hid_dim, self.output_dim, self.output_dim,
                     device=self.device,
                     filter_module=None
-                ) 
+                )
 
-
-        elif self.prompt_type =='All-in-one':
+        elif self.prompt_type == 'All-in-one':
             # lr, wd = 0.001, 0.00001
             # self.prompt = LightPrompt(token_dim=self.input_dim, token_num_per_group=100, group_num=self.output_dim, inner_prune=0.01).to(self.device)
-            if self.task_type=='NodeTask':
+            if self.task_type == 'NodeTask':
                 self.prompt = HeavyPrompt(token_dim=self.input_dim, token_num=10, cross_prune=0.1, inner_prune=0.3).to(self.device)
-            elif self.task_type in ['GraphTask','LinkTask']:
+            elif self.task_type in ['GraphTask', 'LinkTask']:
                 self.prompt = HeavyPrompt(token_dim=self.input_dim, token_num=10, cross_prune=0.1, inner_prune=0.3).to(self.device)
 
-
-        elif self.prompt_type in ['GPF','GPF-Tranductive']:
+        elif self.prompt_type in ['GPF', 'GPF-Tranductive']:
             self.prompt = GPF(self.input_dim).to(self.device)
 
         elif self.prompt_type in ['GPF-plus', 'GPF-plus-Tranductive']:
             self.prompt = GPF_plus(self.input_dim, 20).to(self.device)
-    
+
         elif self.prompt_type == 'Gprompt':
             self.prompt = Gprompt(self.hid_dim).to(self.device)
         elif self.prompt_type == 'MultiGprompt':
@@ -192,18 +246,30 @@ class BaseTask:
                 self.Preprompt = NodePrePrompt(self.dataset_name, self.hid_dim, nonlinearity, 0.9, 0.9, 0.1, 0.0001, self.num_layer, 0.3, self.device).to(self.device)
                 self.Preprompt.load_state_dict(torch.load(self.pre_train_model_path, map_location=self.device))
                 self.Preprompt.eval()
-                self.feature_prompt = featureprompt(self.Preprompt.dgiprompt.prompt,self.Preprompt.graphcledgeprompt.prompt,self.Preprompt.lpprompt.prompt).to(self.device)
+                self.feature_prompt = featureprompt(self.Preprompt.dgiprompt.prompt, self.Preprompt.graphcledgeprompt.prompt, self.Preprompt.lpprompt.prompt).to(self.device)
                 # print(self.feature_prompt.prompt.shape) # torch.Size([3, 1433])
             # Graph
             if self.task_type == 'GraphTask':
                 nonlinearity = 'prelu'
-                self.Preprompt = GraphPrePrompt(self.dataset, self.input_dim, self.output_dim, self.dataset_name, self.hid_dim, nonlinearity, 
-                                                0.9, 0.9, 0.1, 1, 0.3, self.device).to(self.device)
+                self.Preprompt = GraphPrePrompt(
+                    self.dataset,
+                    self.input_dim,
+                    self.output_dim,
+                    self.dataset_name,
+                    self.hid_dim,
+                    nonlinearity,
+                    0.9,
+                    0.9,
+                    0.1,
+                    1,
+                    0.3,
+                    self.device,
+                ).to(self.device)
                 self.Preprompt.eval()
                 self.feature_prompt = None
                 self.Preprompt.load_state_dict(torch.load(self.pre_train_model_path))
-            
-            dgiprompt = self.Preprompt.dgi.prompt  
+
+            dgiprompt = self.Preprompt.dgi.prompt
             graphcledgeprompt = self.Preprompt.graphcledge.prompt
             lpprompt = self.Preprompt.lp.prompt
             self.DownPrompt = downprompt(dgiprompt, graphcledgeprompt, lpprompt, 0.001, self.hid_dim, self.output_dim, self.device).to(self.device)
@@ -214,97 +280,75 @@ class BaseTask:
         elif self.prompt_type == 'RobustPrompt-I':
             # Inductive MD-PT path: node classification is converted to k-hop
             # subgraph classification, while prompt selection mirrors RobustPrompt-T.
-            prompt_filter = build_filter(SimpleNamespace(
-                filter_mode=self.filter_mode,
-                filter_sim1_weight=self.filter_sim1_weight,
-                filter_sim2_weight=self.filter_sim2_weight,
-                filter_hybrid_alpha=self.filter_hybrid_alpha,
-                pt_threshold=self.pt_threshold,
-            ))
+            prompt_filter = build_filter(self._build_filter_config(pt_threshold=self.pt_threshold))
             self.prompt = RobustPrompt_I(self.input_dim,
-                                              muti_defense_pt_dict={
-                                                  'sim_pt': self.pt_sim_threshold,
-                                                  'degree_pt': self.pt_degree_threshold,
-                                                  'out_detect_pt': self.pt_out_detect_threshold,
-                                                  'other_pt': 'all',
-                                              },
-                                              p_plus=self.p_plus,
-                                              use_attention=self.use_attention,
-                                              num_heads=1,
-                                              kl_global=False,
-                                              cosine_constraint=self.cosine_constraint,
-                                              pt_threshold=self.pt_threshold,
-                                              temperature=self.temperature,
-                                              weight_mse=self.weight_mse,
-                                              weight_kl=self.weight_kl,
-                                              weight_constraint=self.weight_constraint,
-                                              filter_module=prompt_filter).to(self.device)
+                                         muti_defense_pt_dict={
+                                             'sim_pt': self.pt_sim_threshold,
+                                             'degree_pt': self.pt_degree_threshold,
+                                             'out_detect_pt': self.pt_out_detect_threshold,
+                                             'other_pt': 'all',
+                                         },
+                                         p_plus=self.p_plus,
+                                         use_attention=self.use_attention,
+                                         num_heads=1,
+                                         kl_global=False,
+                                         cosine_constraint=self.cosine_constraint,
+                                         pt_threshold=self.pt_threshold,
+                                         temperature=self.temperature,
+                                         weight_mse=self.weight_mse,
+                                         weight_kl=self.weight_kl,
+                                         weight_constraint=self.weight_constraint,
+                                         filter_module=prompt_filter).to(self.device)
         elif self.prompt_type in ['RobustPrompt-T', 'RobustPrompt-T-IA']:
-            prompt_filter = build_filter(SimpleNamespace(
-                filter_mode=self.filter_mode,
-                filter_sim1_weight=self.filter_sim1_weight,
-                filter_sim2_weight=self.filter_sim2_weight,
-                filter_hybrid_alpha=self.filter_hybrid_alpha,
-                pt_threshold=self.pt_threshold,
-            ))
+            prompt_filter = build_filter(self._build_filter_config(pt_threshold=self.pt_threshold))
             if self.prompt_variant == 'original':
                 from prompt_graph.prompt.RobustPrompt_T_original import RobustPrompt_T as RobustPrompt_T_class
             else:
                 RobustPrompt_T_class = RobustPrompt_T
             self.prompt = RobustPrompt_T_class(self.input_dim,
-                                            muti_defense_pt_dict={
-                                                'sim_pt': self.pt_sim_threshold,
-                                                'degree_pt': self.pt_degree_threshold,
-                                                'out_detect_pt': self.pt_out_detect_threshold,
-                                                'other_pt': 'all',
-                                            },
-                                            p_plus=self.p_plus,
-                                            use_attention=self.use_attention,
-                                            num_heads=1,
-                                            cosine_constraint=self.cosine_constraint,
-                                            pt_threshold=self.pt_threshold,
-                                            temperature=self.temperature,
-                                            weight_mse=self.weight_mse,
-                                            weight_kl=self.weight_kl,
-                                            weight_constraint=self.weight_constraint,
-                                            filter_module=prompt_filter).to(self.device)
+                                               muti_defense_pt_dict={
+                                                   'sim_pt': self.pt_sim_threshold,
+                                                   'degree_pt': self.pt_degree_threshold,
+                                                   'out_detect_pt': self.pt_out_detect_threshold,
+                                                   'other_pt': 'all',
+                                               },
+                                               p_plus=self.p_plus,
+                                               use_attention=self.use_attention,
+                                               num_heads=1,
+                                               cosine_constraint=self.cosine_constraint,
+                                               pt_threshold=self.pt_threshold,
+                                               temperature=self.temperature,
+                                               weight_mse=self.weight_mse,
+                                               weight_kl=self.weight_kl,
+                                               weight_constraint=self.weight_constraint,
+                                               filter_module=prompt_filter).to(self.device)
         elif self.prompt_type == 'RobustPrompt-T-NSP':
-            prompt_filter = build_filter(SimpleNamespace(
-                filter_mode=self.filter_mode,
-                filter_sim1_weight=self.filter_sim1_weight,
-                filter_sim2_weight=self.filter_sim2_weight,
-                filter_hybrid_alpha=self.filter_hybrid_alpha,
-                nsp_order=self.nsp_order,
-                pt_threshold=self.pt_threshold,
-            ))
+            prompt_filter = build_filter(self._build_filter_config(pt_threshold=self.pt_threshold))
             self.prompt = RobustPrompt_T_NSP(self.input_dim,
-                                            muti_defense_pt_dict={
-                                                'sim_pt': self.pt_sim_threshold,
-                                                'degree_pt': self.pt_degree_threshold,
-                                                'out_detect_pt': self.pt_out_detect_threshold,
-                                                'nsp_pt': self.pt_nsp_threshold,
-                                                'other_pt': 'all',
-                                            },
-                                            p_plus=self.p_plus,
-                                            use_attention=self.use_attention,
-                                            num_heads=1,
-                                            cosine_constraint=self.cosine_constraint,
-                                            pt_threshold=self.pt_threshold,
-                                            temperature=self.temperature,
-                                            weight_mse=self.weight_mse,
-                                            weight_kl=self.weight_kl,
-                                            weight_constraint=self.weight_constraint,
-                                            nsp_order=self.nsp_order,
-                                            filter_module=prompt_filter).to(self.device)
+                                             muti_defense_pt_dict={
+                                                 'sim_pt': self.pt_sim_threshold,
+                                                 'degree_pt': self.pt_degree_threshold,
+                                                 'out_detect_pt': self.pt_out_detect_threshold,
+                                                 'nsp_pt': self.pt_nsp_threshold,
+                                                 'other_pt': 'all',
+                                             },
+                                             p_plus=self.p_plus,
+                                             use_attention=self.use_attention,
+                                             num_heads=1,
+                                             cosine_constraint=self.cosine_constraint,
+                                             pt_threshold=self.pt_threshold,
+                                             temperature=self.temperature,
+                                             weight_mse=self.weight_mse,
+                                             weight_kl=self.weight_kl,
+                                             weight_constraint=self.weight_constraint,
+                                             nsp_order=self.nsp_order,
+                                             filter_module=prompt_filter).to(self.device)
         elif self.prompt_type == 'RobustPrompt-GPF':
             self.prompt = RobustPrompt_GPF(self.input_dim).to(self.device)
         elif self.prompt_type == 'RobustPrompt-GPFplus':
             self.prompt = RobustPrompt_GPFplus(self.input_dim, 20).to(self.device)
         else:
             raise KeyError(" We don't support this kind of prompt.")
-
-
-
 
     def initialize_gnn(self):
         if self.gnn_type == 'GAT':
@@ -330,15 +374,11 @@ class BaseTask:
                 raise ValueError(f"the Downstream dataset '{self.dataset_name}' does not match the pre-train dataset")
 
             self.gnn.load_state_dict(torch.load(self.pre_train_model_path, map_location='cpu'))
-            self.gnn.to(self.device)       
+            self.gnn.to(self.device)
             print("Successfully loaded pre-trained weights!")
 
-      
- 
-            
-      
     def return_pre_train_type(self, pre_train_model_path):
-        names = ['None', 'DGI', 'GraphMAE','Edgepred_GPPT', 'Edgepred_Gprompt','GraphCL', 'SimGRACE']
+        names = ['None', 'DGI', 'GraphMAE', 'Edgepred_GPPT', 'Edgepred_Gprompt', 'GraphCL', 'SimGRACE']
         for name in names:
-            if name  in  pre_train_model_path:
+            if name in pre_train_model_path:
                 return name

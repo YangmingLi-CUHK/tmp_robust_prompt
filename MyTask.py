@@ -3,7 +3,7 @@ from prompt_graph.tasker import NodeTask  # GraphTask removed (2026-06-16)
 from prompt_graph.utils import seed_everything
 from torchsummary import summary
 from prompt_graph.utils import print_model_parameters
-from prompt_graph.utils import  get_args
+from prompt_graph.utils import get_args
 # GraphTask/LinkTask 依赖的旧函数已于 2026-06-16 移除，仅保留 NodeTask
 # from prompt_graph.data import load4graph, load4link, induced_graphs_from_edges, CustomTUDataset
 import torch
@@ -22,8 +22,8 @@ if args.task == 'NodeTask':
         all_split_acc_list[split_num] = []
 
     # 按照seed划分
-    all_seed_acc_list  = {}
-    all_seed_acc_dict  = {}
+    all_seed_acc_list = {}
+    all_seed_acc_dict = {}
 
     for seed in args.seed:
         seed_everything(seed)
@@ -32,11 +32,53 @@ if args.task == 'NodeTask':
         seed_acc_list = []
         seed_acc_dict = {}
         for split_num in args.run_split:
-            tasker = NodeTask(pre_train_model_path = args.pre_train_model_path, hid_dim=args.hid_dim,
-                            dataset_name = args.dataset_name, num_layer = args.num_layer, gnn_type = args.gnn_type,
-                            prompt_type = args.prompt_type, epochs = args.epochs, shot_num = args.shot_num, run_split= split_num, preprocess_method = args.preprocess_method, attack_downstream = args.attack_downstream, attack_method = args.attack_method, specified = args.specified, adaptive = args.adaptive, adaptive_scenario=args.adaptive_scenario, adaptive_split= args.adaptive_split, adaptive_attack_model= args.adaptive_attack_model, adaptive_ptb_rate= args.adaptive_ptb_rate, filter_mode=args.filter_mode, filter_sim1_weight=args.filter_sim1_weight, filter_sim2_weight=args.filter_sim2_weight, filter_hybrid_alpha=args.filter_hybrid_alpha,
-                            pt_threshold=args.pt_threshold, weight_mse=args.weight_mse, weight_kl=args.weight_kl, weight_constraint=args.weight_constraint, temperature=args.temperature, pt_sim_threshold=args.pt_sim_threshold, pt_degree_threshold=args.pt_degree_threshold, pt_out_detect_threshold=args.pt_out_detect_threshold, pt_nsp_threshold=args.pt_nsp_threshold, nsp_order=args.nsp_order, p_plus=args.p_plus, use_attention=args.use_attention, cosine_constraint=args.cosine_constraint, prompt_lr=args.prompt_lr, prompt_variant=args.prompt_variant)
-            
+            tasker = NodeTask(
+                pre_train_model_path=args.pre_train_model_path,
+                hid_dim=args.hid_dim,
+                dataset_name=args.dataset_name,
+                num_layer=args.num_layer,
+                gnn_type=args.gnn_type,
+                prompt_type=args.prompt_type,
+                epochs=args.epochs,
+                shot_num=args.shot_num,
+                run_split=split_num,
+                preprocess_method=args.preprocess_method,
+                attack_downstream=args.attack_downstream,
+                attack_method=args.attack_method,
+                specified=args.specified,
+                adaptive=args.adaptive,
+                adaptive_scenario=args.adaptive_scenario,
+                adaptive_split=args.adaptive_split,
+                adaptive_attack_model=args.adaptive_attack_model,
+                adaptive_ptb_rate=args.adaptive_ptb_rate,
+                filter_mode=args.filter_mode,
+                filter_sim1_weight=args.filter_sim1_weight,
+                filter_sim2_weight=args.filter_sim2_weight,
+                filter_hybrid_alpha=args.filter_hybrid_alpha,
+                filter_lp_hidden_dim=args.filter_lp_hidden_dim,
+                filter_lp_epochs=args.filter_lp_epochs,
+                filter_lp_lr=args.filter_lp_lr,
+                filter_lp_neg_ratio=args.filter_lp_neg_ratio,
+                filter_lp_threshold_mode=args.filter_lp_threshold_mode,
+                filter_lp_max_train_pairs=args.filter_lp_max_train_pairs,
+                filter_lp_pca_dim=args.filter_lp_pca_dim,
+                pt_threshold=args.pt_threshold,
+                weight_mse=args.weight_mse,
+                weight_kl=args.weight_kl,
+                weight_constraint=args.weight_constraint,
+                temperature=args.temperature,
+                pt_sim_threshold=args.pt_sim_threshold,
+                pt_degree_threshold=args.pt_degree_threshold,
+                pt_out_detect_threshold=args.pt_out_detect_threshold,
+                pt_nsp_threshold=args.pt_nsp_threshold,
+                nsp_order=args.nsp_order,
+                p_plus=args.p_plus,
+                use_attention=args.use_attention,
+                cosine_constraint=args.cosine_constraint,
+                prompt_lr=args.prompt_lr,
+                prompt_variant=args.prompt_variant,
+            )
+
             test_acc = tasker.run()
 
             # 记录每个split在不同seed的值
@@ -49,7 +91,6 @@ if args.task == 'NodeTask':
 
         all_seed_acc_list[seed] = seed_acc_list
         all_seed_acc_dict[seed] = seed_acc_dict
-
 
     print(all_seed_acc_dict)
     print(all_split_acc_dict)
@@ -64,7 +105,7 @@ if args.task == 'NodeTask':
     print('########################################################################################')
     # 打印一个split下多个seed的平均
     for split_num, split_acc_dict in all_split_acc_dict.items():
-        if len(all_split_acc_list[split_num]) ==1:
+        if len(all_split_acc_list[split_num]) == 1:
             print("There's only one result, it's recommended to try several seeds.")
         else:
             # 对所有seed的结果排序，去掉最低和最高的值再求平均
@@ -76,12 +117,6 @@ if args.task == 'NodeTask':
         split_final_acc, split_final_acc_std = np.mean(all_split_acc_list[split_num]), np.std(all_split_acc_list[split_num])
         print(f"# Split {split_num} Muti Seed Acc without min value: {split_final_acc:.4f}±{split_final_acc_std:.4f}")
     print('########################################################################################')
-
-
-
-
-
-
 
 
 # =============================================================================
