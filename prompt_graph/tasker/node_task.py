@@ -738,7 +738,7 @@ class NodeTask(BaseTask):
 
 
 
-            if self.prompt_type in ['RobustPrompt-GPF','RobustPrompt-GPFplus','RobustPrompt-T-IA']:
+            if self.prompt_type in ['RobustPrompt-GPF','RobustPrompt-GPFplus','RobustPrompt-T-IA','RobustPrompt-T-NSP-IA']:
                   # 利用shot的标签训练一个pseudo label分类器
                   print("don't use structure")
                   idx_train  = self.data.train_mask.nonzero().squeeze().cpu()
@@ -771,8 +771,8 @@ class NodeTask(BaseTask):
                   idx_train_regenerate, pseudo_labels = get_psu_labels(logits, pseudo_labels, idx_train, idx_test, k=k, append_idx=True)
                   print(f'IA-PT: train nodes expanded {len(idx_train)} -> {len(idx_train_regenerate)}')
 
-                  # 对 RobustPrompt-T-IA：扩展 data.train_mask / data.y，让 Tune() 自动使用扩展标签
-                  if self.prompt_type == 'RobustPrompt-T-IA':
+                  # 对 RobustPrompt-T-IA / RobustPrompt-T-NSP-IA：扩展 data.train_mask / data.y，让 Tune() 自动使用扩展标签
+                  if self.prompt_type in ['RobustPrompt-T-IA', 'RobustPrompt-T-NSP-IA']:
                       self._saved_train_mask = self.data.train_mask.clone()
                       self._saved_y = self.data.y.clone()
                       self.data.train_mask = torch.zeros(self.data.num_nodes, dtype=torch.bool)
@@ -892,7 +892,7 @@ class NodeTask(BaseTask):
                   elif self.prompt_type == 'RobustPrompt-I':
                         loss = self.RobustPromptInductiveTrainSynchro(train_loader)
                         # val_acc, F1    = RobustPromptInductiveEva(val_loader,  'Val',  pseudo_model, self.prompt, self.gnn, self.answering, self.output_dim, self.device)
-                  elif self.prompt_type in ['RobustPrompt-T', 'RobustPrompt-T-IA', 'RobustPrompt-T-NSP']:
+                  elif self.prompt_type in ['RobustPrompt-T', 'RobustPrompt-T-IA', 'RobustPrompt-T-NSP', 'RobustPrompt-T-NSP-IA']:
                         loss = self.RobustPromptTranductivetrain(self.data)
                         # test_acc, F1    = RobustPromptTranductiveEva(self.data, self.data.val_mask,  self.gnn, self.prompt, self.answering, self.output_dim, self.device)
                   elif self.prompt_type in ['RobustPrompt-GPF', 'RobustPrompt-GPFplus']:
@@ -954,7 +954,7 @@ class NodeTask(BaseTask):
                   # add by ssh 
                   elif self.prompt_type == 'RobustPrompt-I':
                         test_acc, F1    = RobustPromptInductiveEva(test_loader, self.gnn, self.prompt, self.answering, self.output_dim, self.device)
-                  elif self.prompt_type in ['RobustPrompt-T', 'RobustPrompt-T-IA', 'RobustPrompt-T-NSP']:
+                  elif self.prompt_type in ['RobustPrompt-T', 'RobustPrompt-T-IA', 'RobustPrompt-T-NSP', 'RobustPrompt-T-NSP-IA']:
                         test_acc, F1    = RobustPromptTranductiveEva(self.data, self.data.test_mask,  self.gnn, self.prompt, self.answering, self.output_dim, self.device)
                   elif self.prompt_type in ['RobustPrompt-GPF', 'RobustPrompt-GPFplus']:
                         # 直接用GPF的评估方式就行

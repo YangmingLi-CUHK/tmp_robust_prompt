@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================================
-# 5-Filter Combo Sweep: sim / degree / out_detect / nsp / focusedcleaner
-# Uses RobustPrompt-T-NSP which supports all 5 tips natively.
+# 5-Filter Combo Sweep — PSEUDO-LABEL route (IA-PT + 5 defense tips).
+# Uses RobustPrompt-T-NSP-IA: RobustPrompt-T-NSP prompt class (all 5 tips)
+#   + IA-PT pseudo-label expansion (train nodes 35 -> ~595 during training,
+#   restored to true labels before evaluation).
+# Mirror of run_5filter_combos.sh (the TRUE-label NSP route); only the
+# --prompt_type and LOG_DIR differ, so the two are directly comparable.
 # Each tip is activated via its threshold; set to -1 (or -1.0) to disable.
 # ============================================================================
 set -euo pipefail
@@ -11,7 +15,7 @@ PEAK_BB="./pre_trained_model_raw/Cora.GraphCL.GCN.256_hidden_dim.aug1_permE.aug2
 DEVICE=0
 SEEDS="1 2 3 4 5"
 PTB_RATES="0.0 0.05 0.1 0.15 0.2 0.25"
-LOG_DIR="logs/5filter_combos"
+LOG_DIR="logs/5filter_combos_ia"
 mkdir -p "$LOG_DIR"
 
 # Active thresholds (when ON):
@@ -29,18 +33,10 @@ FC_OFF=-1.0
 
 # Shared base params
 BASE_PARAMS="--task NodeTask --dataset_name Cora --preprocess_method none \
-  --gnn_type GCN --prompt_type RobustPrompt-T-NSP --shot_num 5 --run_split 1 \
+  --gnn_type GCN --prompt_type RobustPrompt-T-NSP-IA --shot_num 5 --run_split 1 \
   --hid_dim 256 --num_layer 2 --epochs 200 \
   --pt_threshold 0.25 --weight_mse 0.1 --weight_kl 0.1 --weight_constraint 0.2 \
   --filter_mode original"
-
-declare -A TIP_LABELS=(
-  ["sim"]="s"
-  ["degree"]="d"
-  ["ood"]="o"
-  ["nsp"]="n"
-  ["focusedcleaner"]="f"
-)
 
 run_one() {
   local label="$1" sim="$2" deg="$3" ood="$4" nsp="$5" fc="$6"

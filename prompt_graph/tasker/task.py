@@ -171,7 +171,7 @@ class BaseTask:
         #     self.pg_opi = optim.Adam(filter(lambda p: p.requires_grad, self.prompt.parameters()), lr=0.001, weight_decay= 0.00001)
         #     self.answer_opi = optim.Adam(filter(lambda p: p.requires_grad, self.answering.parameters()), lr=0.001, weight_decay= 0.00001)
         #     print('consider add robust regularization and optimizing strategy')
-        elif self.prompt_type in ['RobustPrompt-GPF', 'RobustPrompt-GPFplus', 'RobustPrompt-T', 'RobustPrompt-T-IA', 'RobustPrompt-T-NSP', 'GPF-Tranductive', 'GPF-plus-Tranductive']:
+        elif self.prompt_type in ['RobustPrompt-GPF', 'RobustPrompt-GPFplus', 'RobustPrompt-T', 'RobustPrompt-T-IA', 'RobustPrompt-T-NSP', 'RobustPrompt-T-NSP-IA', 'GPF-Tranductive', 'GPF-plus-Tranductive']:
             model_param_group = []
             model_param_group.append({"params": self.prompt.parameters()})
             model_param_group.append({"params": self.answering.parameters()})
@@ -324,7 +324,7 @@ class BaseTask:
                                                weight_kl=self.weight_kl,
                                                weight_constraint=self.weight_constraint,
                                                filter_module=prompt_filter).to(self.device)
-        elif self.prompt_type == 'RobustPrompt-T-NSP':
+        elif self.prompt_type in ['RobustPrompt-T-NSP', 'RobustPrompt-T-NSP-IA']:
             prompt_filter = build_filter(self._build_filter_config(pt_threshold=self.pt_threshold))
             self.prompt = RobustPrompt_T_NSP(self.input_dim,
                                              muti_defense_pt_dict={
