@@ -6,6 +6,7 @@ from torch_geometric.data import Data
 import numpy as np
 from prompt_graph.filters import OriginalFilter
 from prompt_graph.filters.nsp_filter import nsp_suspicious_nodes
+from prompt_graph.filters.focusedcleaner_lp_filter import FocusedCleanerLPFilter
 
 
 # RobustPrompt-T + NSP (Neighbor-Similarity-Preserving) defense tip.
@@ -33,6 +34,7 @@ class RobustPrompt_T_NSP(torch.nn.Module):
         self.filter_mode       = getattr(self.filter_module, 'mode', 'original')
         self.last_tau_detection = None
         self.last_tip_detection = None
+        self._focusedcleaner_cache = None  # trained once, reused across epochs
 
         # Tune过程中的不同loss权重和temperature
         self.temperature       = temperature
@@ -77,6 +79,12 @@ class RobustPrompt_T_NSP(torch.nn.Module):
                 self.nsp_pt_a = torch.nn.Linear(self.in_channels, 20)
             else:
                 self.prompt_nsp_pt  = torch.nn.Parameter(torch.Tensor(1, self.in_channels))
+        if 'focusedcleaner_pt' in self.pt_keys:
+            if self.p_plus:
+                self.focusedcleaner_pt_list = torch.nn.Parameter(torch.Tensor(20, self.in_channels))
+                self.focusedcleaner_pt_a = torch.nn.Linear(self.in_channels, 20)
+            else:
+                self.prompt_focusedcleaner_pt  = torch.nn.Parameter(torch.Tensor(1, self.in_channels))
         if 'other_pt' in self.pt_keys:
             if self.p_plus:
                 self.other_pt_list = torch.nn.Parameter(torch.Tensor(20, self.in_channels))
@@ -116,6 +124,12 @@ class RobustPrompt_T_NSP(torch.nn.Module):
                 self.nsp_pt_a.reset_parameters()
             else:
                 glorot(self.prompt_nsp_pt)
+        if 'focusedcleaner_pt' in self.pt_keys:
+            if self.p_plus:
+                glorot(self.focusedcleaner_pt_list)
+                self.focusedcleaner_pt_a.reset_parameters()
+            else:
+                glorot(self.prompt_focusedcleaner_pt)
         if 'other_pt' in self.pt_keys:
             if self.p_plus:
                 glorot(self.other_pt_list)
@@ -255,6 +269,25 @@ class RobustPrompt_T_NSP(torch.nn.Module):
             nsp_edge_mask = None
             nsp_edge_sim = None
         # ---------------------------------------------------------------------------
+
+        # ---------------------------------------------------------------------------
+        # FocusedCleaner-LP 防御 tip：训练链接预测 MLP，低概率边端点标记为异常节点。
+        if 'focusedcleaner_pt' in self.pt_keys:
+            if self._focusedcleaner_cache is None:
+                fc_filter = FocusedCleanerLPFilter(threshold=self.pt_dict['focusedcleaner_pt'])
+                fc_output = fc_filter(graph)
+                self._focusedcleaner_cache = fc_output['node_mask'].detach().clone()
+            node_use_fc_pt = torch.nonzero(self._focusedcleaner_cache).squeeze(-1)
+
+            if self.p_plus and len(node_use_fc_pt) > 0:
+                score = self.focusedcleaner_pt_a(x[node_use_fc_pt])
+                fc_weight = F.softmax(score, dim=1)
+                self.prompt_focusedcleaner_pt = fc_weight.mm(self.focusedcleaner_pt_list)
+
+            node_use_pt = torch.concat((node_use_pt, node_use_fc_pt))
+            if len(node_use_fc_pt) > 0:
+                g_mutiftpt_record[node_use_fc_pt, pt_range_dict['focusedcleaner_pt'][0] : pt_range_dict['focusedcleaner_pt'][1]] = self.prompt_focusedcleaner_pt
+            node_use_each_pt_whole_graph['focusedcleaner_pt'] = node_use_fc_pt
 
         if 'other_pt' in self.pt_keys:
             all_nodes    = torch.arange(0, g.num_nodes).to(device)

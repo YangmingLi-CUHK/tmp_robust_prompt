@@ -50,13 +50,14 @@ class BaseTask:
         # RobustPrompt-T 超参数
         pt_threshold=0.5,
         weight_mse=0.1,
-        weight_kl=0.3,
+        weight_kl=0.1,
         weight_constraint=0.2,
         temperature=1.0,
         pt_sim_threshold=0.2,
         pt_degree_threshold=1,
         pt_out_detect_threshold=0.4,
         pt_nsp_threshold=0.3,
+        pt_focusedcleaner_threshold=0.5,
         nsp_order=2,
         p_plus=True,
         use_attention=False,
@@ -108,6 +109,7 @@ class BaseTask:
         self.pt_degree_threshold = pt_degree_threshold
         self.pt_out_detect_threshold = pt_out_detect_threshold
         self.pt_nsp_threshold = pt_nsp_threshold
+        self.pt_focusedcleaner_threshold = pt_focusedcleaner_threshold
         self.nsp_order = nsp_order
         self.p_plus = p_plus
         self.use_attention = use_attention
@@ -330,6 +332,7 @@ class BaseTask:
                                                  'degree_pt': self.pt_degree_threshold,
                                                  'out_detect_pt': self.pt_out_detect_threshold,
                                                  'nsp_pt': self.pt_nsp_threshold,
+                                                 'focusedcleaner_pt': self.pt_focusedcleaner_threshold,
                                                  'other_pt': 'all',
                                              },
                                              p_plus=self.p_plus,

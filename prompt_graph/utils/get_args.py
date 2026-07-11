@@ -89,7 +89,7 @@ def get_args():
                         help='τ_tune: cosine similarity threshold for edge pruning in Tune()')
     parser.add_argument('--weight_mse', type=float, default=0.1,
                         help='Weight for MSE smoothness loss (L_s)')
-    parser.add_argument('--weight_kl', type=float, default=0.3,
+    parser.add_argument('--weight_kl', type=float, default=0.1,
                         help='Weight for KL distribution alignment loss')
     parser.add_argument('--weight_constraint', type=float, default=0.2,
                         help='Weight for prompt orthogonality constraint loss')
@@ -109,6 +109,9 @@ def get_args():
                              'endpoints have (A^order X) cosine <= this is flagged; both endpoints become anomalous nodes')
     parser.add_argument('--nsp_order', type=int, default=2,
                         help='Aggregation order for NSP neighbor embeddings N = (A^order) X (default 2)')
+    parser.add_argument('--pt_focusedcleaner_threshold', type=float, default=0.5,
+                        help='FocusedCleaner-LP threshold for focusedcleaner_pt (RobustPrompt-T-NSP): edges with link '
+                             'probability below this are flagged; both endpoints become anomalous nodes')
     parser.add_argument('--p_plus', dest='p_plus', action='store_true', default=True,
                         help='Use p_plus mode (20-token bank + learned combination)')
     parser.add_argument('--no_p_plus', dest='p_plus', action='store_false',

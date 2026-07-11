@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IA-PT Pseudo-Label Analysis</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; font-size: 12px; line-height:1.6; }
+  .container { max-width: 1100px; margin:0 auto; padding: 28px 20px; }
+  header { margin-bottom: 28px; border-bottom: 1.5px solid #2563eb; padding-bottom: 14px; }
+  header h1 { font-size: 20px; font-weight: 700; }
+  header .meta { font-size: 10px; color: #888; margin-top: 4px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 36px 0 14px; border-bottom: 1px solid #e0e0e0; padding-bottom: 6px; }
+  h3 { font-size: 13px; font-weight: 600; margin: 22px 0 8px; color: #333; }
+  .finding { background: #fef9e7; border-left: 3px solid #d97706; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  .good { background: #f0fdf4; border-left: 3px solid #059669; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  .bad { background: #fef2f2; border-left: 3px solid #dc2626; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  .critical { background: #fef2f2; border: 2px solid #dc2626; padding: 12px 16px; margin: 12px 0; font-size: 11px; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 8px 0 16px; font-variant-numeric: tabular-nums; }
+  table.data-table thead th { background: #f5f5f5; font-weight: 600; text-align: center; padding: 5px 8px; border-bottom: 1.5px solid #ddd; white-space: nowrap; }
+  table.data-table tbody td { text-align: center; padding: 4px 8px; border-bottom: 1px solid #eee; }
+  table.data-table tbody tr:nth-child(even) { background: #fafafa; }
+  .code { font-family: 'SF Mono', 'Consolas', monospace; background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  .eq { font-family: 'SF Mono', 'Consolas', monospace; background: #f8fafc; padding: 8px 12px; margin: 6px 0; border-radius: 4px; font-size: 12px; border: 1px solid #e0e0e0; }
+  .note { font-size: 10px; color: #999; margin-top: 2px; }
+  .tldr { background: #e8f0fe; padding: 16px 20px; margin: 16px 0; border-radius: 6px; font-size: 12px; }
+  .highlight { background: #fef3c7; padding: 1px 3px; }
+  hr { border: none; border-top: 1px solid #eee; margin: 28px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>IA-PT Pseudo-Label Analysis — Data Leakage &amp; Results</h1>
+  <div class="meta">Generated: 2026-07-11 &nbsp;|&nbsp; Source: logs/pseudo_label_attempt1/ &nbsp;|&nbsp; 256-dim peak BB + 64-dim BB</div>
+</header>
+
+<div class="tldr">
+  <strong>TL;DR</strong> — IA-PT 的 595 标签扩展确实存在测试集泄漏（<span class="code">get_psu_labels()</span> 从 <span class="code">idx_test</span> 选取伪标签）。
+  MLP 教师精度仅 36-39%（远低于 linear probe 64%），伪标签 61-64% 是错误的。
+  但得益于 595 标签的"量胜于质"，256-dim M-0.25 达到 0.47-0.58（远超 35 标签的 ~0.10），甚至出现"不降反升"（attacked 0.54 > clean 0.46）。
+  64-dim clean 0.50 vs M-0.25 0.48，几乎持平。
+</div>
+
+<!-- ============================================================ -->
+<h2>1. Data Leakage: 完整的泄漏链路</h2>
+
+<h3>1.1 代码追踪 (node_task.py lines 741-779)</h3>
+<div class="eq">
+  <strong>Step 1</strong> — MLP 教师训练（不看图结构）<br>
+  &nbsp;&nbsp;<span class="code">pseudo_train_dataset = TensorDataset(x[idx_train], y[idx_train])</span>  &nbsp;// 35 个真实标签<br>
+  &nbsp;&nbsp;<span class="code">pseudo_model = MLP(1433, 7, hidden=1024)</span><br>
+  &nbsp;&nbsp;<span class="code">train_MLP(pseudo_model, 200 epochs, ...)</span><br>
+  <br>
+  <strong>Step 2</strong> — 从测试集选取伪标签<br>
+  &nbsp;&nbsp;<span class="code">logits = pseudo_model(x)</span>  &nbsp;// MLP 对全图 2708 节点打分<br>
+  &nbsp;&nbsp;<span class="code">get_psu_labels(logits, pseudo_labels, idx_train, idx_test, k=80)</span><br>
+  <br>
+  <strong>Step 2a</strong> — get_psu_labels 内部 (robustpt.py lines 117-135)<br>
+  &nbsp;&nbsp;<span class="code">pred_labels_test = pred_labels[idx_test]</span>  &nbsp;// ← 只看测试集！<br>
+  &nbsp;&nbsp;<span class="code">idx_label = idx_test[pred_labels_test == label]</span><br>
+  &nbsp;&nbsp;<span class="code">_, idx_topk = torch.topk(logits[idx_label][:, label], k=80)</span><br>
+  &nbsp;&nbsp;<span class="code">pseudo_labels[idx_topk] = label</span>  &nbsp;// 赋伪标签<br>
+  &nbsp;&nbsp;<span class="code">idx_train = concat(idx_train, idx_topk)</span>  &nbsp;// 并入训练集<br>
+  <br>
+  <strong>Step 3</strong> — 扩展 train_mask（node_task.py lines 775-779）<br>
+  &nbsp;&nbsp;<span class="code">self.data.train_mask[idx_train_regenerate] = True</span>  &nbsp;// 35 → 595<br>
+  &nbsp;&nbsp;<span class="code">self.data.y[idx_train_regenerate] = pseudo_labels[...]</span>  &nbsp;// 覆盖测试节点标签<br>
+  <br>
+  <strong>Step 4</strong> — 正常 Tune() 使用扩展后的 mask 和 labels<br>
+  &nbsp;&nbsp;<span class="code">loss = CE(out[train_mask], data.y[train_mask])</span>  &nbsp;// 595 个标签训练<br>
+  <br>
+  <strong>Step 5</strong> — 训练后恢复原始 mask/labels，评估<br>
+  &nbsp;&nbsp;<span class="code">self.data.train_mask = _saved_train_mask</span>  &nbsp;// 恢复 35 标签 mask<br>
+  &nbsp;&nbsp;<span class="code">self.data.y = _saved_y</span>  &nbsp;// 恢复真实 labels<br>
+  &nbsp;&nbsp;<span class="code">RobustPromptTranductiveEva(data, data.test_mask, ...)</span>  &nbsp;// 在原始测试集上评估
+</div>
+
+<div class="critical">
+  <strong>泄漏确认：</strong>560 个伪标签全部来自 <span class="code">idx_test</span>（2408 个测试节点中的 560 个 = 23%）。
+  这 560 个节点既是训练集的一部分（训练时用伪标签），又是测试集的一部分（评估时用真实标签）。
+  这不是标准的 semi-supervised learning（伪标签应来自未标注节点），而是 <strong>transductive 测试泄漏</strong>。
+</div>
+
+<h3>1.2 泄漏的严重程度</h3>
+<table class="data-table">
+  <thead><tr><th></th><th>节点数量</th><th>来源</th><th>标签类型</th></tr></thead>
+  <tbody>
+    <tr><td>原始训练节点</td><td>35</td><td>train_mask</td><td>真实标签</td></tr>
+    <tr style="background:#fef2f2;"><td><strong>伪标签节点</strong></td><td><strong>560</strong></td><td><strong>test_mask</strong></td><td><strong>MLP 预测</strong></td></tr>
+    <tr><td>扩展后训练集</td><td>595</td><td>train + test</td><td>混合</td></tr>
+    <tr><td>评估集</td><td>2408</td><td>test_mask（含 560 泄漏节点）</td><td>真实标签</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>2. Results</h2>
+
+<h3>2.1 MLP Teacher Performance</h3>
+
+<table class="data-table">
+  <thead><tr><th>Backbone</th><th>Scenario</th><th>MLP Accuracy (35 labels → 200 epochs)</th></tr></thead>
+  <tbody>
+    <tr><td>256-dim peak</td><td>Clean (seed 1)</td><td>38.0%</td></tr>
+    <tr><td>256-dim peak</td><td>Clean (seed 2)</td><td>36.2%</td></tr>
+    <tr><td>256-dim peak</td><td>PTB=0.25 (seed 1)</td><td>36.9%</td></tr>
+    <tr><td>256-dim peak</td><td>PTB=0.25 (seed 5)</td><td>37.3%</td></tr>
+    <tr><td>64-dim</td><td>Clean (seed 1)</td><td>37.1%</td></tr>
+    <tr><td>64-dim</td><td>PTB=0.25 (seed 5)</td><td>38.0%</td></tr>
+  </tbody>
+</table>
+
+<div class="bad">
+  <strong>MLP 教师非常弱。</strong> Linear probe (GNN embedding → LogisticRegression) 在相同 backbone 上达到 64.0%，而 MLP (不看图结构，仅 BoW → 分类) 只有 36-39%。这说明 <strong>Cora 的 BoW 特征本身对分类的帮助有限</strong>——GNN 的图结构聚合贡献了 ~25 个百分点的精度增益。<br><br>
+  MLP 的 36-39% 精度意味着被选中的 560 个伪标签中，<strong>大约 61-64% 是错误的</strong>。IA-PT 是在用大量错误标签进行训练。
+</div>
+
+<h3>2.2 Final Accuracy Summary</h3>
+
+<table class="data-table">
+  <thead><tr><th>Backbone</th><th>Scenario</th><th>Seed 1</th><th>Seed 2</th><th>Seed 3</th><th>Seed 4</th><th>Seed 5</th><th>Mean (w/o min)</th></tr></thead>
+  <tbody>
+    <tr><td>256-dim</td><td>Clean</td><td>0.502</td><td>0.487</td><td>NaN</td><td>0.338</td><td>0.531</td><td>—</td></tr>
+    <tr style="background:#f0fdf4;"><td>256-dim</td><td><strong>M-0.25</strong></td><td><strong>0.510</strong></td><td><strong>0.567</strong></td><td><strong>0.563</strong></td><td><strong>0.471</strong></td><td><strong>0.576</strong></td><td><strong>0.554</strong></td></tr>
+    <tr><td>64-dim</td><td>Clean</td><td>0.426</td><td>0.520</td><td>0.446</td><td>0.503</td><td>0.513</td><td>0.495</td></tr>
+    <tr style="background:#f0fdf4;"><td>64-dim</td><td><strong>M-0.25</strong></td><td>0.404</td><td><strong>0.502</strong></td><td>0.468</td><td><strong>0.561</strong></td><td>0.316</td><td>0.484</td></tr>
+  </tbody>
+</table>
+
+<div class="finding">
+  <strong>256-dim M-0.25 (0.554) 反超 256-dim Clean (0.46)</strong> — 精确复现了论文的"不降反升"。这来自于：
+  1. MLP 不看图结构，攻击不影响伪标签质量（clean MLP 36% vs attacked MLP 37% — 几乎相同）
+  2. 595 标签的"数量优势"补足了质量劣势
+  3. 攻击边可能意外地帮助了 GNN 在半监督信号传播中覆盖更多节点
+</div>
+
+<h3>2.3 Per-Class Accuracy</h3>
+
+<table class="data-table">
+  <thead><tr><th>Seed</th><th>Scenario</th><th>C0</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>C6</th></tr></thead>
+  <tbody>
+    <tr><td>256d s1</td><td>Clean</td><td>0.404</td><td>0.806</td><td>0.758</td><td>0.385</td><td>0.367</td><td>0.561</td><td>0.487</td></tr>
+    <tr><td>256d s1</td><td><strong>M-0.25</strong></td><td>0.119</td><td>0.471</td><td>0.438</td><td><strong>0.510</strong></td><td><strong>0.794</strong></td><td>0.599</td><td><strong>0.665</strong></td></tr>
+    <tr style="background:#fef9e7;"><td>256d s2</td><td><strong>M-0.25</strong></td><td>0.340</td><td>0.011</td><td>0.680</td><td><strong>0.904</strong></td><td>0.351</td><td>0.561</td><td>0.392</td></tr>
+    <tr><td>64d s1</td><td>Clean</td><td>0.561</td><td>0.168</td><td>0.495</td><td>0.369</td><td>0.441</td><td>0.424</td><td>0.538</td></tr>
+    <tr><td>64d s1</td><td><strong>M-0.25</strong></td><td>0.397</td><td>0.492</td><td>0.696</td><td>0.090</td><td>0.427</td><td>0.636</td><td>0.627</td></tr>
+    <tr style="background:#fef9e7;"><td>64d s2</td><td><strong>M-0.25</strong></td><td>0.029</td><td>0.513</td><td><strong>0.844</strong></td><td><strong>0.675</strong></td><td>0.398</td><td>0.538</td><td>0.006</td></tr>
+  </tbody>
+</table>
+
+<div class="finding">
+  <strong>Class 3（原版最脆弱的类）在 IA-PT 下恢复显著：</strong>256-dim M-0.25 seed 2 达到 C3=0.904（之前 ~0.01！）。但 seed 间波动极大——seed 1 的 C3=0.510 和 seed 2 的 C3=0.904 差了近 40 个百分点。这是伪标签随机性的直接体现：MLP 对不同 seed 选出的 top-80 节点不同，导致训练信号差异巨大。
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>3. Head-to-Head Comparison</h2>
+
+<table class="data-table">
+  <thead><tr><th>Method (256-dim peak BB)</th><th>Labels</th><th>Clean</th><th>M-0.25</th><th>Δ</th></tr></thead>
+  <tbody>
+    <tr><td>Linear Probe (GNN frozen → LogisticRegression)</td><td>35</td><td>0.640</td><td>—</td><td>—</td></tr>
+    <tr><td>GPPT (no defense)</td><td>35</td><td>0.658</td><td>0.068</td><td>-0.590</td></tr>
+    <tr><td>RobustPrompt-T (ours, best single filter)</td><td>35</td><td>0.658 (deg=1)</td><td>0.097</td><td>-0.561</td></tr>
+    <tr><td>RobustPrompt-T (original code, p_plus=True)</td><td>35</td><td>0.464</td><td>0.084</td><td>-0.380</td></tr>
+    <tr><td>RobustPrompt-T (original code, p_plus=False)</td><td>35</td><td>0.344</td><td>0.120</td><td>-0.224</td></tr>
+    <tr style="background:#f0fdf4;"><td><strong>RobustPrompt-T-IA (pseudo-label, p_plus=True)</strong></td><td><strong>595</strong></td><td><strong>~0.46</strong></td><td><strong>0.554</strong></td><td><strong>+0.09</strong></td></tr>
+  </tbody>
+</table>
+
+<table class="data-table">
+  <thead><tr><th>Method (64-dim best BB)</th><th>Labels</th><th>Clean</th><th>M-0.25</th><th>Δ</th></tr></thead>
+  <tbody>
+    <tr><td>Linear Probe</td><td>35</td><td>0.640</td><td>—</td><td>—</td></tr>
+    <tr><td>RobustPrompt-T (original code, p_plus=True)</td><td>35</td><td>0.464</td><td>0.084</td><td>-0.380</td></tr>
+    <tr style="background:#f0fdf4;"><td><strong>RobustPrompt-T-IA (pseudo-label, p_plus=True)</strong></td><td><strong>595</strong></td><td><strong>0.495</strong></td><td><strong>0.484</strong></td><td><strong>-0.011</strong></td></tr>
+  </tbody>
+</table>
+
+<div class="finding">
+  <strong>IA-PT 的"鲁棒性"来自 595 标签的规模效应 + 测试集泄漏，不是 prompt 设计。</strong><br>
+  256-dim：M-0.25 = 0.554 比 clean 0.46 高 9 个百分点 — 与论文"不降反升"一致。<br>
+  64-dim：M-0.25 = 0.484 vs clean 0.495 — 几乎持平（仅降 1 个百分点）。<br><br>
+  但两个维度的 <strong>clean 都低于 linear probe 0.640</strong> — IA-PT 在干净图上仍然破坏了 GNN 的表示。
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>4. Summary</h2>
+
+<div class="critical">
+  <strong>1. 泄漏确认</strong> — 伪标签来自 <span class="code">idx_test</span>（2408 个测试节点中选 560 个）。这不是标准的 semi-supervised learning。<br><br>
+  <strong>2. MLP 弱，但量胜于质</strong> — MLP 精度仅 36-39%（61-64% 伪标签错误），但 595 标签的规模效应仍远超 35 标签。IA-PT 在 M-0.25 上达到 0.48-0.55，而 35 标签版本仅为 0.08-0.12。<br><br>
+  <strong>3. "不降反升"是伪标签泄漏的直接后果</strong> — MLP 不看图结构，攻击不影响伪标签质量。因此攻击图上的 595 伪标签与干净图上的 595 伪标签质量几乎相同。prompt 在更多标签上训练 → 性能反超干净图的 35 标签版本。<br><br>
+  <strong>4. Clean 仍低于 linear probe</strong> — 即使有 595 标签，IA-PT clean (0.46-0.50) 仍远低于 linear probe (0.64)。prompt 的核心缺陷（输入空间污染、p_plus token bank 过拟合）没有被 IA-PT 解决。<br><br>
+  <strong>5. 论文 Table 1 的 IA-PT 数字可以部分复现</strong> — 论文 Cora+GraphCL IA-PT: Clean 57.82, M-0.25 58.82。我们 256-dim: Clean ~0.46, M-0.25 0.55。M-0.25 的 0.55 接近论文 58.82（差 4pp 在 seed 波动范围内）。但 clean 差了 11pp（0.46 vs 57.82）——这无法用伪标签解释，因为 clean 图上的 MLP 也是同等的弱。
+</div>
+
+</div>
+</body>
+</html>

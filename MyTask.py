@@ -71,6 +71,7 @@ if args.task == 'NodeTask':
                 pt_degree_threshold=args.pt_degree_threshold,
                 pt_out_detect_threshold=args.pt_out_detect_threshold,
                 pt_nsp_threshold=args.pt_nsp_threshold,
+                pt_focusedcleaner_threshold=args.pt_focusedcleaner_threshold,
                 nsp_order=args.nsp_order,
                 p_plus=args.p_plus,
                 use_attention=args.use_attention,

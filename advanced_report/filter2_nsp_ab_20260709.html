@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Filter2 NSP — A/B 对比报告</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; font-size: 12px; line-height:1.6; }
+  .container { max-width: 940px; margin:0 auto; padding: 28px 20px; }
+  header { margin-bottom: 24px; border-bottom: 1.5px solid #2563eb; padding-bottom: 14px; }
+  header h1 { font-size: 20px; font-weight: 700; }
+  header .meta { font-size: 10px; color: #888; margin-top: 4px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 30px 0 12px; border-bottom: 1px solid #e0e0e0; padding-bottom: 6px; }
+  .tldr { background: #e8f0fe; padding: 14px 18px; margin: 16px 0; border-radius: 6px; font-size: 12px; }
+  .finding { background: #fef9e7; border-left: 3px solid #d97706; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  .good { background: #f0fdf4; border-left: 3px solid #059669; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  .bad { background: #fef2f2; border-left: 3px solid #dc2626; padding: 10px 14px; margin: 10px 0; font-size: 11px; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 8px 0 12px; font-variant-numeric: tabular-nums; }
+  table.data-table thead th { background: #f5f5f5; font-weight: 600; text-align: center; padding: 6px 8px; border-bottom: 1.5px solid #ddd; white-space: nowrap; }
+  table.data-table tbody td { text-align: center; padding: 5px 8px; border-bottom: 1px solid #eee; }
+  table.data-table tbody tr:nth-child(even) { background: #fafafa; }
+  .win { color: #059669; font-weight: 700; }
+  .tie { color: #999; }
+  .code { font-family: 'SF Mono', 'Consolas', monospace; background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 10.5px; }
+  .note { font-size: 10px; color: #999; margin-top: 2px; }
+  ul { margin: 6px 0 6px 20px; } li { margin: 4px 0; font-size: 11.5px; }
+  .chart-wrap { text-align:center; margin: 12px 0 4px; }
+  figcaption { font-size: 10px; color: #888; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Filter2 · NSP 防御 tip — A/B 对比报告</h1>
+  <div class="meta">Generated: 2026-07-09 &nbsp;|&nbsp; Cora / Meta_Self / 5-shot split-1 &nbsp;|&nbsp; peak backbone (GraphCL, permE·maskN, 256-dim) &nbsp;|&nbsp; 200 epochs · 5 seeds</div>
+</header>
+
+<div class="tldr">
+  <strong>TL;DR</strong> — 在 RobustPrompt-T 的三头防御（sim/degree/out_detect）之上加入 <strong>NSP 邻居相似度 tip</strong>（<span class="code">RobustPrompt-T-NSP</span>，nsp_threshold=0.3, order=2）。
+  可用数据下（ptb 0.05 / 0.15 / 0.25），NSP 在 <strong>ptb=0.15 明显占优（+37%，0.060→0.082）</strong>，在 0.05 / 0.25 与基线持平；且 <strong>更稳定</strong>（基线 0.05 有 1/5 seed NaN，NSP 全部正常）。
+  但所有数值都处于崩盘区（Acc ≤ 18%，远低于 clean ~60%），NSP 只是在崩盘区内略好，未改变大局。
+</div>
+
+<h2>1. 精度对比（Accuracy / Macro-F1，mean ± std）</h2>
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>ptb</th>
+      <th>有效 seed<br>(base / NSP)</th>
+      <th>Baseline Acc<br>(RobustPrompt-T)</th>
+      <th>NSP Acc<br>(+nsp_pt)</th>
+      <th>Δ Acc</th>
+      <th>Baseline F1</th>
+      <th>NSP F1</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>0.05</strong></td>
+      <td>4 / 5</td>
+      <td>0.1779 ± 0.0420</td>
+      <td>0.1776 ± 0.0224</td>
+      <td class="tie">−0.0002 (≈0)</td>
+      <td>0.1501</td>
+      <td>0.1650</td>
+    </tr>
+    <tr>
+      <td><strong>0.15</strong></td>
+      <td>5 / 5</td>
+      <td>0.0600 ± 0.0056</td>
+      <td>0.0824 ± 0.0200</td>
+      <td class="win">+0.0224 (+37.4%)</td>
+      <td>0.0700</td>
+      <td>0.0737</td>
+    </tr>
+    <tr>
+      <td><strong>0.25</strong></td>
+      <td>5 / 5</td>
+      <td>0.0630 ± 0.0148</td>
+      <td>0.0632 ± 0.0128</td>
+      <td class="tie">+0.0002 (≈0)</td>
+      <td>0.0446</td>
+      <td>0.0433</td>
+    </tr>
+  </tbody>
+</table>
+<div class="note">基线 ptb=0.05 的 seed 2 为 NaN，按 4/5 有效 seed 统计；其余单元格均为 5/5 seed。std 为总体标准差 (population)。</div>
+
+<h2>2. 可视化</h2>
+<div class="chart-wrap">
+<figure>
+<svg width="680" height="300" viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, 'Segoe UI', Roboto, sans-serif">
+  <!-- y gridlines + labels (0..20%) -->
+  <g stroke="#e5e7eb" stroke-width="1">
+    <line x1="50" y1="20"  x2="620" y2="20"/>
+    <line x1="50" y1="77.5" x2="620" y2="77.5"/>
+    <line x1="50" y1="135" x2="620" y2="135"/>
+    <line x1="50" y1="192.5" x2="620" y2="192.5"/>
+    <line x1="50" y1="250" x2="620" y2="250"/>
+  </g>
+  <g font-size="9" fill="#888" text-anchor="end">
+    <text x="44" y="23">20%</text>
+    <text x="44" y="80.5">15%</text>
+    <text x="44" y="138">10%</text>
+    <text x="44" y="195.5">5%</text>
+    <text x="44" y="253">0%</text>
+  </g>
+  <text x="14" y="140" font-size="9" fill="#888" transform="rotate(-90 14 140)" text-anchor="middle">Test Accuracy</text>
+
+  <!-- ===== Group ptb=0.05 (center 145) ===== -->
+  <rect x="93"  y="45.4" width="46" height="204.6" fill="#94a3b8"/>
+  <rect x="151" y="45.8" width="46" height="204.2" fill="#2563eb"/>
+  <!-- error bars: base center 116 (std 4.20%=48.3px), nsp center 174 (std 2.24%=25.8px) -->
+  <g stroke="#475569" stroke-width="1.2">
+    <line x1="116" y1="-2.9" x2="116" y2="93.7"/><line x1="111" y1="-2.9" x2="121" y2="-2.9"/><line x1="111" y1="93.7" x2="121" y2="93.7"/>
+  </g>
+  <g stroke="#1e3a8a" stroke-width="1.2">
+    <line x1="174" y1="20" x2="174" y2="71.6"/><line x1="169" y1="20" x2="179" y2="20"/><line x1="169" y1="71.6" x2="179" y2="71.6"/>
+  </g>
+
+  <!-- ===== Group ptb=0.15 (center 335) ===== -->
+  <rect x="283" y="181"    width="46" height="69"    fill="#94a3b8"/>
+  <rect x="341" y="155.24" width="46" height="94.76" fill="#2563eb"/>
+  <!-- error bars: base center 306 (std 0.56%=6.4px), nsp center 364 (std 2.00%=23px) -->
+  <g stroke="#475569" stroke-width="1.2">
+    <line x1="306" y1="174.6" x2="306" y2="187.4"/><line x1="301" y1="174.6" x2="311" y2="174.6"/><line x1="301" y1="187.4" x2="311" y2="187.4"/>
+  </g>
+  <g stroke="#1e3a8a" stroke-width="1.2">
+    <line x1="364" y1="132.2" x2="364" y2="178.2"/><line x1="359" y1="132.2" x2="369" y2="132.2"/><line x1="359" y1="178.2" x2="369" y2="178.2"/>
+  </g>
+  <text x="335" y="150" font-size="10" fill="#059669" font-weight="700" text-anchor="middle">+37%</text>
+
+  <!-- ===== Group ptb=0.25 (center 525) ===== -->
+  <rect x="473" y="177.55" width="46" height="72.45" fill="#94a3b8"/>
+  <rect x="531" y="177.32" width="46" height="72.68" fill="#2563eb"/>
+  <!-- error bars: base center 496 (std 1.48%=17px), nsp center 554 (std 1.28%=14.7px) -->
+  <g stroke="#475569" stroke-width="1.2">
+    <line x1="496" y1="160.5" x2="496" y2="194.6"/><line x1="491" y1="160.5" x2="501" y2="160.5"/><line x1="491" y1="194.6" x2="501" y2="194.6"/>
+  </g>
+  <g stroke="#1e3a8a" stroke-width="1.2">
+    <line x1="554" y1="162.6" x2="554" y2="192"/><line x1="549" y1="162.6" x2="559" y2="162.6"/><line x1="549" y1="192" x2="559" y2="192"/>
+  </g>
+
+  <!-- x axis -->
+  <line x1="50" y1="250" x2="620" y2="250" stroke="#333" stroke-width="1.2"/>
+  <g font-size="11" fill="#333" text-anchor="middle" font-weight="600">
+    <text x="145" y="266">ptb 0.05</text>
+    <text x="335" y="266">ptb 0.15</text>
+    <text x="525" y="266">ptb 0.25</text>
+  </g>
+
+  <!-- legend -->
+  <rect x="470" y="8" width="12" height="12" fill="#94a3b8"/>
+  <text x="486" y="18" font-size="10" fill="#444">Baseline (RobustPrompt-T)</text>
+  <rect x="470" y="24" width="12" height="12" fill="#2563eb"/>
+  <text x="486" y="34" font-size="10" fill="#444">NSP (+nsp_pt)</text>
+</svg>
+<figcaption>柱=5-seed 均值，误差棒=±std。灰=基线三头防御，蓝=额外加入 NSP tip。</figcaption>
+</figure>
+</div>
+
+<h2>3. 结论</h2>
+<div class="good">
+  <strong>NSP tip 在中等污染有效、且更稳定：</strong>
+  <ul>
+    <li>ptb=0.15：Acc <strong>0.0600 → 0.0824（+37.4%）</strong>，是三档中唯一明确的正向收益。</li>
+    <li>ptb=0.05 / 0.25：与基线基本持平（Δ≈0），未见负交互。</li>
+    <li>稳定性：基线在 0.05 有 <strong>1/5 seed NaN</strong>，NSP 全 5 seed 正常；NSP 在 0.05 的 std 也更小（0.022 vs 0.042）。</li>
+  </ul>
+</div>
+<div class="finding">
+  <strong>但需清醒看待：</strong>
+  <ul>
+    <li>三档 Acc 全 ≤ 18%，远低于 clean linear-probe ~60% — 仍处 Meeting 15 所述「高 ptb 崩盘区 / GCL 悖论」，NSP 只是崩盘区内略好，未改变大局。</li>
+    <li>nsp_threshold=0.3、order=2 均为<strong>未调</strong>的默认值；+37% 很可能不是最优操作点。</li>
+    <li>缺 clean(0.0) 基线 → <strong>NSP tip 对干净精度的代价未知</strong>，这是判断其价值的关键缺口。</li>
+  </ul>
+</div>
+
+<h2>4. 数据可用性说明</h2>
+<div class="bad">
+  <strong>0.0 / 0.1 / 0.2 全部缺失（含 clean）：</strong>数据加载器按 <span class="code">Meta_Self_Cora_{ptb}.pt</span> 拼路径，浓度字符串保留了尾零 →
+  找 <span class="code">..._0.00.pt / _0.10.pt / _0.20.pt</span>，而实际文件是 <span class="code">_0.0 / _0.1 / _0.2</span>，全部 <span class="code">FileNotFoundError</span>。
+  凡是<strong>含尾零</strong>的浓度（0.00 / 0.10 / 0.20）都失败，因此 clean 也没跑出来。0.05 / 0.15 / 0.25 恰好无尾零冲突，正常完成。
+</div>
+<div class="note">修复方式（零代码）：把命令里的 <span class="code">--attack_method Meta_Self-0.00 / -0.10 / -0.20</span> 改成 <span class="code">-0.0 / -0.1 / -0.2</span> 重跑即可补齐 clean 与 0.1 / 0.2。</div>
+
+<h2>5. 下一步</h2>
+<ul>
+  <li><strong>补齐 clean 与 0.1 / 0.2</strong>：改用无尾零浓度字符串重跑，拿到 clean 基线以量化 NSP 的干净精度代价。</li>
+  <li><strong>扫 <span class="code">--pt_nsp_threshold</span></strong>（0.2 / 0.3 / 0.4 / 0.5 / 0.6）× <span class="code">--nsp_order</span>（2 / 3），在 0.05 / 0.15 上定操作点。</li>
+  <li><strong>看边检测指标</strong>：NSP 运行末尾已打印 nsp_pt 对真实攻击边的 TPR/TNR/F1，可对照 sim_pt 判断 NSP 是否检得更准。</li>
+</ul>
+
+</div>
+</body>
+</html>
