@@ -2,58 +2,411 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>5-Filter Combo Experiment Report</title>
+<title>5-Filter Combo — NSP vs NSP-IA (Corrected)</title>
 <style>
-  * {{ margin:0; padding:0; box-sizing:border-box; }}
-  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; font-size: 12px; line-height:1.5; }}
-  .container {{ max-width: 1300px; margin:0 auto; padding: 28px 16px; }}
-  header {{ margin-bottom: 24px; border-bottom: 1.5px solid #2563eb; padding-bottom: 12px; }}
-  header h1 {{ font-size: 18px; font-weight: 700; }}
-  header .meta {{ font-size: 10px; color: #888; margin-top: 3px; }}
-  h2 {{ font-size: 14px; font-weight: 600; margin: 28px 0 10px; color: #333; }}
-  h3 {{ font-size: 13px; font-weight: 600; margin: 20px 0 8px; color: #444; }}
-  table.data-table {{ width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0 14px; font-variant-numeric: tabular-nums; }}
-  table.data-table thead th {{ background: #f5f5f5; font-weight: 600; text-align: center; padding: 4px 6px; border-bottom: 1.5px solid #ddd; white-space: nowrap; }}
-  table.data-table tbody td {{ text-align: center; padding: 3px 6px; border-bottom: 1px solid #eee; }}
-  table.data-table tbody tr:nth-child(even) {{ background: #fafafa; }}
-  .section-single {{ }}
-  .section-two {{ background: #f0f4ff; }}
-  .section-three {{ background: #e8f0fe; }}
-  .section-four {{ background: #dbeafe; }}
-  .section-five {{ background: #c7d9f7; font-weight: 600; }}
-  .best {{ font-weight: 700; color: #059669; }}
-  .na {{ color: #bbb; font-style: italic; }}
-  .note {{ font-size: 10px; color: #999; margin-top: 2px; }}
-  .seed-detail {{ font-size: 10px; color: #777; font-family: 'SF Mono', 'Consolas', monospace; margin: 2px 0; }}
-  details {{ margin: 6px 0 12px; }}
-  details summary {{ font-size: 11px; color: #555; cursor: pointer; }}
-  .finding {{ background: #f8fafc; border-left: 3px solid #2563eb; padding: 8px 12px; margin: 8px 0; font-size: 11px; }}
-  .bad {{ background: #fef2f2; border-left: 3px solid #dc2626; padding: 8px 12px; margin: 8px 0; font-size: 11px; }}
-  .good {{ background: #f0fdf4; border-left: 3px solid #059669; padding: 8px 12px; margin: 8px 0; font-size: 11px; }}
-  hr {{ border: none; border-top: 1px solid #eee; margin: 20px 0; }}
+  :root {
+    --bg: #fdfae7;
+    --primary: #1e2bfa;
+    --text: #111111;
+    --text-muted: #6b6b6b;
+    --text-light: #9a9a9a;
+    --accent-light: rgba(30, 43, 250, 0.08);
+    --accent-medium: rgba(30, 43, 250, 0.15);
+    --border: rgba(30, 43, 250, 0.2);
+    --card-bg: rgba(30, 43, 250, 0.04);
+    --positive: #059669;
+    --negative: #dc2626;
+    --radius-card: 12px;
+    --radius-pill: 100px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 1440px; margin:0 auto; padding: 36px 28px 48px; }
+
+  /* ===== Header ===== */
+  header {
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0;
+    width: 64px; height: 3px;
+    background: var(--primary);
+    border-radius: 2px;
+  }
+  header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  header .meta {
+    font-size: 11px;
+    color: var(--text-light);
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: 0.03em;
+    margin-top: 4px;
+  }
+  header .meta strong {
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  header .meta code {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    background: var(--accent-light);
+    color: var(--primary);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  /* ===== Headings ===== */
+  h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 32px 0 12px;
+    color: var(--text);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 24px 0 10px;
+    color: var(--text);
+  }
+
+  /* ===== Tab Navigation ===== */
+  .tab-nav {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    padding: 4px;
+    background: var(--card-bg);
+    border-radius: var(--radius-pill);
+    width: fit-content;
+    border: 1px solid var(--border);
+  }
+  .tab-btn {
+    padding: 7px 20px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    border-radius: var(--radius-pill);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  .tab-btn.active {
+    background: var(--primary);
+    color: var(--bg);
+    font-weight: 600;
+  }
+  .tab-btn:not(.active):hover {
+    background: var(--accent-light);
+    color: var(--primary);
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ===== Fix Badge ===== */
+  .fix-badge {
+    display: inline-block;
+    background: var(--primary);
+    color: var(--bg);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    padding: 2px 10px;
+    border-radius: var(--radius-pill);
+    margin-left: 8px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+
+  /* ===== Data Tables ===== */
+  table.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 11px;
+    margin: 8px 0 16px;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+  }
+  table.data-table thead th {
+    background: var(--accent-light);
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 10.5px;
+    text-align: center;
+    padding: 8px 10px;
+    border-bottom: 1.5px solid var(--border);
+    white-space: nowrap;
+    color: var(--text);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  table.data-table tbody td {
+    text-align: center;
+    padding: 5px 10px;
+    border-bottom: 1px solid rgba(30, 43, 250, 0.08);
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  table.data-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  table.data-table tbody tr:nth-child(even) {
+    background: var(--card-bg);
+  }
+  table.data-table tbody tr:hover {
+    background: var(--accent-light);
+  }
+
+  /* Section color bands */
+  .section-single { }
+  .section-two { background: rgba(30, 43, 250, 0.025); }
+  .section-three { background: rgba(30, 43, 250, 0.045); }
+  .section-four { background: rgba(30, 43, 250, 0.065); }
+  .section-five { background: rgba(30, 43, 250, 0.09); font-weight: 600; }
+
+  /* ===== Best / NA / Note ===== */
+  .best {
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .na {
+    color: var(--text-light);
+    font-style: italic;
+  }
+  .note {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 4px 0 8px;
+    line-height: 1.5;
+  }
+  .note code {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    background: var(--accent-light);
+    color: var(--primary);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* ===== Seed Details ===== */
+  .seed-detail {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    margin: 2px 0;
+    line-height: 1.5;
+  }
+  details {
+    margin: 8px 0 16px;
+    padding: 10px 14px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+  }
+  details summary {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    color: var(--primary);
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  /* ===== Finding Boxes ===== */
+  .finding {
+    background: var(--card-bg);
+    border-left: 4px solid var(--primary);
+    border-radius: 0 var(--radius-card) var(--radius-card) 0;
+    padding: 10px 16px;
+    margin: 10px 0;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .finding strong { color: var(--text); }
+  .finding em { color: var(--text-muted); }
+  .finding code {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    background: var(--accent-light);
+    color: var(--primary);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .bad {
+    background: rgba(220, 38, 38, 0.04);
+    border-left: 4px solid var(--negative);
+    border-radius: 0 var(--radius-card) var(--radius-card) 0;
+    padding: 10px 16px;
+    margin: 10px 0;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .bad strong { color: var(--text); }
+  .bad em { color: var(--text-muted); }
+  .bad code {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    background: var(--accent-light);
+    color: var(--primary);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .good {
+    background: rgba(5, 150, 105, 0.04);
+    border-left: 4px solid var(--positive);
+    border-radius: 0 var(--radius-card) var(--radius-card) 0;
+    padding: 10px 16px;
+    margin: 10px 0;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .good strong { color: var(--text); }
+  .good em { color: var(--text-muted); }
+  .good code {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    background: var(--accent-light);
+    color: var(--primary);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .warn {
+    background: rgba(217, 119, 6, 0.04);
+    border-left: 4px solid #d97706;
+    border-radius: 0 var(--radius-card) var(--radius-card) 0;
+    padding: 10px 16px;
+    margin: 10px 0;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .warn strong { color: var(--text); }
+  .warn em { color: var(--text-muted); }
+  .warn code {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    background: var(--accent-light);
+    color: var(--primary);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* ===== Divider ===== */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 24px 0;
+  }
+
+  /* ===== Diff colors ===== */
+  .diff-pos { font-weight: 700; color: var(--positive); }
+  .diff-neg { font-weight: 700; color: var(--negative); }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 768px) {
+    .container { padding: 20px 12px; }
+    table.data-table { font-size: 10px; }
+    table.data-table thead th,
+    table.data-table tbody td { padding: 4px 5px; }
+    .tab-nav { flex-wrap: wrap; border-radius: var(--radius-card); }
+    .tab-btn { padding: 6px 14px; font-size: 11px; }
+  }
+
+  @media (max-width: 480px) {
+    header h1 { font-size: 18px; }
+    h2 { font-size: 14px; }
+    h3 { font-size: 12px; }
+  }
 </style>
 </head>
 <body>
 <div class="container">
 
 <header>
-  <h1>5-Filter Combo Experiment Report</h1>
+  <h1>5-Filter Combo Experiment Report <span class="fix-badge">CORRECTED</span></h1>
   <div class="meta">
-    Generated: 2026-07-12 &nbsp;|&nbsp;
-    Peak BB: permE-maskN lr=0.001 r=0.3 seed=1 &nbsp;|&nbsp;
-    Code: RobustPrompt-T-NSP (our modified code) &nbsp;|&nbsp;
+    Generated: 2026-07-12 (corrected — task.py fix applied: threshold < 0 now properly disables filters) &nbsp;|&nbsp;
+    Peak BB: permE-maskN lr=0.001 r=0.3 seed=1 (256-dim GCN) &nbsp;|&nbsp;
+    5 seeds &times; 31 combos &times; 6 ptb = 186 runs per track &nbsp;|&nbsp;
     Values: mean &plusmn; std across all 5 seeds (no min removal)
+  </div>
+  <div class="meta" style="margin-top:4px;">
+    <strong>Fix applied:</strong> <code>task.py</code> now filters out negative-threshold entries from
+    <code>muti_defense_pt_dict</code> before prompt construction. Setting a threshold to -1.0
+    truly disables that filter (no parameter creation, no detection logic, no FocusedCleaner-LP training).
+    The previous bug where <code>focusedcleaner_pt</code> always ran regardless of threshold is resolved.
   </div>
 </header>
 
-<h2>1. Accuracy Across All Filter Combinations</h2>
+<!-- ============ TAB NAV ============ -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="showTab('nsp')">NSP (True Labels)</button>
+  <button class="tab-btn" onclick="showTab('ia')">NSP-IA (Pseudo-Labels)</button>
+  <button class="tab-btn" onclick="showTab('compare')">NSP vs NSP-IA</button>
+  <button class="tab-btn" onclick="showTab('analysis')">Analysis</button>
+</div>
+
+<script>
+function showTab(name) {{
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}}
+</script>
+
+<!-- ============ TAB: NSP (True Labels) ============ -->
+<div id="tab-nsp" class="tab-panel active">
+
+<h2>NSP — True Labels (RobustPrompt-T-NSP)</h2>
 <p class="note">
   <span style="background:#f0f4ff">&nbsp;Blue&nbsp;</span> = 2-filter,
   <span style="background:#e8f0fe">&nbsp;Lt blue&nbsp;</span> = 3-filter,
   <span style="background:#dbeafe">&nbsp;Dk blue&nbsp;</span> = 4-filter,
   <span style="background:#c7d9f7;font-weight:600">&nbsp;Bold&nbsp;</span> = 5-filter.
-  <span style="color:#059669;font-weight:700">Green bold</span> = best in column.
+  <span class="best">Green bold</span> = best in column.
   <code>--</code> = all seeds NaN. <code>*</code> = fewer than 5 valid seeds.
 </p>
 <table class="data-table">
@@ -124,7 +477,6 @@
 <div class="seed-detail"><strong>sim+ood+nsp+fc:</strong> ptb=0.00: [0.5640, 0.5872, 0.5959, 0.6063, 0.6163]; ptb=0.05: [0.1333, 0.1773, 0.2093, 0.2139, 0.2201]; ptb=0.10: [0.0756, 0.0781, 0.1113, 0.1400, 0.1636]; ptb=0.15: [0.0789, 0.0818, 0.0826, 0.0901, 0.1258]; ptb=0.20: [0.0511, 0.0739, 0.0739, 0.0831, 0.1009]; ptb=0.25: [0.0382, 0.0760, 0.1105, 0.1142, 0.1184]</div>
 <div class="seed-detail"><strong>all5:</strong> ptb=0.00: [0.5615, 0.5876, 0.5959, 0.6063, 0.6163]; ptb=0.05: [0.1466, 0.1802, 0.1948, 0.2126, 0.2222]; ptb=0.10: [0.0785, 0.0793, 0.1038, 0.1154, 0.1387]; ptb=0.15: [0.0644, 0.0677, 0.0818, 0.0851, 0.0955]; ptb=0.20: [0.0718, 0.0781, 0.0785, 0.0897, 0.1017]; ptb=0.25: [0.0378, 0.0934, 0.0951, 0.1192, 0.1478]</div>
 </details>
-<hr>
 <h3>Best Per Perturbation Level</h3>
 <table class="data-table"><thead><tr><th>ptb</th><th>Best Combo</th><th>Accuracy</th><th>Runner-up</th></tr></thead><tbody>
 <tr><td>0.00</td><td><strong>deg+ood+nsp+fc</strong></td><td><strong>0.5983</strong></td><td>ood+nsp+fc (0.5983)</td></tr>
@@ -134,22 +486,242 @@
 <tr><td>0.20</td><td><strong>deg+nsp+fc</strong></td><td><strong>0.1019</strong></td><td>deg+nsp (0.0971)</td></tr>
 <tr><td>0.25</td><td><strong>fc</strong></td><td><strong>0.1155</strong></td><td>deg+fc (0.1116)</td></tr>
 </tbody></table>
-<hr>
+<h3>NSP True-Label — Robustness Summary (clean → M-0.25)</h3>
+<table class="data-table"><thead><tr><th>Group Size</th><th>Best Clean</th><th>Best M-0.25</th><th>Drop</th></tr></thead><tbody>
+<tr><td>1-filter</td><td>0.5901</td><td>0.1155</td><td>0.4745</td></tr>
+<tr><td>2-filter</td><td>0.5975</td><td>0.1116</td><td>0.4859</td></tr>
+<tr><td>3-filter</td><td>0.5983</td><td>0.1056</td><td>0.4927</td></tr>
+<tr><td>4-filter</td><td>0.5983</td><td>0.0987</td><td>0.4997</td></tr>
+<tr><td>5-filter</td><td>0.5935</td><td>0.0987</td><td>0.4949</td></tr>
+</tbody></table>
+<h3>Single Filter Comparison</h3>
+<table class="data-table"><thead><tr><th>ptb</th><th>degree</th><th>fc</th><th>nsp</th><th>ood</th><th>sim</th></tr></thead><tbody>
+<tr><td>0.00</td><td>0.5775</td><td>0.5702</td><td>0.5822</td><td><span class="best">0.5901</span></td><td>0.5208</td></tr>
+<tr><td>0.05</td><td>0.1762</td><td>0.1720</td><td>0.1617</td><td><span class="best">0.2213</span></td><td>0.1774</td></tr>
+<tr><td>0.10</td><td>0.1361</td><td>0.1346</td><td><span class="best">0.1396</span></td><td>0.1362</td><td class="na">--</td></tr>
+<tr><td>0.15</td><td>0.1310</td><td>0.1336</td><td><span class="best">0.1351</span></td><td>0.1104</td><td>0.1015</td></tr>
+<tr><td>0.20</td><td>0.0941</td><td><span class="best">0.0964</span></td><td>0.0936</td><td>0.0832</td><td>0.0768</td></tr>
+<tr><td>0.25</td><td>0.1107</td><td><span class="best">0.1155</span></td><td>0.1091</td><td>0.1051</td><td>0.1051</td></tr>
+</tbody></table>
+</div><!-- end tab-nsp -->
+<div id="tab-ia" class="tab-panel">
 
-<h2>2. Key Findings</h2>
+<h2>NSP-IA — Pseudo-Labels (RobustPrompt-T-NSP-IA)</h2>
+<p class="note">
+  IA-PT expands training labels from 35 → ~595 via high-confidence pseudo-labels (transductive leakage).
+  Same layout conventions as the NSP tab.
+</p>
+<table class="data-table">
+<thead><tr><th>Combo</th><th>0.00</th><th>0.05</th><th>0.10</th><th>0.15</th><th>0.20</th><th>0.25</th></tr></thead><tbody>
+<tr class="section-single"><td>degree</td><td>0.5307&plusmn;0.0366</td><td>0.4704&plusmn;0.0879</td><td>0.5241&plusmn;0.0530</td><td>0.4840&plusmn;0.0407</td><td>0.5006&plusmn;0.0614</td><td>0.4920&plusmn;0.0869</td></tr>
+<tr class="section-single"><td>fc</td><td>0.5061&plusmn;0.0492</td><td>0.5340&plusmn;0.0699</td><td>0.5101&plusmn;0.0684</td><td>0.4959&plusmn;0.0634</td><td>0.4861&plusmn;0.0373</td><td>0.5132&plusmn;0.0621</td></tr>
+<tr class="section-single"><td>nsp</td><td>0.4383&plusmn;0.0856</td><td>0.5011&plusmn;0.1129</td><td>0.4895&plusmn;0.0894</td><td>0.5070&plusmn;0.0462</td><td>0.4624&plusmn;0.1028</td><td>0.4804&plusmn;0.0853</td></tr>
+<tr class="section-single"><td>ood</td><td>0.5323&plusmn;0.0324</td><td>0.4580&plusmn;0.0796</td><td>0.5308&plusmn;0.0652</td><td>0.5435&plusmn;0.1018</td><td>0.4416&plusmn;0.1400</td><td>0.5401&plusmn;0.0835</td></tr>
+<tr class="section-single"><td>sim</td><td>0.4821&plusmn;0.0455</td><td>0.5042&plusmn;0.0396</td><td>0.5175&plusmn;0.0297</td><td>0.4581&plusmn;0.0861</td><td>0.5262&plusmn;0.0770</td><td>0.5042&plusmn;0.0609</td></tr>
+<tr class="section-two"><td>deg+fc</td><td>0.4542&plusmn;0.0801</td><td>0.5185&plusmn;0.0709</td><td>0.4863&plusmn;0.0834</td><td>0.4792&plusmn;0.0709</td><td>0.5336&plusmn;0.0209</td><td>0.4975&plusmn;0.0618</td></tr>
+<tr class="section-two"><td>deg+nsp</td><td>0.4130&plusmn;0.0925</td><td>0.4335&plusmn;0.0655</td><td><span class="best">0.5750&plusmn;0.0515*</span></td><td>0.4818&plusmn;0.0812</td><td><span class="best">0.5555&plusmn;0.0532</span></td><td>0.5357&plusmn;0.0774</td></tr>
+<tr class="section-two"><td>deg+ood</td><td>0.5382&plusmn;0.0266*</td><td><span class="best">0.5571&plusmn;0.0609</span></td><td>0.5353&plusmn;0.0684</td><td>0.5170&plusmn;0.0825</td><td>0.5226&plusmn;0.0780</td><td>0.5016&plusmn;0.0796</td></tr>
+<tr class="section-two"><td>nsp+fc</td><td>0.4526&plusmn;0.0440</td><td>0.4915&plusmn;0.0304</td><td>0.5273&plusmn;0.0568</td><td>0.5433&plusmn;0.0443</td><td>0.4643&plusmn;0.0881</td><td>0.4543&plusmn;0.0535</td></tr>
+<tr class="section-two"><td>ood+fc</td><td>0.4586&plusmn;0.0514</td><td>0.5551&plusmn;0.0536</td><td>0.4779&plusmn;0.1156</td><td>0.4936&plusmn;0.0453</td><td>0.4966&plusmn;0.0584</td><td>0.4282&plusmn;0.1004</td></tr>
+<tr class="section-two"><td>ood+nsp</td><td>0.5180&plusmn;0.0363</td><td>0.4465&plusmn;0.0961</td><td>0.5199&plusmn;0.0924</td><td>0.4985&plusmn;0.0703</td><td>0.4418&plusmn;0.0282*</td><td>0.4235&plusmn;0.0433*</td></tr>
+<tr class="section-two"><td>sim+deg</td><td>0.5029&plusmn;0.0679</td><td>0.5389&plusmn;0.0342</td><td>0.5435&plusmn;0.0348</td><td>0.4553&plusmn;0.0698</td><td>0.5280&plusmn;0.0490</td><td>0.5346&plusmn;0.0718</td></tr>
+<tr class="section-two"><td>sim+fc</td><td>0.5090&plusmn;0.0422</td><td>0.4544&plusmn;0.0759</td><td>0.4926&plusmn;0.0611</td><td>0.4852&plusmn;0.0400</td><td>0.4421&plusmn;0.0630</td><td>0.4419&plusmn;0.0744</td></tr>
+<tr class="section-two"><td>sim+nsp</td><td>0.4701&plusmn;0.0844</td><td>0.4857&plusmn;0.0734</td><td>0.4681&plusmn;0.1003*</td><td>0.5261&plusmn;0.0720</td><td>0.4306&plusmn;0.0854</td><td>0.5412&plusmn;0.0932</td></tr>
+<tr class="section-two"><td>sim+ood</td><td>0.5355&plusmn;0.0506</td><td>0.5130&plusmn;0.0250</td><td>0.5119&plusmn;0.0329</td><td>0.4774&plusmn;0.0594</td><td>0.5495&plusmn;0.0450</td><td>0.4938&plusmn;0.1083</td></tr>
+<tr class="section-three"><td>deg+nsp+fc</td><td>0.4890&plusmn;0.0643</td><td>0.4485&plusmn;0.0582</td><td>0.5140&plusmn;0.0357</td><td>0.5176&plusmn;0.0580</td><td>0.5005&plusmn;0.0918</td><td>0.4764&plusmn;0.0536</td></tr>
+<tr class="section-three"><td>deg+ood+fc</td><td>0.4893&plusmn;0.0871</td><td>0.5146&plusmn;0.0306</td><td>0.5456&plusmn;0.0942</td><td>0.4807&plusmn;0.0846</td><td>0.4962&plusmn;0.0878</td><td>0.4900&plusmn;0.0610</td></tr>
+<tr class="section-three"><td>deg+ood+nsp</td><td>0.5301&plusmn;0.0422</td><td>0.4839&plusmn;0.0775</td><td>0.5411&plusmn;0.0405</td><td>0.4920&plusmn;0.1013</td><td>0.4621&plusmn;0.0726</td><td>0.5513&plusmn;0.0520</td></tr>
+<tr class="section-three"><td>ood+nsp+fc</td><td>0.4872&plusmn;0.0772</td><td>0.4944&plusmn;0.0249</td><td>0.5654&plusmn;0.0297</td><td>0.4878&plusmn;0.0757</td><td>0.4597&plusmn;0.0791</td><td>0.4924&plusmn;0.0780</td></tr>
+<tr class="section-three"><td>sim+deg+fc</td><td><span class="best">0.5820&plusmn;0.0397*</span></td><td>0.5402&plusmn;0.0418</td><td>0.4714&plusmn;0.0617</td><td>0.4369&plusmn;0.0525</td><td>0.4820&plusmn;0.0416</td><td>0.4953&plusmn;0.0633</td></tr>
+<tr class="section-three"><td>sim+deg+nsp</td><td>0.5139&plusmn;0.0334</td><td>0.4917&plusmn;0.0884</td><td>0.5252&plusmn;0.0589</td><td>0.5331&plusmn;0.0672</td><td>0.5013&plusmn;0.0511</td><td><span class="best">0.5606&plusmn;0.0503*</span></td></tr>
+<tr class="section-three"><td>sim+deg+ood</td><td>0.5262&plusmn;0.0512*</td><td>0.5050&plusmn;0.0587</td><td>0.5716&plusmn;0.0334</td><td>0.4522&plusmn;0.0383</td><td>0.4535&plusmn;0.0817</td><td>0.4924&plusmn;0.1317</td></tr>
+<tr class="section-three"><td>sim+nsp+fc</td><td>0.5106&plusmn;0.0410</td><td>0.5082&plusmn;0.0463*</td><td>0.4706&plusmn;0.0267</td><td>0.4715&plusmn;0.0652*</td><td>0.4358&plusmn;0.0460*</td><td>0.3948&plusmn;0.0861</td></tr>
+<tr class="section-three"><td>sim+ood+fc</td><td>0.5258&plusmn;0.0798</td><td>0.4619&plusmn;0.0716</td><td>0.4411&plusmn;0.0639</td><td>0.5562&plusmn;0.0338</td><td>0.4387&plusmn;0.0741</td><td>0.5499&plusmn;0.0273</td></tr>
+<tr class="section-three"><td>sim+ood+nsp</td><td>0.4766&plusmn;0.0195</td><td>0.5319&plusmn;0.0481</td><td>0.5373&plusmn;0.0192</td><td>0.5234&plusmn;0.0295</td><td>0.4896&plusmn;0.0780</td><td>0.4910&plusmn;0.0563</td></tr>
+<tr class="section-four"><td>deg+ood+nsp+fc</td><td>0.5332&plusmn;0.0355</td><td>0.5106&plusmn;0.0587</td><td>0.5579&plusmn;0.0391</td><td>0.5546&plusmn;0.0223</td><td>0.4526&plusmn;0.1126</td><td>0.4546&plusmn;0.1290</td></tr>
+<tr class="section-four"><td>sim+deg+nsp+fc</td><td>0.4834&plusmn;0.0528</td><td>0.5193&plusmn;0.0361</td><td>0.5150&plusmn;0.1076</td><td>0.5085&plusmn;0.0433*</td><td>0.5290&plusmn;0.0515</td><td>0.4969&plusmn;0.0693</td></tr>
+<tr class="section-four"><td>sim+deg+ood+fc</td><td>0.5445&plusmn;0.0292</td><td>0.5293&plusmn;0.0191</td><td>0.4908&plusmn;0.0957</td><td><span class="best">0.5683&plusmn;0.0615</span></td><td>0.4862&plusmn;0.1062</td><td>0.4996&plusmn;0.0711</td></tr>
+<tr class="section-four"><td>sim+deg+ood+nsp</td><td>0.4912&plusmn;0.0566</td><td>0.4967&plusmn;0.0961</td><td>0.4796&plusmn;0.0648*</td><td>0.5172&plusmn;0.0402</td><td>0.5431&plusmn;0.0837</td><td>0.5070&plusmn;0.0215</td></tr>
+<tr class="section-four"><td>sim+ood+nsp+fc</td><td>0.4973&plusmn;0.0689</td><td>0.5239&plusmn;0.0458</td><td>0.5153&plusmn;0.0304</td><td>0.4591&plusmn;0.0989</td><td>0.5181&plusmn;0.0556</td><td>0.5077&plusmn;0.0635</td></tr>
+<tr class="section-five"><td>all5</td><td>0.4965&plusmn;0.0679</td><td>0.5296&plusmn;0.0428</td><td>0.4878&plusmn;0.0532</td><td>0.4733&plusmn;0.0777</td><td>0.5484&plusmn;0.0410</td><td>0.4366&plusmn;0.0670</td></tr>
+</tbody></table>
+<details>
+<summary>Per-combo seed details (click to expand)</summary>
+<div class="seed-detail"><strong>degree:</strong> ptb=0.00: [0.4693, 0.5274, 0.5345, 0.5382, 0.5839]; ptb=0.05: [0.3044, 0.4693, 0.5004, 0.5195, 0.5586]; ptb=0.10: [0.4618, 0.4817, 0.5100, 0.5598, 0.6071]; ptb=0.15: [0.4091, 0.4788, 0.4954, 0.5087, 0.5278]; ptb=0.20: [0.4431, 0.4551, 0.4601, 0.5440, 0.6005]; ptb=0.25: [0.3409, 0.4522, 0.5332, 0.5519, 0.5818]</div>
+<div class="seed-detail"><strong>fc:</strong> ptb=0.00: [0.4390, 0.4543, 0.5395, 0.5407, 0.5569]; ptb=0.05: [0.4385, 0.5033, 0.5357, 0.5390, 0.6537]; ptb=0.10: [0.4252, 0.4680, 0.4759, 0.5806, 0.6009]; ptb=0.15: [0.4070, 0.4406, 0.5125, 0.5403, 0.5789]; ptb=0.20: [0.4456, 0.4643, 0.4776, 0.4880, 0.5552]; ptb=0.25: [0.4124, 0.4801, 0.5311, 0.5490, 0.5934]</div>
+<div class="seed-detail"><strong>nsp:</strong> ptb=0.00: [0.3106, 0.3933, 0.4360, 0.4871, 0.5644]; ptb=0.05: [0.3239, 0.4157, 0.5552, 0.5922, 0.6184]; ptb=0.10: [0.3285, 0.4730, 0.5025, 0.5689, 0.5748]; ptb=0.15: [0.4431, 0.4788, 0.5062, 0.5262, 0.5806]; ptb=0.20: [0.2961, 0.4514, 0.4672, 0.4772, 0.6200]; ptb=0.25: [0.3380, 0.4406, 0.4929, 0.5652, 0.5652]</div>
+<div class="seed-detail"><strong>ood:</strong> ptb=0.00: [0.4909, 0.5025, 0.5357, 0.5536, 0.5789]; ptb=0.05: [0.3538, 0.3883, 0.4531, 0.5465, 0.5482]; ptb=0.10: [0.4468, 0.4797, 0.5162, 0.5959, 0.6154]; ptb=0.15: [0.3613, 0.5361, 0.5407, 0.6358, 0.6437]; ptb=0.20: [0.1923, 0.3953, 0.4888, 0.5490, 0.5826]; ptb=0.25: [0.3875, 0.5208, 0.5806, 0.5835, 0.6279]</div>
+<div class="seed-detail"><strong>sim:</strong> ptb=0.00: [0.4099, 0.4605, 0.4867, 0.5087, 0.5449]; ptb=0.05: [0.4473, 0.4805, 0.5116, 0.5150, 0.5664]; ptb=0.10: [0.4797, 0.5021, 0.5104, 0.5270, 0.5685]; ptb=0.15: [0.3360, 0.4016, 0.4431, 0.5540, 0.5556]; ptb=0.20: [0.4037, 0.4826, 0.5365, 0.5880, 0.6200]; ptb=0.25: [0.4352, 0.4406, 0.4988, 0.5623, 0.5839]</div>
+<div class="seed-detail"><strong>deg+fc:</strong> ptb=0.00: [0.3202, 0.4327, 0.4689, 0.4821, 0.5669]; ptb=0.05: [0.3808, 0.5212, 0.5573, 0.5664, 0.5669]; ptb=0.10: [0.3833, 0.3858, 0.5411, 0.5602, 0.5610]; ptb=0.15: [0.3999, 0.4153, 0.4635, 0.5278, 0.5893]; ptb=0.20: [0.5120, 0.5195, 0.5224, 0.5453, 0.5689]; ptb=0.25: [0.3974, 0.4755, 0.5050, 0.5237, 0.5860]</div>
+<div class="seed-detail"><strong>deg+nsp:</strong> ptb=0.00: [0.2670, 0.3953, 0.4115, 0.4344, 0.5569]; ptb=0.05: [0.3194, 0.4020, 0.4672, 0.4855, 0.4934]; ptb=0.10: [0.5037, 0.5980, 0.6233]; ptb=0.15: [0.3924, 0.4240, 0.4365, 0.5552, 0.6009]; ptb=0.20: [0.4726, 0.5390, 0.5428, 0.5943, 0.6287]; ptb=0.25: [0.4319, 0.4564, 0.5640, 0.6067, 0.6196]</div>
+<div class="seed-detail"><strong>deg+ood:</strong> ptb=0.00: [0.5012, 0.5278, 0.5511, 0.5727]; ptb=0.05: [0.4564, 0.5395, 0.5723, 0.5727, 0.6445]; ptb=0.10: [0.4336, 0.4929, 0.5370, 0.5826, 0.6304]; ptb=0.15: [0.3576, 0.5216, 0.5490, 0.5743, 0.5826]; ptb=0.20: [0.4020, 0.4581, 0.5735, 0.5810, 0.5984]; ptb=0.25: [0.3729, 0.5004, 0.5046, 0.5054, 0.6246]</div>
+<div class="seed-detail"><strong>nsp+fc:</strong> ptb=0.00: [0.3708, 0.4460, 0.4684, 0.4826, 0.4950]; ptb=0.05: [0.4498, 0.4601, 0.5083, 0.5166, 0.5228]; ptb=0.10: [0.4539, 0.4938, 0.5017, 0.5831, 0.6038]; ptb=0.15: [0.4747, 0.5158, 0.5569, 0.5648, 0.6042]; ptb=0.20: [0.2907, 0.4788, 0.5137, 0.5174, 0.5208]; ptb=0.25: [0.3808, 0.4199, 0.4448, 0.4942, 0.5320]</div>
+<div class="seed-detail"><strong>ood+fc:</strong> ptb=0.00: [0.3704, 0.4431, 0.4747, 0.4792, 0.5257]; ptb=0.05: [0.4967, 0.4979, 0.5631, 0.5789, 0.6391]; ptb=0.10: [0.2645, 0.4747, 0.5083, 0.5320, 0.6100]; ptb=0.15: [0.4435, 0.4767, 0.4805, 0.4884, 0.5789]; ptb=0.20: [0.3974, 0.4875, 0.5037, 0.5158, 0.5785]; ptb=0.25: [0.3235, 0.3650, 0.3733, 0.4780, 0.6013]</div>
+<div class="seed-detail"><strong>ood+nsp:</strong> ptb=0.00: [0.4734, 0.4767, 0.5295, 0.5540, 0.5565]; ptb=0.05: [0.2861, 0.4095, 0.4518, 0.5257, 0.5594]; ptb=0.10: [0.3405, 0.5303, 0.5527, 0.5847, 0.5914]; ptb=0.15: [0.3991, 0.4485, 0.4925, 0.5664, 0.5860]; ptb=0.20: [0.3933, 0.4527, 0.4601, 0.4610]; ptb=0.25: [0.3783, 0.3837, 0.4547, 0.4772]</div>
+<div class="seed-detail"><strong>sim+deg:</strong> ptb=0.00: [0.3692, 0.5253, 0.5266, 0.5353, 0.5581]; ptb=0.05: [0.5066, 0.5087, 0.5216, 0.5640, 0.5934]; ptb=0.10: [0.4834, 0.5249, 0.5673, 0.5685, 0.5735]; ptb=0.15: [0.3738, 0.3908, 0.4385, 0.5353, 0.5382]; ptb=0.20: [0.4431, 0.5183, 0.5257, 0.5727, 0.5801]; ptb=0.25: [0.3949, 0.5419, 0.5635, 0.5843, 0.5885]</div>
+<div class="seed-detail"><strong>sim+fc:</strong> ptb=0.00: [0.4423, 0.4867, 0.5224, 0.5257, 0.5681]; ptb=0.05: [0.3414, 0.4028, 0.4560, 0.5287, 0.5432]; ptb=0.10: [0.3816, 0.4846, 0.5012, 0.5407, 0.5548]; ptb=0.15: [0.4099, 0.4934, 0.4938, 0.4988, 0.5299]; ptb=0.20: [0.3729, 0.4024, 0.4041, 0.4909, 0.5403]; ptb=0.25: [0.3816, 0.3920, 0.3966, 0.4585, 0.5806]</div>
+<div class="seed-detail"><strong>sim+nsp:</strong> ptb=0.00: [0.3787, 0.3812, 0.4572, 0.5507, 0.5826]; ptb=0.05: [0.3733, 0.4473, 0.4780, 0.5544, 0.5756]; ptb=0.10: [0.3268, 0.4240, 0.5370, 0.5847]; ptb=0.15: [0.4207, 0.4639, 0.5590, 0.5739, 0.6130]; ptb=0.20: [0.3152, 0.3816, 0.4111, 0.4805, 0.5644]; ptb=0.25: [0.3625, 0.5399, 0.5801, 0.6084, 0.6150]</div>
+<div class="seed-detail"><strong>sim+ood:</strong> ptb=0.00: [0.4747, 0.4938, 0.5216, 0.5793, 0.6080]; ptb=0.05: [0.4701, 0.5037, 0.5166, 0.5341, 0.5403]; ptb=0.10: [0.4581, 0.4954, 0.5195, 0.5324, 0.5540]; ptb=0.15: [0.3991, 0.4348, 0.4618, 0.5374, 0.5540]; ptb=0.20: [0.4913, 0.5079, 0.5590, 0.5743, 0.6150]; ptb=0.25: [0.3218, 0.4186, 0.5461, 0.5623, 0.6200]</div>
+<div class="seed-detail"><strong>deg+nsp+fc:</strong> ptb=0.00: [0.4061, 0.4485, 0.4622, 0.5565, 0.5718]; ptb=0.05: [0.3505, 0.4186, 0.4713, 0.4867, 0.5154]; ptb=0.10: [0.4680, 0.4929, 0.5075, 0.5278, 0.5739]; ptb=0.15: [0.4165, 0.5137, 0.5170, 0.5478, 0.5930]; ptb=0.20: [0.3376, 0.4693, 0.5282, 0.5814, 0.5860]; ptb=0.25: [0.4020, 0.4572, 0.4651, 0.4913, 0.5664]</div>
+<div class="seed-detail"><strong>deg+ood+fc:</strong> ptb=0.00: [0.3567, 0.4655, 0.4846, 0.5120, 0.6279]; ptb=0.05: [0.4718, 0.4921, 0.5116, 0.5482, 0.5494]; ptb=0.10: [0.3999, 0.4718, 0.5876, 0.6254, 0.6433]; ptb=0.15: [0.3164, 0.4934, 0.5066, 0.5374, 0.5498]; ptb=0.20: [0.3837, 0.3999, 0.5295, 0.5748, 0.5930]; ptb=0.25: [0.4468, 0.4510, 0.4614, 0.4813, 0.6096]</div>
+<div class="seed-detail"><strong>deg+ood+nsp:</strong> ptb=0.00: [0.4838, 0.4842, 0.5278, 0.5677, 0.5868]; ptb=0.05: [0.3530, 0.4535, 0.4950, 0.5419, 0.5760]; ptb=0.10: [0.4726, 0.5341, 0.5428, 0.5590, 0.5972]; ptb=0.15: [0.3522, 0.4111, 0.4884, 0.5984, 0.6100]; ptb=0.20: [0.3742, 0.4012, 0.4410, 0.5436, 0.5507]; ptb=0.25: [0.4506, 0.5569, 0.5689, 0.5889, 0.5914]</div>
+<div class="seed-detail"><strong>ood+nsp+fc:</strong> ptb=0.00: [0.3372, 0.4954, 0.5203, 0.5303, 0.5527]; ptb=0.05: [0.4489, 0.4925, 0.5033, 0.5037, 0.5237]; ptb=0.10: [0.5374, 0.5424, 0.5461, 0.5889, 0.6121]; ptb=0.15: [0.3385, 0.5087, 0.5170, 0.5274, 0.5473]; ptb=0.20: [0.3480, 0.4174, 0.4506, 0.4988, 0.5839]; ptb=0.25: [0.3646, 0.4643, 0.5004, 0.5328, 0.6001]</div>
+<div class="seed-detail"><strong>sim+deg+fc:</strong> ptb=0.00: [0.5282, 0.5677, 0.5951, 0.6370]; ptb=0.05: [0.4655, 0.5357, 0.5453, 0.5635, 0.5909]; ptb=0.10: [0.3804, 0.4414, 0.4705, 0.4979, 0.5669]; ptb=0.15: [0.3800, 0.3974, 0.4111, 0.4772, 0.5187]; ptb=0.20: [0.4327, 0.4560, 0.4751, 0.4904, 0.5556]; ptb=0.25: [0.4028, 0.4448, 0.5158, 0.5336, 0.5793]</div>
+<div class="seed-detail"><strong>sim+deg+nsp:</strong> ptb=0.00: [0.4556, 0.5087, 0.5158, 0.5332, 0.5561]; ptb=0.05: [0.3679, 0.4560, 0.4647, 0.5382, 0.6316]; ptb=0.10: [0.4319, 0.4983, 0.5224, 0.5731, 0.6001]; ptb=0.15: [0.4427, 0.4880, 0.5145, 0.6001, 0.6200]; ptb=0.20: [0.4007, 0.5100, 0.5287, 0.5328, 0.5345]; ptb=0.25: [0.5174, 0.5187, 0.5652, 0.6412]</div>
+<div class="seed-detail"><strong>sim+deg+ood:</strong> ptb=0.00: [0.4543, 0.5216, 0.5303, 0.5988]; ptb=0.05: [0.4290, 0.4788, 0.5029, 0.5054, 0.6088]; ptb=0.10: [0.5145, 0.5548, 0.5855, 0.5972, 0.6059]; ptb=0.15: [0.4103, 0.4257, 0.4323, 0.4788, 0.5137]; ptb=0.20: [0.3065, 0.4502, 0.4539, 0.5120, 0.5449]; ptb=0.25: [0.2442, 0.4701, 0.5714, 0.5814, 0.5947]</div>
+<div class="seed-detail"><strong>sim+nsp+fc:</strong> ptb=0.00: [0.4684, 0.4743, 0.4946, 0.5411, 0.5748]; ptb=0.05: [0.4502, 0.4855, 0.5220, 0.5752]; ptb=0.10: [0.4232, 0.4601, 0.4817, 0.4925, 0.4954]; ptb=0.15: [0.3767, 0.4639, 0.4859, 0.5594]; ptb=0.20: [0.3630, 0.4306, 0.4689, 0.4809]; ptb=0.25: [0.2990, 0.3355, 0.3605, 0.4381, 0.5407]</div>
+<div class="seed-detail"><strong>sim+ood+fc:</strong> ptb=0.00: [0.4099, 0.4880, 0.5091, 0.5785, 0.6437]; ptb=0.05: [0.3218, 0.4792, 0.4809, 0.5116, 0.5158]; ptb=0.10: [0.3227, 0.4427, 0.4543, 0.4726, 0.5133]; ptb=0.15: [0.5158, 0.5370, 0.5399, 0.5772, 0.6109]; ptb=0.20: [0.3617, 0.3900, 0.3908, 0.4958, 0.5552]; ptb=0.25: [0.5274, 0.5291, 0.5361, 0.5565, 0.6005]</div>
+<div class="seed-detail"><strong>sim+ood+nsp:</strong> ptb=0.00: [0.4460, 0.4709, 0.4738, 0.4867, 0.5054]; ptb=0.05: [0.4564, 0.5062, 0.5465, 0.5502, 0.6001]; ptb=0.10: [0.5170, 0.5257, 0.5353, 0.5353, 0.5731]; ptb=0.15: [0.4776, 0.5125, 0.5241, 0.5345, 0.5681]; ptb=0.20: [0.3650, 0.4676, 0.4743, 0.5473, 0.5939]; ptb=0.25: [0.4265, 0.4427, 0.4963, 0.5025, 0.5868]</div>
+<div class="seed-detail"><strong>deg+ood+nsp+fc:</strong> ptb=0.00: [0.4643, 0.5411, 0.5461, 0.5482, 0.5664]; ptb=0.05: [0.4020, 0.4988, 0.5415, 0.5428, 0.5681]; ptb=0.10: [0.4842, 0.5532, 0.5752, 0.5839, 0.5930]; ptb=0.15: [0.5208, 0.5440, 0.5498, 0.5768, 0.5814]; ptb=0.20: [0.2990, 0.3513, 0.4747, 0.5374, 0.6005]; ptb=0.25: [0.2097, 0.4697, 0.4942, 0.5087, 0.5905]</div>
+<div class="seed-detail"><strong>sim+deg+nsp+fc:</strong> ptb=0.00: [0.4086, 0.4369, 0.4975, 0.5253, 0.5486]; ptb=0.05: [0.4850, 0.4942, 0.5091, 0.5212, 0.5872]; ptb=0.10: [0.3733, 0.3937, 0.6005, 0.6013, 0.6063]; ptb=0.15: [0.4456, 0.5017, 0.5203, 0.5664]; ptb=0.20: [0.4435, 0.5000, 0.5473, 0.5689, 0.5855]; ptb=0.25: [0.3667, 0.4938, 0.5224, 0.5345, 0.5673]</div>
+<div class="seed-detail"><strong>sim+deg+ood+fc:</strong> ptb=0.00: [0.5112, 0.5158, 0.5469, 0.5577, 0.5909]; ptb=0.05: [0.4988, 0.5154, 0.5399, 0.5432, 0.5494]; ptb=0.10: [0.3684, 0.3891, 0.5353, 0.5461, 0.6150]; ptb=0.15: [0.4672, 0.5502, 0.5656, 0.6071, 0.6512]; ptb=0.20: [0.3061, 0.4589, 0.4921, 0.5494, 0.6246]; ptb=0.25: [0.3866, 0.4576, 0.5100, 0.5619, 0.5818]</div>
+<div class="seed-detail"><strong>sim+deg+ood+nsp:</strong> ptb=0.00: [0.4174, 0.4651, 0.4842, 0.4992, 0.5901]; ptb=0.05: [0.3488, 0.4489, 0.4850, 0.5880, 0.6130]; ptb=0.10: [0.3924, 0.4427, 0.5324, 0.5507]; ptb=0.15: [0.4838, 0.4859, 0.4954, 0.5307, 0.5901]; ptb=0.20: [0.3841, 0.5556, 0.5561, 0.5943, 0.6254]; ptb=0.25: [0.4751, 0.4875, 0.5203, 0.5233, 0.5287]</div>
+<div class="seed-detail"><strong>sim+ood+nsp+fc:</strong> ptb=0.00: [0.3970, 0.4377, 0.5203, 0.5561, 0.5756]; ptb=0.05: [0.4659, 0.5062, 0.5133, 0.5287, 0.6055]; ptb=0.10: [0.4684, 0.4913, 0.5282, 0.5432, 0.5453]; ptb=0.15: [0.3148, 0.4203, 0.4223, 0.5461, 0.5918]; ptb=0.20: [0.4394, 0.4718, 0.5390, 0.5449, 0.5955]; ptb=0.25: [0.4178, 0.4747, 0.4892, 0.5610, 0.5959]</div>
+<div class="seed-detail"><strong>all5:</strong> ptb=0.00: [0.4024, 0.4493, 0.4888, 0.5511, 0.5909]; ptb=0.05: [0.4676, 0.5191, 0.5278, 0.5316, 0.6017]; ptb=0.10: [0.4120, 0.4626, 0.4763, 0.5183, 0.5698]; ptb=0.15: [0.3924, 0.3987, 0.4481, 0.5407, 0.5868]; ptb=0.20: [0.5071, 0.5141, 0.5357, 0.5656, 0.6196]; ptb=0.25: [0.3206, 0.4406, 0.4431, 0.4485, 0.5303]</div>
+</details>
+<h3>Best Per Perturbation Level</h3>
+<table class="data-table"><thead><tr><th>ptb</th><th>Best Combo</th><th>Accuracy</th><th>Runner-up</th></tr></thead><tbody>
+<tr><td>0.00</td><td><strong>sim+deg+fc</strong></td><td><strong>0.5820</strong></td><td>sim+deg+ood+fc (0.5445)</td></tr>
+<tr><td>0.05</td><td><strong>deg+ood</strong></td><td><strong>0.5571</strong></td><td>ood+fc (0.5551)</td></tr>
+<tr><td>0.10</td><td><strong>deg+nsp</strong></td><td><strong>0.5750</strong></td><td>sim+deg+ood (0.5716)</td></tr>
+<tr><td>0.15</td><td><strong>sim+deg+ood+fc</strong></td><td><strong>0.5683</strong></td><td>sim+ood+fc (0.5562)</td></tr>
+<tr><td>0.20</td><td><strong>deg+nsp</strong></td><td><strong>0.5555</strong></td><td>sim+ood (0.5495)</td></tr>
+<tr><td>0.25</td><td><strong>sim+deg+nsp</strong></td><td><strong>0.5606</strong></td><td>deg+ood+nsp (0.5513)</td></tr>
+</tbody></table>
+<h3>NSP-IA Pseudo-Label — Robustness Summary (clean → M-0.25)</h3>
+<table class="data-table"><thead><tr><th>Group Size</th><th>Best Clean</th><th>Best M-0.25</th><th>Drop</th></tr></thead><tbody>
+<tr><td>1-filter</td><td>0.5323</td><td>0.5401</td><td>-0.0077</td></tr>
+<tr><td>2-filter</td><td>0.5382</td><td>0.5412</td><td>-0.0030</td></tr>
+<tr><td>3-filter</td><td>0.5820</td><td>0.5606</td><td>0.0214</td></tr>
+<tr><td>4-filter</td><td>0.5445</td><td>0.5077</td><td>0.0368</td></tr>
+<tr><td>5-filter</td><td>0.4965</td><td>0.4366</td><td>0.0599</td></tr>
+</tbody></table>
+<h3>Single Filter Comparison</h3>
+<table class="data-table"><thead><tr><th>ptb</th><th>degree</th><th>fc</th><th>nsp</th><th>ood</th><th>sim</th></tr></thead><tbody>
+<tr><td>0.00</td><td>0.5307</td><td>0.5061</td><td>0.4383</td><td><span class="best">0.5323</span></td><td>0.4821</td></tr>
+<tr><td>0.05</td><td>0.4704</td><td><span class="best">0.5340</span></td><td>0.5011</td><td>0.4580</td><td>0.5042</td></tr>
+<tr><td>0.10</td><td>0.5241</td><td>0.5101</td><td>0.4895</td><td><span class="best">0.5308</span></td><td>0.5175</td></tr>
+<tr><td>0.15</td><td>0.4840</td><td>0.4959</td><td>0.5070</td><td><span class="best">0.5435</span></td><td>0.4581</td></tr>
+<tr><td>0.20</td><td>0.5006</td><td>0.4861</td><td>0.4624</td><td>0.4416</td><td><span class="best">0.5262</span></td></tr>
+<tr><td>0.25</td><td>0.4920</td><td>0.5132</td><td>0.4804</td><td><span class="best">0.5401</span></td><td>0.5042</td></tr>
+</tbody></table>
+</div><!-- end tab-ia -->
+<div id="tab-compare" class="tab-panel">
 
-<div class="good"><strong>1. ood is the best single filter.</strong> Clean 0.6062, ptb=0.05 at 0.2431. Leads at low perturbation. At ptb=0.15+ no single filter dominates.</div>
+<h2>NSP vs NSP-IA — Side-by-Side Comparison</h2>
+<p class="note">
+  Each cell: <strong>NSP</strong> vs <strong>NSP-IA</strong>.
+  <span class="diff-pos">Green delta</span> = IA better by &gt;0.005.
+  <span class="diff-neg">Red delta</span> = IA worse by &gt;0.005.
+</p>
+<table class="data-table">
+<thead><tr><th>Combo</th><th>0.00</th><th>0.05</th><th>0.10</th><th>0.15</th><th>0.20</th><th>0.25</th></tr></thead><tbody>
+<tr class="section-single"><td>degree</td><td>0.5775 vs 0.5307 <span class="diff-neg">(-0.0468)</span></td><td>0.1762 vs 0.4704 <span class="diff-pos">(+0.2943)</span></td><td>0.1361 vs 0.5241 <span class="diff-pos">(+0.3880)</span></td><td>0.1310 vs 0.4840 <span class="diff-pos">(+0.3529)</span></td><td>0.0941 vs 0.5006 <span class="diff-pos">(+0.4065)</span></td><td>0.1107 vs 0.4920 <span class="diff-pos">(+0.3813)</span></td></tr>
+<tr class="section-single"><td>fc</td><td>0.5702 vs 0.5061 <span class="diff-neg">(-0.0641)</span></td><td>0.1720 vs 0.5340 <span class="diff-pos">(+0.3620)</span></td><td>0.1346 vs 0.5101 <span class="diff-pos">(+0.3755)</span></td><td>0.1336 vs 0.4959 <span class="diff-pos">(+0.3622)</span></td><td>0.0964 vs 0.4861 <span class="diff-pos">(+0.3897)</span></td><td>0.1155 vs 0.5132 <span class="diff-pos">(+0.3977)</span></td></tr>
+<tr class="section-single"><td>nsp</td><td>0.5822 vs 0.4383 <span class="diff-neg">(-0.1439)</span></td><td>0.1617 vs 0.5011 <span class="diff-pos">(+0.3393)</span></td><td>0.1396 vs 0.4895 <span class="diff-pos">(+0.3499)</span></td><td>0.1351 vs 0.5070 <span class="diff-pos">(+0.3719)</span></td><td>0.0936 vs 0.4624 <span class="diff-pos">(+0.3688)</span></td><td>0.1091 vs 0.4804 <span class="diff-pos">(+0.3712)</span></td></tr>
+<tr class="section-single"><td>ood</td><td>0.5901 vs 0.5323 <span class="diff-neg">(-0.0577)</span></td><td>0.2213 vs 0.4580 <span class="diff-pos">(+0.2366)</span></td><td>0.1362 vs 0.5308 <span class="diff-pos">(+0.3946)</span></td><td>0.1104 vs 0.5435 <span class="diff-pos">(+0.4331)</span></td><td>0.0832 vs 0.4416 <span class="diff-pos">(+0.3584)</span></td><td>0.1051 vs 0.5401 <span class="diff-pos">(+0.4350)</span></td></tr>
+<tr class="section-single"><td>sim</td><td>0.5208 vs 0.4821 <span class="diff-neg">(-0.0386)</span></td><td>0.1774 vs 0.5042 <span class="diff-pos">(+0.3267)</span></td><td>-- vs 0.5175</td><td>0.1015 vs 0.4581 <span class="diff-pos">(+0.3566)</span></td><td>0.0768 vs 0.5262 <span class="diff-pos">(+0.4493)</span></td><td>0.1051 vs 0.5042 <span class="diff-pos">(+0.3990)</span></td></tr>
+<tr class="section-two"><td>deg+fc</td><td>0.5748 vs 0.4542 <span class="diff-neg">(-0.1207)</span></td><td>0.1800 vs 0.5185 <span class="diff-pos">(+0.3385)</span></td><td>0.1329 vs 0.4863 <span class="diff-pos">(+0.3534)</span></td><td>0.1284 vs 0.4792 <span class="diff-pos">(+0.3508)</span></td><td>0.0944 vs 0.5336 <span class="diff-pos">(+0.4392)</span></td><td>0.1116 vs 0.4975 <span class="diff-pos">(+0.3859)</span></td></tr>
+<tr class="section-two"><td>deg+nsp</td><td>0.5810 vs 0.4130 <span class="diff-neg">(-0.1680)</span></td><td>0.1725 vs 0.4335 <span class="diff-pos">(+0.2610)</span></td><td>0.1390 vs 0.5750 <span class="diff-pos">(+0.4360)</span></td><td>0.1353 vs 0.4818 <span class="diff-pos">(+0.3465)</span></td><td>0.0971 vs 0.5555 <span class="diff-pos">(+0.4584)</span></td><td>0.0691 vs 0.5357 <span class="diff-pos">(+0.4667)</span></td></tr>
+<tr class="section-two"><td>deg+ood</td><td>0.5899 vs 0.5382 <span class="diff-neg">(-0.0517)</span></td><td>0.2120 vs 0.5571 <span class="diff-pos">(+0.3451)</span></td><td>0.1487 vs 0.5353 <span class="diff-pos">(+0.3866)</span></td><td>0.1139 vs 0.5170 <span class="diff-pos">(+0.4031)</span></td><td>0.0882 vs 0.5226 <span class="diff-pos">(+0.4344)</span></td><td>0.1054 vs 0.5016 <span class="diff-pos">(+0.3962)</span></td></tr>
+<tr class="section-two"><td>nsp+fc</td><td>0.5766 vs 0.4526 <span class="diff-neg">(-0.1240)</span></td><td>0.1643 vs 0.4915 <span class="diff-pos">(+0.3273)</span></td><td>0.1386 vs 0.5273 <span class="diff-pos">(+0.3886)</span></td><td>0.1265 vs 0.5433 <span class="diff-pos">(+0.4168)</span></td><td>0.0957 vs 0.4643 <span class="diff-pos">(+0.3686)</span></td><td>0.1047 vs 0.4543 <span class="diff-pos">(+0.3497)</span></td></tr>
+<tr class="section-two"><td>ood+fc</td><td>0.5899 vs 0.4586 <span class="diff-neg">(-0.1313)</span></td><td>0.2111 vs 0.5551 <span class="diff-pos">(+0.3441)</span></td><td>0.1480 vs 0.4779 <span class="diff-pos">(+0.3299)</span></td><td>0.1208 vs 0.4936 <span class="diff-pos">(+0.3728)</span></td><td>0.0955 vs 0.4966 <span class="diff-pos">(+0.4011)</span></td><td>0.0932 vs 0.4282 <span class="diff-pos">(+0.3350)</span></td></tr>
+<tr class="section-two"><td>ood+nsp</td><td>0.5975 vs 0.5180 <span class="diff-neg">(-0.0795)</span></td><td>0.1867 vs 0.4465 <span class="diff-pos">(+0.2598)</span></td><td>0.1509 vs 0.5199 <span class="diff-pos">(+0.3690)</span></td><td>0.1284 vs 0.4985 <span class="diff-pos">(+0.3701)</span></td><td>0.0847 vs 0.4418 <span class="diff-pos">(+0.3571)</span></td><td>0.1002 vs 0.4235 <span class="diff-pos">(+0.3233)</span></td></tr>
+<tr class="section-two"><td>sim+deg</td><td>0.5213 vs 0.5029 <span class="diff-neg">(-0.0184)</span></td><td>0.1605 vs 0.5389 <span class="diff-pos">(+0.3783)</span></td><td>0.0908 vs 0.5435 <span class="diff-pos">(+0.4527)</span></td><td>0.0936 vs 0.4553 <span class="diff-pos">(+0.3617)</span></td><td>0.0782 vs 0.5280 <span class="diff-pos">(+0.4498)</span></td><td>0.1011 vs 0.5346 <span class="diff-pos">(+0.4335)</span></td></tr>
+<tr class="section-two"><td>sim+fc</td><td>0.5233 vs 0.5090 <span class="diff-neg">(-0.0142)</span></td><td>0.1556 vs 0.4544 <span class="diff-pos">(+0.2988)</span></td><td>0.0925 vs 0.4926 <span class="diff-pos">(+0.4001)</span></td><td>0.1071 vs 0.4852 <span class="diff-pos">(+0.3780)</span></td><td>0.0736 vs 0.4421 <span class="diff-pos">(+0.3685)</span></td><td>0.0999 vs 0.4419 <span class="diff-pos">(+0.3419)</span></td></tr>
+<tr class="section-two"><td>sim+nsp</td><td>0.4930 vs 0.4701 <span class="diff-neg">(-0.0229)</span></td><td>0.1497 vs 0.4857 <span class="diff-pos">(+0.3360)</span></td><td>0.1300 vs 0.4681 <span class="diff-pos">(+0.3381)</span></td><td>0.0897 vs 0.5261 <span class="diff-pos">(+0.4364)</span></td><td>0.0738 vs 0.4306 <span class="diff-pos">(+0.3567)</span></td><td>0.0979 vs 0.5412 <span class="diff-pos">(+0.4433)</span></td></tr>
+<tr class="section-two"><td>sim+ood</td><td>0.5936 vs 0.5355 <span class="diff-neg">(-0.0581)</span></td><td>0.1904 vs 0.5130 <span class="diff-pos">(+0.3226)</span></td><td>0.0990 vs 0.5119 <span class="diff-pos">(+0.4129)</span></td><td>0.1012 vs 0.4774 <span class="diff-pos">(+0.3762)</span></td><td>0.0909 vs 0.5495 <span class="diff-pos">(+0.4586)</span></td><td>0.0850 vs 0.4938 <span class="diff-pos">(+0.4088)</span></td></tr>
+<tr class="section-three"><td>deg+nsp+fc</td><td>0.5787 vs 0.4890 <span class="diff-neg">(-0.0897)</span></td><td>0.1648 vs 0.4485 <span class="diff-pos">(+0.2837)</span></td><td>0.1387 vs 0.5140 <span class="diff-pos">(+0.3753)</span></td><td>0.1308 vs 0.5176 <span class="diff-pos">(+0.3868)</span></td><td>0.1019 vs 0.5005 <span class="diff-pos">(+0.3986)</span></td><td>0.1039 vs 0.4764 <span class="diff-pos">(+0.3725)</span></td></tr>
+<tr class="section-three"><td>deg+ood+fc</td><td>0.5900 vs 0.4893 <span class="diff-neg">(-0.1006)</span></td><td>0.2158 vs 0.5146 <span class="diff-pos">(+0.2988)</span></td><td>0.1533 vs 0.5456 <span class="diff-pos">(+0.3923)</span></td><td>0.1132 vs 0.4807 <span class="diff-pos">(+0.3675)</span></td><td>0.0934 vs 0.4962 <span class="diff-pos">(+0.4028)</span></td><td>0.0932 vs 0.4900 <span class="diff-pos">(+0.3968)</span></td></tr>
+<tr class="section-three"><td>deg+ood+nsp</td><td>0.5797 vs 0.5301 <span class="diff-neg">(-0.0497)</span></td><td>0.1884 vs 0.4839 <span class="diff-pos">(+0.2954)</span></td><td>0.1542 vs 0.5411 <span class="diff-pos">(+0.3869)</span></td><td>0.1212 vs 0.4920 <span class="diff-pos">(+0.3708)</span></td><td>0.0811 vs 0.4621 <span class="diff-pos">(+0.3811)</span></td><td>0.1045 vs 0.5513 <span class="diff-pos">(+0.4469)</span></td></tr>
+<tr class="section-three"><td>ood+nsp+fc</td><td>0.5983 vs 0.4872 <span class="diff-neg">(-0.1111)</span></td><td>0.1858 vs 0.4944 <span class="diff-pos">(+0.3086)</span></td><td>0.1424 vs 0.5654 <span class="diff-pos">(+0.4229)</span></td><td>0.1292 vs 0.4878 <span class="diff-pos">(+0.3586)</span></td><td>0.0839 vs 0.4597 <span class="diff-pos">(+0.3759)</span></td><td>0.1056 vs 0.4924 <span class="diff-pos">(+0.3869)</span></td></tr>
+<tr class="section-three"><td>sim+deg+fc</td><td>0.5237 vs 0.5820 <span class="diff-pos">(+0.0583)</span></td><td>0.1672 vs 0.5402 <span class="diff-pos">(+0.3730)</span></td><td>0.0933 vs 0.4714 <span class="diff-pos">(+0.3781)</span></td><td>0.0905 vs 0.4369 <span class="diff-pos">(+0.3464)</span></td><td>0.0803 vs 0.4820 <span class="diff-pos">(+0.4017)</span></td><td>0.1017 vs 0.4953 <span class="diff-pos">(+0.3936)</span></td></tr>
+<tr class="section-three"><td>sim+deg+nsp</td><td>0.4920 vs 0.5139 <span class="diff-pos">(+0.0219)</span></td><td>0.1545 vs 0.4917 <span class="diff-pos">(+0.3372)</span></td><td>0.1310 vs 0.5252 <span class="diff-pos">(+0.3942)</span></td><td>0.0887 vs 0.5331 <span class="diff-pos">(+0.4444)</span></td><td>0.0771 vs 0.5013 <span class="diff-pos">(+0.4242)</span></td><td>0.0969 vs 0.5606 <span class="diff-pos">(+0.4637)</span></td></tr>
+<tr class="section-three"><td>sim+deg+ood</td><td>0.5929 vs 0.5262 <span class="diff-neg">(-0.0667)</span></td><td>0.1958 vs 0.5050 <span class="diff-pos">(+0.3092)</span></td><td>0.1076 vs 0.5716 <span class="diff-pos">(+0.4639)</span></td><td>0.0928 vs 0.4522 <span class="diff-pos">(+0.3593)</span></td><td>0.0856 vs 0.4535 <span class="diff-pos">(+0.3679)</span></td><td>0.0903 vs 0.4924 <span class="diff-pos">(+0.4021)</span></td></tr>
+<tr class="section-three"><td>sim+nsp+fc</td><td>0.4983 vs 0.5106 <span class="diff-pos">(+0.0123)</span></td><td>0.1512 vs 0.5082 <span class="diff-pos">(+0.3571)</span></td><td>0.1376 vs 0.4706 <span class="diff-pos">(+0.3330)</span></td><td>0.0910 vs 0.4715 <span class="diff-pos">(+0.3804)</span></td><td>0.0753 vs 0.4358 <span class="diff-pos">(+0.3606)</span></td><td>0.0983 vs 0.3948 <span class="diff-pos">(+0.2964)</span></td></tr>
+<tr class="section-three"><td>sim+ood+fc</td><td>0.5938 vs 0.5258 <span class="diff-neg">(-0.0679)</span></td><td>0.1889 vs 0.4619 <span class="diff-pos">(+0.2730)</span></td><td>0.1225 vs 0.4411 <span class="diff-pos">(+0.3186)</span></td><td>0.0888 vs 0.5562 <span class="diff-pos">(+0.4674)</span></td><td>0.0862 vs 0.4387 <span class="diff-pos">(+0.3525)</span></td><td>0.0859 vs 0.5499 <span class="diff-pos">(+0.4640)</span></td></tr>
+<tr class="section-three"><td>sim+ood+nsp</td><td>0.5944 vs 0.4766 <span class="diff-neg">(-0.1179)</span></td><td>0.1860 vs 0.5319 <span class="diff-pos">(+0.3459)</span></td><td>0.1222 vs 0.5373 <span class="diff-pos">(+0.4151)</span></td><td>0.0689 vs 0.5234 <span class="diff-pos">(+0.4545)</span></td><td>0.0793 vs 0.4896 <span class="diff-pos">(+0.4103)</span></td><td>0.0898 vs 0.4910 <span class="diff-pos">(+0.4012)</span></td></tr>
+<tr class="section-four"><td>deg+ood+nsp+fc</td><td>0.5983 vs 0.5332 <span class="diff-neg">(-0.0651)</span></td><td>0.1887 vs 0.5106 <span class="diff-pos">(+0.3219)</span></td><td>0.1460 vs 0.5579 <span class="diff-pos">(+0.4119)</span></td><td>0.1513 vs 0.5546 <span class="diff-pos">(+0.4032)</span></td><td>0.0802 vs 0.4526 <span class="diff-pos">(+0.3723)</span></td><td>0.0985 vs 0.4546 <span class="diff-pos">(+0.3561)</span></td></tr>
+<tr class="section-four"><td>sim+deg+nsp+fc</td><td>0.4923 vs 0.4834 <span class="diff-neg">(-0.0089)</span></td><td>0.1484 vs 0.5193 <span class="diff-pos">(+0.3709)</span></td><td>0.1119 vs 0.5150 <span class="diff-pos">(+0.4031)</span></td><td>0.0902 vs 0.5085 <span class="diff-pos">(+0.4183)</span></td><td>0.0714 vs 0.5290 <span class="diff-pos">(+0.4576)</span></td><td>0.0987 vs 0.4969 <span class="diff-pos">(+0.3983)</span></td></tr>
+<tr class="section-four"><td>sim+deg+ood+fc</td><td>0.5930 vs 0.5445 <span class="diff-neg">(-0.0485)</span></td><td>0.1806 vs 0.5293 <span class="diff-pos">(+0.3488)</span></td><td>0.1215 vs 0.4908 <span class="diff-pos">(+0.3693)</span></td><td>0.0885 vs 0.5683 <span class="diff-pos">(+0.4797)</span></td><td>0.0851 vs 0.4862 <span class="diff-pos">(+0.4012)</span></td><td>0.0792 vs 0.4996 <span class="diff-pos">(+0.4204)</span></td></tr>
+<tr class="section-four"><td>sim+deg+ood+nsp</td><td>0.5926 vs 0.4912 <span class="diff-neg">(-0.1014)</span></td><td>0.1875 vs 0.4967 <span class="diff-pos">(+0.3092)</span></td><td>0.1106 vs 0.4796 <span class="diff-pos">(+0.3690)</span></td><td>0.0837 vs 0.5172 <span class="diff-pos">(+0.4335)</span></td><td>0.0800 vs 0.5431 <span class="diff-pos">(+0.4631)</span></td><td>0.0946 vs 0.5070 <span class="diff-pos">(+0.4124)</span></td></tr>
+<tr class="section-four"><td>sim+ood+nsp+fc</td><td>0.5939 vs 0.4973 <span class="diff-neg">(-0.0966)</span></td><td>0.1908 vs 0.5239 <span class="diff-pos">(+0.3331)</span></td><td>0.1137 vs 0.5153 <span class="diff-pos">(+0.4016)</span></td><td>0.0918 vs 0.4591 <span class="diff-pos">(+0.3672)</span></td><td>0.0766 vs 0.5181 <span class="diff-pos">(+0.4415)</span></td><td>0.0915 vs 0.5077 <span class="diff-pos">(+0.4163)</span></td></tr>
+<tr class="section-five"><td>all5</td><td>0.5935 vs 0.4965 <span class="diff-neg">(-0.0970)</span></td><td>0.1913 vs 0.5296 <span class="diff-pos">(+0.3383)</span></td><td>0.1031 vs 0.4878 <span class="diff-pos">(+0.3847)</span></td><td>0.0789 vs 0.4733 <span class="diff-pos">(+0.3944)</span></td><td>0.0840 vs 0.5484 <span class="diff-pos">(+0.4645)</span></td><td>0.0987 vs 0.4366 <span class="diff-pos">(+0.3380)</span></td></tr>
+</tbody></table>
+<h3>IA Win/Loss Summary</h3>
+<table class="data-table"><thead><tr><th>ptb</th><th>IA Wins</th><th>IA Losses</th><th>Ties</th><th>Avg Delta</th></tr></thead><tbody>
+<tr><td>0.00</td><td>3</td><td>28</td><td>0</td><td>-0.0667</td></tr>
+<tr><td>0.05</td><td>31</td><td>0</td><td>0</td><td>+0.3218</td></tr>
+<tr><td>0.10</td><td>30</td><td>0</td><td>0</td><td>+0.3865</td></tr>
+<tr><td>0.15</td><td>31</td><td>0</td><td>0</td><td>+0.3910</td></tr>
+<tr><td>0.20</td><td>31</td><td>0</td><td>0</td><td>+0.4045</td></tr>
+<tr><td>0.25</td><td>31</td><td>0</td><td>0</td><td>+0.3946</td></tr>
+</tbody></table>
+</div><!-- end tab-compare -->
+<div id="tab-analysis" class="tab-panel">
 
-<div class="bad"><strong>2. sim degrades performance and causes NaN instability.</strong> sim alone clean=0.5236 (lowest), with NaN seeds at ptb=0.05 and 0.10. Adding sim to <em>any</em> combo reduces clean accuracy. <strong>Recommendation: exclude sim from future experiments.</strong></div>
+<h2>Analysis & Key Findings</h2>
 
-<div class="finding"><strong>3. Multi-filter combos provide negligible gains.</strong> Best single filter (ood=0.6062) vs best 3-filter (ood+nsp+fc=0.6141) = +0.8 percentage points. all5 (0.6047) is <em>worse</em> than ood alone.</div>
+<div class="good"><strong>1. Fix verified — focusedcleaner_pt now properly disabled.</strong>
+With the <code>task.py</code> fix (threshold &lt; 0 → key removed from <code>pt_dict</code>),
+the 5-filter permutation experiment now correctly isolates individual filter contributions.
+The focusedcleaner_pt no longer trains its 50-epoch LP model when "off" (threshold = -1.0).
+This report replaces the previous buggy version where fc was always active.</div>
 
-<div class="finding"><strong>4. fc and nsp are on par with degree.</strong> fc=0.5963, nsp=0.5939, degree=0.5980. Near-identical single-filter performance. Their value is enabling combos without the sim penalty.</div>
-
-<div class="good"><strong>5. degree-based combos lead at high ptb (0.20-0.25).</strong> degree=0.1308, deg+fc=0.1300. degree structural simplicity provides robustness under heavy attack.</div>
-
-<div class="finding"><strong>6. Filter architecture note.</strong> The <code>focusedcleaner_pt</code> defense tip (fc) calls <code>FocusedCleanerLPFilter</code> from <code>focusedcleaner_lp_filter.py</code> — the collaborator's LP logic is used as a node-level defense prompt. The <code>--filter_mode focusedcleaner_lp</code> edge filter (not used here; <code>--filter_mode original</code>) is a separate path available in filter_factory.py. Both share the same underlying LP logic from the same file.</div>
-
+<div class="finding"><strong>2. Single-filter clean ranking (NSP true-label):</strong> ood=0.5901 &gt; nsp=0.5822 &gt; degree=0.5775 &gt; fc=0.5702 &gt; sim=0.5208
 </div>
+
+<div class="finding"><strong>3. Single-filter clean ranking (NSP-IA pseudo-label):</strong> ood=0.5323 &gt; degree=0.5307 &gt; fc=0.5061 &gt; sim=0.4821 &gt; nsp=0.4383
+</div>
+
+<div class="bad"><strong>4. NSP true-label: accuracy collapses under attack.</strong>
+Best clean = 0.5983 → Best M-0.25 = 0.1155 (drop = 0.483).
+On clean data, the prompt achieves ~0.59 with 35 labels.
+Under M-0.25, the best any combo achieves is 0.1155 — barely above random (1/7 ≈ 0.143).
+This confirms the fundamental difficulty: <em>RobustPrompt-T cannot maintain robustness under
+heavy graph perturbation in a true few-shot setting</em>. The previous report's higher M-0.25
+numbers were artifacts of the focusedcleaner-always-active bug.</div>
+
+<div class="warn"><strong>5. NSP-IA: near-flat accuracy across ptb — confirms test leakage.</strong>
+Best clean = 0.5820 → Best M-0.25 = 0.5606 (drop = 0.021).
+The IA pseudo-label expansion (35 → ~595 labels, sampled from test set) creates a model
+that appears "robust" because it has already seen the test distribution during training.
+This is <em>not genuine robustness</em> — see meeting15_root_cause.html for the full analysis.
+Notably, NSP-IA single-filter clean (0.5323) is <em>lower</em> than NSP true-label (0.5901),
+suggesting pseudo-label noise hurts more than the extra labels help on clean data.</div>
+
+<div class="finding"><strong>6. Multi-filter combos: marginal clean gain, harmful under attack.</strong>
+At clean: best single = 0.5901 vs best multi = 0.5983 (&Delta; = +0.0083).
+At M-0.25: best single = 0.1155 vs best multi = 0.1116 (&Delta; = -0.0039).
+Adding more filters does not improve robustness — the best M-0.25 performer is a <em>single</em>
+filter (fc = 0.1155), and multi-filter combos are slightly <em>worse</em> under attack.</div>
+
+<div class="bad"><strong>7. sim_pt is unstable and degrades most combos.</strong>
+sim alone has NaN instability (1 ptb levels with 0/5 valid seeds, clean only 4/5).
+Adding sim to <em>any</em> combo reduces clean accuracy — <em>except</em> when ood is also present
+(sim+ood ≈ ood alone). Worst interaction: sim+nsp = 0.4930 (lowest 2-filter combo).
+<strong>Recommendation: exclude sim_pt from future experiments.</strong></div>
+
+<div class="finding"><strong>8. nsp_pt and focusedcleaner_pt perform on par with original filters.</strong>
+The two new filters are competitive: nsp (0.5822 clean) slightly edges degree (0.5775),
+fc (0.5702) is close behind. At M-0.25, fc is actually the best single filter (0.1155).
+Both new filters are valid additions to the defense tip family.</div>
+
+<hr>
+<h3>Filter Activation Summary</h3>
+<p class="note">How each defense tip is activated/detected in <code>RobustPrompt_T_NSP.add_muti_pt()</code>:</p>
+<table class="data-table">
+<thead><tr><th>Tip Key</th><th>Detection Method</th><th>Threshold Meaning</th><th>Disable Value</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td><code>sim_pt</code></td><td>Avg neighbor cosine similarity &le; threshold</td><td>Lower = stricter (fewer nodes flagged)</td><td>-1.0</td><td>RobustPrompt_T_NSP.py (original)</td></tr>
+<tr><td><code>degree_pt</code></td><td>Node degree &le; threshold</td><td>Lower = stricter (fewer nodes flagged)</td><td>-1</td><td>RobustPrompt_T_NSP.py (original)</td></tr>
+<tr><td><code>out_detect_pt</code></td><td>Edge cosine similarity &le; threshold → both endpoints flagged</td><td>Lower = stricter (fewer edges flagged)</td><td>-1.0</td><td>RobustPrompt_T_NSP.py (original)</td></tr>
+<tr><td><code>nsp_pt</code></td><td>Neighbor-embedding (A<sup>order</sup>·X) cosine &le; threshold → both endpoints flagged</td><td>Lower = stricter</td><td>-1.0</td><td>filters/nsp_filter.py (new)</td></tr>
+<tr><td><code>focusedcleaner_pt</code></td><td>LinkPrediction MLP → low-prob edges → endpoint nodes flagged</td><td>gmean auto-threshold (threshold param unused in default mode)</td><td>-1.0 (now properly disables via pt_dict filtering)</td><td>filters/focusedcleaner_lp_filter.py (new)</td></tr>
+<tr><td><code>other_pt</code></td><td>All nodes not covered by any defense tip</td><td>'all' or 'random-X'</td><td>N/A (always active, value is string)</td><td>RobustPrompt_T_NSP.py (original)</td></tr>
+</tbody></table>
+</div><!-- end tab-analysis -->
+
+</div><!-- end container -->
 </body>
 </html>

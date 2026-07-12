@@ -9,6 +9,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## github仓库同步
 项目采用github仓库进行跨团队协作，详见advanced_report/git_related.md
 
+## 协作原则
+
+1. **最小改动** — 简约至上，最小改动，以免造成系统性混乱。
+2. **谋定后动，敢于质疑** — 修改前先确认改动范围，用 TodoWrite 列出步骤。不确定时先问，不要猜测。如果提示词或指令存在模糊之处，在动手前必须主动确认。如果观察到异常，主动指出。
+3. **简洁输出** — 工作时和输出时要注意语言的简洁、富有信息量、精准、专业。 
+4. **高可读性** — 变量名清晰、逻辑平铺直叙。在逻辑缠绕而不显而易见时恰当注释。
+5. **核心依赖** — PyTorch Geometric、deeprobust等。不要引入新依赖。
+6. **报告数据规范** — 所有 accuracy 必须用 **全部 5 个 seed 的简单 mean ± std**，不去除最小值。可参考claude code全局html报告skill：beautiful-html-templates，默认简洁专业风。
+
+
 ## 项目进展
 
 ### 阶段时间线（Meeting 14 及以前的详细记录见 `reports/项目历史时间线_至Meeting14.md`）
@@ -179,14 +189,6 @@ Meeting 15 从「继续调参」转向「**逐行审计原版代码 vs 论文**�
 | `reference/26.6.11_meeting_12.pdf` | Meeting 12 记录 |
 | `reference/Meeting8_梁同学跑了各浓度的默认结果.pdf` | Meeting 8 各浓度默认结果 |
 
-## 协作原则
-
-1. **最小改动** — 简约至上，最小改动，以免造成系统性混乱。
-2. **谋定后动** — 修改前先确认改动范围，用 TodoWrite 列出步骤。不确定时先问，不要猜测。
-3. **敢于质疑** — 如果提示词或指令存在模糊之处，在动手前必须主动确认。如果观察到异常，主动指出。
-4. **高可读性** — 变量名清晰、逻辑平铺直叙。不写注释解释"做了什么"，只在 WHY 不显而易见时注释。
-5. **核心依赖** — PyTorch Geometric、deeprobust。不要引入新依赖。
-6. **报告数据规范** — 所有 accuracy 必须用 **全部 5 个 seed 的简单 mean ± std**，不去除最小值。
 
 ## 远程服务器
 
