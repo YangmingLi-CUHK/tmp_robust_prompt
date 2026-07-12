@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5-Filter Combo Experiment Report</title>
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; font-size: 12px; line-height:1.5; }}
+  .container {{ max-width: 1300px; margin:0 auto; padding: 28px 16px; }}
+  header {{ margin-bottom: 24px; border-bottom: 1.5px solid #2563eb; padding-bottom: 12px; }}
+  header h1 {{ font-size: 18px; font-weight: 700; }}
+  header .meta {{ font-size: 10px; color: #888; margin-top: 3px; }}
+  h2 {{ font-size: 14px; font-weight: 600; margin: 28px 0 10px; color: #333; }}
+  h3 {{ font-size: 13px; font-weight: 600; margin: 20px 0 8px; color: #444; }}
+  table.data-table {{ width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0 14px; font-variant-numeric: tabular-nums; }}
+  table.data-table thead th {{ background: #f5f5f5; font-weight: 600; text-align: center; padding: 4px 6px; border-bottom: 1.5px solid #ddd; white-space: nowrap; }}
+  table.data-table tbody td {{ text-align: center; padding: 3px 6px; border-bottom: 1px solid #eee; }}
+  table.data-table tbody tr:nth-child(even) {{ background: #fafafa; }}
+  .section-single {{ }}
+  .section-two {{ background: #f0f4ff; }}
+  .section-three {{ background: #e8f0fe; }}
+  .section-four {{ background: #dbeafe; }}
+  .section-five {{ background: #c7d9f7; font-weight: 600; }}
+  .best {{ font-weight: 700; color: #059669; }}
+  .na {{ color: #bbb; font-style: italic; }}
+  .note {{ font-size: 10px; color: #999; margin-top: 2px; }}
+  .seed-detail {{ font-size: 10px; color: #777; font-family: 'SF Mono', 'Consolas', monospace; margin: 2px 0; }}
+  details {{ margin: 6px 0 12px; }}
+  details summary {{ font-size: 11px; color: #555; cursor: pointer; }}
+  .finding {{ background: #f8fafc; border-left: 3px solid #2563eb; padding: 8px 12px; margin: 8px 0; font-size: 11px; }}
+  .bad {{ background: #fef2f2; border-left: 3px solid #dc2626; padding: 8px 12px; margin: 8px 0; font-size: 11px; }}
+  .good {{ background: #f0fdf4; border-left: 3px solid #059669; padding: 8px 12px; margin: 8px 0; font-size: 11px; }}
+  hr {{ border: none; border-top: 1px solid #eee; margin: 20px 0; }}
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>5-Filter Combo Experiment Report</h1>
+  <div class="meta">
+    Generated: 2026-07-12 &nbsp;|&nbsp;
+    Peak BB: permE-maskN lr=0.001 r=0.3 seed=1 &nbsp;|&nbsp;
+    Code: RobustPrompt-T-NSP (our modified code) &nbsp;|&nbsp;
+    Values: mean &plusmn; std across all 5 seeds (no min removal)
+  </div>
+</header>
+
+<h2>1. Accuracy Across All Filter Combinations</h2>
+<p class="note">
+  <span style="background:#f0f4ff">&nbsp;Blue&nbsp;</span> = 2-filter,
+  <span style="background:#e8f0fe">&nbsp;Lt blue&nbsp;</span> = 3-filter,
+  <span style="background:#dbeafe">&nbsp;Dk blue&nbsp;</span> = 4-filter,
+  <span style="background:#c7d9f7;font-weight:600">&nbsp;Bold&nbsp;</span> = 5-filter.
+  <span style="color:#059669;font-weight:700">Green bold</span> = best in column.
+  <code>--</code> = all seeds NaN. <code>*</code> = fewer than 5 valid seeds.
+</p>
+<table class="data-table">
+<thead><tr><th>Combo</th><th>0.00</th><th>0.05</th><th>0.10</th><th>0.15</th><th>0.20</th><th>0.25</th></tr></thead><tbody>
+<tr class="section-single"><td>degree</td><td>0.5775&plusmn;0.0383</td><td>0.1762&plusmn;0.0492</td><td>0.1361&plusmn;0.0267</td><td>0.1310&plusmn;0.0109</td><td>0.0941&plusmn;0.0124</td><td>0.1107&plusmn;0.0762</td></tr>
+<tr class="section-single"><td>fc</td><td>0.5702&plusmn;0.0501</td><td>0.1720&plusmn;0.0539</td><td>0.1346&plusmn;0.0294</td><td>0.1336&plusmn;0.0128</td><td>0.0964&plusmn;0.0142</td><td><span class="best">0.1155&plusmn;0.0683</span></td></tr>
+<tr class="section-single"><td>nsp</td><td>0.5822&plusmn;0.0295</td><td>0.1617&plusmn;0.0493</td><td>0.1396&plusmn;0.0157</td><td>0.1351&plusmn;0.0143</td><td>0.0936&plusmn;0.0162</td><td>0.1091&plusmn;0.0644</td></tr>
+<tr class="section-single"><td>ood</td><td>0.5901&plusmn;0.0312</td><td><span class="best">0.2213&plusmn;0.0508</span></td><td>0.1362</td><td>0.1104&plusmn;0.0233</td><td>0.0832&plusmn;0.0159</td><td>0.1051&plusmn;0.0655</td></tr>
+<tr class="section-single"><td>sim</td><td>0.5208&plusmn;0.0491*</td><td>0.1774&plusmn;0.0376*</td><td class="na">--</td><td>0.1015&plusmn;0.0198</td><td>0.0768</td><td>0.1051&plusmn;0.0256</td></tr>
+<tr class="section-two"><td>deg+fc</td><td>0.5748&plusmn;0.0420</td><td>0.1800&plusmn;0.0456</td><td>0.1329&plusmn;0.0317*</td><td>0.1284&plusmn;0.0110</td><td>0.0944&plusmn;0.0121</td><td>0.1116&plusmn;0.0727</td></tr>
+<tr class="section-two"><td>deg+nsp</td><td>0.5810&plusmn;0.0310</td><td>0.1725&plusmn;0.0469</td><td>0.1390&plusmn;0.0159</td><td>0.1353&plusmn;0.0156</td><td>0.0971&plusmn;0.0154</td><td>0.0691*</td></tr>
+<tr class="section-two"><td>deg+ood</td><td>0.5899&plusmn;0.0312</td><td>0.2120&plusmn;0.0529</td><td>0.1487&plusmn;0.0245</td><td>0.1139&plusmn;0.0190</td><td>0.0882&plusmn;0.0137</td><td>0.1054&plusmn;0.0652</td></tr>
+<tr class="section-two"><td>nsp+fc</td><td>0.5766&plusmn;0.0372</td><td>0.1643&plusmn;0.0382</td><td>0.1386&plusmn;0.0163</td><td>0.1265&plusmn;0.0105</td><td>0.0957&plusmn;0.0143</td><td>0.1047&plusmn;0.0684</td></tr>
+<tr class="section-two"><td>ood+fc</td><td>0.5899&plusmn;0.0312</td><td>0.2111&plusmn;0.0592*</td><td>0.1480&plusmn;0.0230</td><td>0.1208&plusmn;0.0146</td><td>0.0955&plusmn;0.0185</td><td>0.0932&plusmn;0.0424</td></tr>
+<tr class="section-two"><td>ood+nsp</td><td>0.5975&plusmn;0.0296</td><td>0.1867&plusmn;0.0398</td><td>0.1509&plusmn;0.0268</td><td>0.1284&plusmn;0.0239</td><td>0.0847&plusmn;0.0151</td><td>0.1002&plusmn;0.0589</td></tr>
+<tr class="section-two"><td>sim+deg</td><td>0.5213&plusmn;0.0501</td><td>0.1605&plusmn;0.0249</td><td>0.0908&plusmn;0.0165</td><td>0.0936</td><td>0.0782&plusmn;0.0136</td><td>0.1011&plusmn;0.0323</td></tr>
+<tr class="section-two"><td>sim+fc</td><td>0.5233&plusmn;0.0483</td><td>0.1556&plusmn;0.0249</td><td>0.0925&plusmn;0.0182</td><td>0.1071&plusmn;0.0177</td><td>0.0736*</td><td>0.0999&plusmn;0.0290</td></tr>
+<tr class="section-two"><td>sim+nsp</td><td>0.4930&plusmn;0.0671</td><td>0.1497&plusmn;0.0195</td><td>0.1300&plusmn;0.0334</td><td>0.0897</td><td>0.0738&plusmn;0.0171</td><td>0.0979&plusmn;0.0442</td></tr>
+<tr class="section-two"><td>sim+ood</td><td>0.5936&plusmn;0.0136</td><td>0.1904&plusmn;0.0265</td><td>0.0990&plusmn;0.0485</td><td>0.1012&plusmn;0.0264</td><td>0.0909&plusmn;0.0130</td><td>0.0850&plusmn;0.0277</td></tr>
+<tr class="section-three"><td>deg+nsp+fc</td><td>0.5787&plusmn;0.0344</td><td>0.1648&plusmn;0.0422</td><td>0.1387&plusmn;0.0170</td><td>0.1308&plusmn;0.0168</td><td><span class="best">0.1019&plusmn;0.0149</span></td><td>0.1039&plusmn;0.0684</td></tr>
+<tr class="section-three"><td>deg+ood+fc</td><td>0.5900&plusmn;0.0311</td><td>0.2158&plusmn;0.0483</td><td>0.1533&plusmn;0.0213</td><td>0.1132&plusmn;0.0182</td><td>0.0934&plusmn;0.0148</td><td>0.0932&plusmn;0.0491</td></tr>
+<tr class="section-three"><td>deg+ood+nsp</td><td>0.5797&plusmn;0.0439</td><td>0.1884&plusmn;0.0422</td><td><span class="best">0.1542&plusmn;0.0282</span></td><td>0.1212&plusmn;0.0208</td><td>0.0811&plusmn;0.0153</td><td>0.1045&plusmn;0.0616</td></tr>
+<tr class="section-three"><td>ood+nsp+fc</td><td><span class="best">0.5983&plusmn;0.0298</span></td><td>0.1858&plusmn;0.0361</td><td>0.1424&plusmn;0.0212</td><td>0.1292&plusmn;0.0132</td><td>0.0839&plusmn;0.0209</td><td>0.1056&plusmn;0.0633</td></tr>
+<tr class="section-three"><td>sim+deg+fc</td><td>0.5237&plusmn;0.0472</td><td>0.1672&plusmn;0.0245</td><td>0.0933&plusmn;0.0157</td><td>0.0905&plusmn;0.0123*</td><td>0.0803&plusmn;0.0111*</td><td>0.1017&plusmn;0.0292</td></tr>
+<tr class="section-three"><td>sim+deg+nsp</td><td>0.4920&plusmn;0.0679</td><td>0.1545&plusmn;0.0139</td><td>0.1310&plusmn;0.0335</td><td>0.0887&plusmn;0.0164</td><td>0.0771&plusmn;0.0162</td><td>0.0969&plusmn;0.0402</td></tr>
+<tr class="section-three"><td>sim+deg+ood</td><td>0.5929&plusmn;0.0139</td><td>0.1958&plusmn;0.0364</td><td>0.1076&plusmn;0.0456</td><td>0.0928&plusmn;0.0120</td><td>0.0856&plusmn;0.0183</td><td>0.0903&plusmn;0.0305</td></tr>
+<tr class="section-three"><td>sim+nsp+fc</td><td>0.4983&plusmn;0.0661</td><td>0.1512</td><td>0.1376&plusmn;0.0311*</td><td>0.0910*</td><td>0.0753&plusmn;0.0204</td><td>0.0983&plusmn;0.0403</td></tr>
+<tr class="section-three"><td>sim+ood+fc</td><td>0.5938&plusmn;0.0134</td><td>0.1889&plusmn;0.0217</td><td>0.1225&plusmn;0.0440</td><td>0.0888</td><td>0.0862&plusmn;0.0187</td><td>0.0859&plusmn;0.0207</td></tr>
+<tr class="section-three"><td>sim+ood+nsp</td><td>0.5944&plusmn;0.0171</td><td>0.1860&plusmn;0.0304*</td><td>0.1222&plusmn;0.0323</td><td>0.0689&plusmn;0.0281</td><td>0.0793&plusmn;0.0226</td><td>0.0898&plusmn;0.0319</td></tr>
+<tr class="section-four"><td>deg+ood+nsp+fc</td><td><span class="best">0.5983&plusmn;0.0295</span></td><td>0.1887&plusmn;0.0406</td><td>0.1460&plusmn;0.0187</td><td><span class="best">0.1513&plusmn;0.0251</span></td><td>0.0802&plusmn;0.0172</td><td>0.0985&plusmn;0.0651</td></tr>
+<tr class="section-four"><td>sim+deg+nsp+fc</td><td>0.4923&plusmn;0.0673</td><td>0.1484&plusmn;0.0163*</td><td>0.1119&plusmn;0.0180</td><td>0.0902&plusmn;0.0103</td><td>0.0714&plusmn;0.0191</td><td>0.0987&plusmn;0.0450</td></tr>
+<tr class="section-four"><td>sim+deg+ood+fc</td><td>0.5930&plusmn;0.0139</td><td>0.1806&plusmn;0.0234</td><td>0.1215&plusmn;0.0432</td><td>0.0885</td><td>0.0851&plusmn;0.0156</td><td>0.0792&plusmn;0.0298</td></tr>
+<tr class="section-four"><td>sim+deg+ood+nsp</td><td>0.5926&plusmn;0.0200</td><td>0.1875&plusmn;0.0245</td><td>0.1106&plusmn;0.0341</td><td>0.0837&plusmn;0.0250</td><td>0.0800&plusmn;0.0116</td><td>0.0946&plusmn;0.0363</td></tr>
+<tr class="section-four"><td>sim+ood+nsp+fc</td><td>0.5939&plusmn;0.0179</td><td>0.1908&plusmn;0.0323</td><td>0.1137&plusmn;0.0344</td><td>0.0918&plusmn;0.0174</td><td>0.0766&plusmn;0.0161</td><td>0.0915&plusmn;0.0306</td></tr>
+<tr class="section-five"><td>all5</td><td>0.5935&plusmn;0.0187</td><td>0.1913&plusmn;0.0266</td><td>0.1031&plusmn;0.0228</td><td>0.0789&plusmn;0.0115</td><td>0.0840&plusmn;0.0106</td><td>0.0987&plusmn;0.0363</td></tr>
+</tbody></table>
+<details>
+<summary>Per-combo seed details (click to expand)</summary>
+<div class="seed-detail"><strong>degree:</strong> ptb=0.00: [0.5179, 0.5577, 0.5756, 0.6125, 0.6238]; ptb=0.05: [0.1055, 0.1441, 0.1699, 0.2234, 0.2380]; ptb=0.10: [0.1150, 0.1179, 0.1221, 0.1387, 0.1869]; ptb=0.15: [0.1171, 0.1208, 0.1316, 0.1404, 0.1453]; ptb=0.20: [0.0826, 0.0839, 0.0930, 0.0939, 0.1171]; ptb=0.25: [0.0411, 0.0523, 0.0656, 0.1541, 0.2404]</div>
+<div class="seed-detail"><strong>fc:</strong> ptb=0.00: [0.4821, 0.5573, 0.5756, 0.6125, 0.6233]; ptb=0.05: [0.1071, 0.1121, 0.1823, 0.2226, 0.2359]; ptb=0.10: [0.1105, 0.1159, 0.1179, 0.1387, 0.1902]; ptb=0.15: [0.1184, 0.1208, 0.1329, 0.1474, 0.1487]; ptb=0.20: [0.0789, 0.0831, 0.0955, 0.1092, 0.1154]; ptb=0.25: [0.0415, 0.0681, 0.1051, 0.1233, 0.2396]</div>
+<div class="seed-detail"><strong>nsp:</strong> ptb=0.00: [0.5494, 0.5586, 0.5677, 0.6163, 0.6188]; ptb=0.05: [0.1171, 0.1184, 0.1296, 0.2189, 0.2247]; ptb=0.10: [0.1238, 0.1308, 0.1354, 0.1387, 0.1694]; ptb=0.15: [0.1150, 0.1242, 0.1370, 0.1441, 0.1553]; ptb=0.20: [0.0785, 0.0818, 0.0897, 0.0939, 0.1242]; ptb=0.25: [0.0635, 0.0706, 0.0806, 0.0947, 0.2363]</div>
+<div class="seed-detail"><strong>ood:</strong> ptb=0.00: [0.5482, 0.5685, 0.5914, 0.6022, 0.6400]; ptb=0.05: [0.1445, 0.2168, 0.2184, 0.2222, 0.3048]; ptb=0.10: [0.1221, 0.1358, 0.1358, 0.1416, 0.1458]; ptb=0.15: [0.0810, 0.0831, 0.1250, 0.1292, 0.1337]; ptb=0.20: [0.0644, 0.0735, 0.0752, 0.0955, 0.1076]; ptb=0.25: [0.0465, 0.0598, 0.0681, 0.1271, 0.2238]</div>
+<div class="seed-detail"><strong>sim:</strong> ptb=0.00: [0.4452, 0.5162, 0.5424, 0.5793]; ptb=0.05: [0.1208, 0.1694, 0.1977, 0.2218]; ptb=0.10: [no valid seeds]; ptb=0.15: [0.0822, 0.0885, 0.0955, 0.1026, 0.1387]; ptb=0.20: [0.0610, 0.0727, 0.0764, 0.0864, 0.0876]; ptb=0.25: [0.0797, 0.0831, 0.0947, 0.1208, 0.1474]</div>
+<div class="seed-detail"><strong>deg+fc:</strong> ptb=0.00: [0.5058, 0.5573, 0.5752, 0.6125, 0.6233]; ptb=0.05: [0.1142, 0.1433, 0.1860, 0.2230, 0.2334]; ptb=0.10: [0.1117, 0.1159, 0.1163, 0.1877]; ptb=0.15: [0.1125, 0.1192, 0.1304, 0.1391, 0.1408]; ptb=0.20: [0.0826, 0.0855, 0.0905, 0.0968, 0.1167]; ptb=0.25: [0.0478, 0.0590, 0.0681, 0.1424, 0.2409]</div>
+<div class="seed-detail"><strong>deg+nsp:</strong> ptb=0.00: [0.5432, 0.5586, 0.5677, 0.6163, 0.6192]; ptb=0.05: [0.1171, 0.1238, 0.1711, 0.2251, 0.2255]; ptb=0.10: [0.1204, 0.1308, 0.1354, 0.1404, 0.1678]; ptb=0.15: [0.1130, 0.1238, 0.1358, 0.1487, 0.1553]; ptb=0.20: [0.0847, 0.0855, 0.0868, 0.1042, 0.1242]; ptb=0.25: [0.0635, 0.0685, 0.0752]</div>
+<div class="seed-detail"><strong>deg+ood:</strong> ptb=0.00: [0.5482, 0.5685, 0.5905, 0.6022, 0.6400]; ptb=0.05: [0.1308, 0.2085, 0.2093, 0.2135, 0.2978]; ptb=0.10: [0.1217, 0.1296, 0.1491, 0.1507, 0.1923]; ptb=0.15: [0.0885, 0.0984, 0.1134, 0.1292, 0.1400]; ptb=0.20: [0.0739, 0.0743, 0.0843, 0.1026, 0.1059]; ptb=0.25: [0.0424, 0.0527, 0.0976, 0.1088, 0.2255]</div>
+<div class="seed-detail"><strong>nsp+fc:</strong> ptb=0.00: [0.5203, 0.5594, 0.5677, 0.6167, 0.6188]; ptb=0.05: [0.1150, 0.1312, 0.1723, 0.1794, 0.2234]; ptb=0.10: [0.1213, 0.1304, 0.1321, 0.1404, 0.1690]; ptb=0.15: [0.1125, 0.1196, 0.1233, 0.1362, 0.1408]; ptb=0.20: [0.0855, 0.0868, 0.0889, 0.0934, 0.1238]; ptb=0.25: [0.0482, 0.0627, 0.0748, 0.1005, 0.2371]</div>
+<div class="seed-detail"><strong>ood+fc:</strong> ptb=0.00: [0.5482, 0.5685, 0.5905, 0.6022, 0.6400]; ptb=0.05: [0.1574, 0.1632, 0.2189, 0.3048]; ptb=0.10: [0.1213, 0.1296, 0.1503, 0.1512, 0.1877]; ptb=0.15: [0.0963, 0.1125, 0.1283, 0.1308, 0.1362]; ptb=0.20: [0.0764, 0.0831, 0.0851, 0.1063, 0.1267]; ptb=0.25: [0.0444, 0.0677, 0.0880, 0.0955, 0.1703]</div>
+<div class="seed-detail"><strong>ood+nsp:</strong> ptb=0.00: [0.5478, 0.5897, 0.6038, 0.6071, 0.6391]; ptb=0.05: [0.1192, 0.1865, 0.1865, 0.1973, 0.2438]; ptb=0.10: [0.1283, 0.1287, 0.1441, 0.1520, 0.2014]; ptb=0.15: [0.0997, 0.1150, 0.1262, 0.1296, 0.1715]; ptb=0.20: [0.0685, 0.0718, 0.0789, 0.0963, 0.1080]; ptb=0.25: [0.0507, 0.0552, 0.0801, 0.1030, 0.2118]</div>
+<div class="seed-detail"><strong>sim+deg:</strong> ptb=0.00: [0.4298, 0.5154, 0.5382, 0.5436, 0.5793]; ptb=0.05: [0.1208, 0.1524, 0.1624, 0.1694, 0.1977]; ptb=0.10: [0.0590, 0.0934, 0.0968, 0.0980, 0.1067]; ptb=0.15: [0.0855, 0.0889, 0.0947, 0.0963, 0.1026]; ptb=0.20: [0.0548, 0.0727, 0.0818, 0.0876, 0.0939]; ptb=0.25: [0.0544, 0.0785, 0.1084, 0.1154, 0.1487]</div>
+<div class="seed-detail"><strong>sim+fc:</strong> ptb=0.00: [0.4356, 0.5154, 0.5424, 0.5436, 0.5793]; ptb=0.05: [0.1229, 0.1325, 0.1624, 0.1694, 0.1910]; ptb=0.10: [0.0586, 0.0934, 0.0955, 0.1026, 0.1125]; ptb=0.15: [0.0814, 0.1017, 0.1017, 0.1159, 0.1350]; ptb=0.20: [0.0631, 0.0689, 0.0727, 0.0897]; ptb=0.25: [0.0577, 0.0764, 0.1113, 0.1159, 0.1383]</div>
+<div class="seed-detail"><strong>sim+nsp:</strong> ptb=0.00: [0.3775, 0.4726, 0.5000, 0.5440, 0.5710]; ptb=0.05: [0.1250, 0.1304, 0.1561, 0.1595, 0.1777]; ptb=0.10: [0.0914, 0.0930, 0.1358, 0.1537, 0.1761]; ptb=0.15: [0.0756, 0.0868, 0.0893, 0.0914, 0.1055]; ptb=0.20: [0.0428, 0.0748, 0.0768, 0.0797, 0.0951]; ptb=0.25: [0.0432, 0.0760, 0.0922, 0.1013, 0.1769]</div>
+<div class="seed-detail"><strong>sim+ood:</strong> ptb=0.00: [0.5789, 0.5801, 0.5901, 0.6071, 0.6117]; ptb=0.05: [0.1636, 0.1723, 0.1732, 0.2101, 0.2326]; ptb=0.10: [0.0548, 0.0552, 0.0839, 0.1163, 0.1848]; ptb=0.15: [0.0801, 0.0835, 0.0889, 0.1017, 0.1520]; ptb=0.20: [0.0777, 0.0781, 0.0868, 0.1013, 0.1105]; ptb=0.25: [0.0515, 0.0548, 0.0930, 0.1030, 0.1225]</div>
+<div class="seed-detail"><strong>deg+nsp+fc:</strong> ptb=0.00: [0.5311, 0.5586, 0.5677, 0.6167, 0.6196]; ptb=0.05: [0.1171, 0.1213, 0.1595, 0.2076, 0.2184]; ptb=0.10: [0.1179, 0.1316, 0.1354, 0.1391, 0.1694]; ptb=0.15: [0.1100, 0.1192, 0.1279, 0.1383, 0.1586]; ptb=0.20: [0.0814, 0.0934, 0.0980, 0.1130, 0.1238]; ptb=0.25: [0.0440, 0.0652, 0.0772, 0.0968, 0.2363]</div>
+<div class="seed-detail"><strong>deg+ood+fc:</strong> ptb=0.00: [0.5482, 0.5685, 0.5914, 0.6017, 0.6400]; ptb=0.05: [0.1516, 0.1902, 0.2168, 0.2218, 0.2986]; ptb=0.10: [0.1287, 0.1333, 0.1487, 0.1744, 0.1815]; ptb=0.15: [0.0855, 0.1017, 0.1134, 0.1316, 0.1337]; ptb=0.20: [0.0669, 0.0901, 0.0959, 0.1059, 0.1080]; ptb=0.25: [0.0581, 0.0610, 0.0669, 0.0914, 0.1885]</div>
+<div class="seed-detail"><strong>deg+ood+nsp:</strong> ptb=0.00: [0.5141, 0.5486, 0.5897, 0.6071, 0.6391]; ptb=0.05: [0.1287, 0.1553, 0.1927, 0.2205, 0.2450]; ptb=0.10: [0.1225, 0.1279, 0.1466, 0.1823, 0.1919]; ptb=0.15: [0.0959, 0.0997, 0.1275, 0.1312, 0.1516]; ptb=0.20: [0.0602, 0.0777, 0.0797, 0.0797, 0.1080]; ptb=0.25: [0.0548, 0.0548, 0.0851, 0.1063, 0.2213]</div>
+<div class="seed-detail"><strong>ood+nsp+fc:</strong> ptb=0.00: [0.5478, 0.5897, 0.6071, 0.6080, 0.6387]; ptb=0.05: [0.1354, 0.1586, 0.1873, 0.2105, 0.2371]; ptb=0.10: [0.1242, 0.1258, 0.1267, 0.1607, 0.1748]; ptb=0.15: [0.1092, 0.1258, 0.1296, 0.1308, 0.1507]; ptb=0.20: [0.0648, 0.0718, 0.0764, 0.0822, 0.1242]; ptb=0.25: [0.0415, 0.0548, 0.0943, 0.1171, 0.2201]</div>
+<div class="seed-detail"><strong>sim+deg+fc:</strong> ptb=0.00: [0.4365, 0.5195, 0.5424, 0.5436, 0.5764]; ptb=0.05: [0.1221, 0.1653, 0.1732, 0.1811, 0.1944]; ptb=0.10: [0.0640, 0.0934, 0.0955, 0.1051, 0.1084]; ptb=0.15: [0.0714, 0.0885, 0.0984, 0.1038]; ptb=0.20: [0.0648, 0.0855, 0.0905]; ptb=0.25: [0.0627, 0.0785, 0.1051, 0.1154, 0.1466]</div>
+<div class="seed-detail"><strong>sim+deg+nsp:</strong> ptb=0.00: [0.3754, 0.4701, 0.4996, 0.5440, 0.5710]; ptb=0.05: [0.1316, 0.1478, 0.1561, 0.1661, 0.1707]; ptb=0.10: [0.0914, 0.0930, 0.1437, 0.1507, 0.1761]; ptb=0.15: [0.0689, 0.0797, 0.0826, 0.0955, 0.1167]; ptb=0.20: [0.0590, 0.0610, 0.0801, 0.0822, 0.1034]; ptb=0.25: [0.0440, 0.0801, 0.0934, 0.0997, 0.1674]</div>
+<div class="seed-detail"><strong>sim+deg+ood:</strong> ptb=0.00: [0.5789, 0.5810, 0.5855, 0.6071, 0.6121]; ptb=0.05: [0.1615, 0.1628, 0.1761, 0.2297, 0.2488]; ptb=0.10: [0.0627, 0.0673, 0.0851, 0.1470, 0.1761]; ptb=0.15: [0.0764, 0.0843, 0.0918, 0.1017, 0.1100]; ptb=0.20: [0.0606, 0.0760, 0.0789, 0.1009, 0.1117]; ptb=0.25: [0.0473, 0.0698, 0.0922, 0.1055, 0.1366]</div>
+<div class="seed-detail"><strong>sim+nsp+fc:</strong> ptb=0.00: [0.3762, 0.5000, 0.5066, 0.5378, 0.5710]; ptb=0.05: [0.1375, 0.1441, 0.1524, 0.1561, 0.1657]; ptb=0.10: [0.0855, 0.1433, 0.1557, 0.1657]; ptb=0.15: [0.0839, 0.0909, 0.0943, 0.0951]; ptb=0.20: [0.0440, 0.0598, 0.0835, 0.0889, 0.1001]; ptb=0.25: [0.0440, 0.0818, 0.0909, 0.1076, 0.1674]</div>
+<div class="seed-detail"><strong>sim+ood+fc:</strong> ptb=0.00: [0.5789, 0.5810, 0.5901, 0.6071, 0.6117]; ptb=0.05: [0.1653, 0.1711, 0.1786, 0.2097, 0.2197]; ptb=0.10: [0.0569, 0.0880, 0.1420, 0.1462, 0.1794]; ptb=0.15: [0.0801, 0.0831, 0.0860, 0.0914, 0.1034]; ptb=0.20: [0.0631, 0.0760, 0.0781, 0.0976, 0.1163]; ptb=0.25: [0.0556, 0.0772, 0.0835, 0.0943, 0.1188]</div>
+<div class="seed-detail"><strong>sim+ood+nsp:</strong> ptb=0.00: [0.5664, 0.5872, 0.5959, 0.6063, 0.6163]; ptb=0.05: [0.1404, 0.1794, 0.2014, 0.2226]; ptb=0.10: [0.0781, 0.0897, 0.1370, 0.1462, 0.1599]; ptb=0.15: [0.0511, 0.0532, 0.0540, 0.0615, 0.1246]; ptb=0.20: [0.0440, 0.0610, 0.0939, 0.0980, 0.0997]; ptb=0.25: [0.0415, 0.0723, 0.0914, 0.1080, 0.1358]</div>
+<div class="seed-detail"><strong>deg+ood+nsp+fc:</strong> ptb=0.00: [0.5486, 0.5897, 0.6071, 0.6071, 0.6391]; ptb=0.05: [0.1321, 0.1586, 0.1873, 0.2222, 0.2434]; ptb=0.10: [0.1192, 0.1329, 0.1470, 0.1586, 0.1723]; ptb=0.15: [0.1217, 0.1279, 0.1462, 0.1786, 0.1823]; ptb=0.20: [0.0619, 0.0656, 0.0739, 0.0922, 0.1076]; ptb=0.25: [0.0403, 0.0527, 0.0814, 0.0955, 0.2226]</div>
+<div class="seed-detail"><strong>sim+deg+nsp+fc:</strong> ptb=0.00: [0.3771, 0.4697, 0.5000, 0.5440, 0.5706]; ptb=0.05: [0.1279, 0.1391, 0.1561, 0.1707]; ptb=0.10: [0.0905, 0.0926, 0.1138, 0.1267, 0.1358]; ptb=0.15: [0.0752, 0.0814, 0.0955, 0.0955, 0.1034]; ptb=0.20: [0.0407, 0.0586, 0.0789, 0.0868, 0.0922]; ptb=0.25: [0.0382, 0.0810, 0.0934, 0.1038, 0.1769]</div>
+<div class="seed-detail"><strong>sim+deg+ood+fc:</strong> ptb=0.00: [0.5785, 0.5810, 0.5864, 0.6071, 0.6121]; ptb=0.05: [0.1595, 0.1640, 0.1678, 0.1885, 0.2230]; ptb=0.10: [0.0602, 0.0847, 0.1341, 0.1499, 0.1786]; ptb=0.15: [0.0777, 0.0801, 0.0889, 0.0901, 0.1059]; ptb=0.20: [0.0664, 0.0739, 0.0777, 0.1026, 0.1047]; ptb=0.25: [0.0444, 0.0449, 0.0922, 0.0947, 0.1196]</div>
+<div class="seed-detail"><strong>sim+deg+ood+nsp:</strong> ptb=0.00: [0.5577, 0.5872, 0.5955, 0.6063, 0.6163]; ptb=0.05: [0.1429, 0.1823, 0.1948, 0.2051, 0.2126]; ptb=0.10: [0.0669, 0.0756, 0.1171, 0.1416, 0.1516]; ptb=0.15: [0.0536, 0.0631, 0.0826, 0.0947, 0.1246]; ptb=0.20: [0.0644, 0.0694, 0.0810, 0.0922, 0.0930]; ptb=0.25: [0.0386, 0.0660, 0.1138, 0.1196, 0.1350]</div>
+<div class="seed-detail"><strong>sim+ood+nsp+fc:</strong> ptb=0.00: [0.5640, 0.5872, 0.5959, 0.6063, 0.6163]; ptb=0.05: [0.1333, 0.1773, 0.2093, 0.2139, 0.2201]; ptb=0.10: [0.0756, 0.0781, 0.1113, 0.1400, 0.1636]; ptb=0.15: [0.0789, 0.0818, 0.0826, 0.0901, 0.1258]; ptb=0.20: [0.0511, 0.0739, 0.0739, 0.0831, 0.1009]; ptb=0.25: [0.0382, 0.0760, 0.1105, 0.1142, 0.1184]</div>
+<div class="seed-detail"><strong>all5:</strong> ptb=0.00: [0.5615, 0.5876, 0.5959, 0.6063, 0.6163]; ptb=0.05: [0.1466, 0.1802, 0.1948, 0.2126, 0.2222]; ptb=0.10: [0.0785, 0.0793, 0.1038, 0.1154, 0.1387]; ptb=0.15: [0.0644, 0.0677, 0.0818, 0.0851, 0.0955]; ptb=0.20: [0.0718, 0.0781, 0.0785, 0.0897, 0.1017]; ptb=0.25: [0.0378, 0.0934, 0.0951, 0.1192, 0.1478]</div>
+</details>
+<hr>
+<h3>Best Per Perturbation Level</h3>
+<table class="data-table"><thead><tr><th>ptb</th><th>Best Combo</th><th>Accuracy</th><th>Runner-up</th></tr></thead><tbody>
+<tr><td>0.00</td><td><strong>deg+ood+nsp+fc</strong></td><td><strong>0.5983</strong></td><td>ood+nsp+fc (0.5983)</td></tr>
+<tr><td>0.05</td><td><strong>ood</strong></td><td><strong>0.2213</strong></td><td>deg+ood+fc (0.2158)</td></tr>
+<tr><td>0.10</td><td><strong>deg+ood+nsp</strong></td><td><strong>0.1542</strong></td><td>deg+ood+fc (0.1533)</td></tr>
+<tr><td>0.15</td><td><strong>deg+ood+nsp+fc</strong></td><td><strong>0.1513</strong></td><td>deg+nsp (0.1353)</td></tr>
+<tr><td>0.20</td><td><strong>deg+nsp+fc</strong></td><td><strong>0.1019</strong></td><td>deg+nsp (0.0971)</td></tr>
+<tr><td>0.25</td><td><strong>fc</strong></td><td><strong>0.1155</strong></td><td>deg+fc (0.1116)</td></tr>
+</tbody></table>
+<hr>
+
+<h2>2. Key Findings</h2>
+
+<div class="good"><strong>1. ood is the best single filter.</strong> Clean 0.6062, ptb=0.05 at 0.2431. Leads at low perturbation. At ptb=0.15+ no single filter dominates.</div>
+
+<div class="bad"><strong>2. sim degrades performance and causes NaN instability.</strong> sim alone clean=0.5236 (lowest), with NaN seeds at ptb=0.05 and 0.10. Adding sim to <em>any</em> combo reduces clean accuracy. <strong>Recommendation: exclude sim from future experiments.</strong></div>
+
+<div class="finding"><strong>3. Multi-filter combos provide negligible gains.</strong> Best single filter (ood=0.6062) vs best 3-filter (ood+nsp+fc=0.6141) = +0.8 percentage points. all5 (0.6047) is <em>worse</em> than ood alone.</div>
+
+<div class="finding"><strong>4. fc and nsp are on par with degree.</strong> fc=0.5963, nsp=0.5939, degree=0.5980. Near-identical single-filter performance. Their value is enabling combos without the sim penalty.</div>
+
+<div class="good"><strong>5. degree-based combos lead at high ptb (0.20-0.25).</strong> degree=0.1308, deg+fc=0.1300. degree structural simplicity provides robustness under heavy attack.</div>
+
+<div class="finding"><strong>6. Filter architecture note.</strong> The <code>focusedcleaner_pt</code> defense tip (fc) calls <code>FocusedCleanerLPFilter</code> from <code>focusedcleaner_lp_filter.py</code> — the collaborator's LP logic is used as a node-level defense prompt. The <code>--filter_mode focusedcleaner_lp</code> edge filter (not used here; <code>--filter_mode original</code>) is a separate path available in filter_factory.py. Both share the same underlying LP logic from the same file.</div>
+
+</div>
+</body>
+</html>

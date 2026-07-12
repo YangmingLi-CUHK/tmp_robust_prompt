@@ -307,13 +307,16 @@ class BaseTask:
                 from prompt_graph.prompt.RobustPrompt_T_original import RobustPrompt_T as RobustPrompt_T_class
             else:
                 RobustPrompt_T_class = RobustPrompt_T
+            pt_dict = {
+                'sim_pt': self.pt_sim_threshold,
+                'degree_pt': self.pt_degree_threshold,
+                'out_detect_pt': self.pt_out_detect_threshold,
+                'other_pt': 'all',
+            }
+            # 阈值 < 0 表示关闭该 filter，从 dict 中移除，避免参数创建和检测逻辑运行
+            pt_dict = {k: v for k, v in pt_dict.items() if not isinstance(v, (int, float)) or v >= 0}
             self.prompt = RobustPrompt_T_class(self.input_dim,
-                                               muti_defense_pt_dict={
-                                                   'sim_pt': self.pt_sim_threshold,
-                                                   'degree_pt': self.pt_degree_threshold,
-                                                   'out_detect_pt': self.pt_out_detect_threshold,
-                                                   'other_pt': 'all',
-                                               },
+                                               muti_defense_pt_dict=pt_dict,
                                                p_plus=self.p_plus,
                                                use_attention=self.use_attention,
                                                num_heads=1,
@@ -326,15 +329,18 @@ class BaseTask:
                                                filter_module=prompt_filter).to(self.device)
         elif self.prompt_type in ['RobustPrompt-T-NSP', 'RobustPrompt-T-NSP-IA']:
             prompt_filter = build_filter(self._build_filter_config(pt_threshold=self.pt_threshold))
+            pt_dict = {
+                'sim_pt': self.pt_sim_threshold,
+                'degree_pt': self.pt_degree_threshold,
+                'out_detect_pt': self.pt_out_detect_threshold,
+                'nsp_pt': self.pt_nsp_threshold,
+                'focusedcleaner_pt': self.pt_focusedcleaner_threshold,
+                'other_pt': 'all',
+            }
+            # 阈值 < 0 表示关闭该 filter，从 dict 中移除，避免参数创建和检测逻辑运行
+            pt_dict = {k: v for k, v in pt_dict.items() if not isinstance(v, (int, float)) or v >= 0}
             self.prompt = RobustPrompt_T_NSP(self.input_dim,
-                                             muti_defense_pt_dict={
-                                                 'sim_pt': self.pt_sim_threshold,
-                                                 'degree_pt': self.pt_degree_threshold,
-                                                 'out_detect_pt': self.pt_out_detect_threshold,
-                                                 'nsp_pt': self.pt_nsp_threshold,
-                                                 'focusedcleaner_pt': self.pt_focusedcleaner_threshold,
-                                                 'other_pt': 'all',
-                                             },
+                                             muti_defense_pt_dict=pt_dict,
                                              p_plus=self.p_plus,
                                              use_attention=self.use_attention,
                                              num_heads=1,
