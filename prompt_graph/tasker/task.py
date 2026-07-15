@@ -161,7 +161,7 @@ class BaseTask:
         # add by ssh
         # 两种训练优化方式
         # prompt和anwser头一起优化，为了使用知识蒸馏训练，维度对齐
-        elif self.prompt_type == 'RobustPrompt-I':
+        elif self.prompt_type in ['RobustPrompt-I', 'RobustPrompt-I-original']:
             model_param_group = []
             model_param_group.append({"params": self.prompt.parameters()})
             model_param_group.append({"params": self.answering.parameters()})
@@ -301,6 +301,28 @@ class BaseTask:
                                          weight_kl=self.weight_kl,
                                          weight_constraint=self.weight_constraint,
                                          filter_module=prompt_filter).to(self.device)
+        elif self.prompt_type == 'RobustPrompt-I-original':
+            # Original GPromptShield inductive MD-PT: no filter_module, out_detect_pt is pass,
+            # edge pruning is done inside forward() (not via tau-tune two-pass in Tune),
+            # attention is overwritten by F.normalize for stability (fake attention).
+            from prompt_graph.prompt.RobustPrompt_I_original import RobustPrompt_I as RobustPrompt_I_original_class
+            self.prompt = RobustPrompt_I_original_class(self.input_dim,
+                                         muti_defense_pt_dict={
+                                             'sim_pt': self.pt_sim_threshold,
+                                             'degree_pt': self.pt_degree_threshold,
+                                             'out_detect_pt': self.pt_out_detect_threshold,
+                                             'other_pt': 'all',
+                                         },
+                                         p_plus=self.p_plus,
+                                         use_attention=self.use_attention,
+                                         num_heads=1,
+                                         kl_global=False,
+                                         cosine_constraint=self.cosine_constraint,
+                                         pt_threshold=self.pt_threshold,
+                                         temperature=self.temperature,
+                                         weight_mse=self.weight_mse,
+                                         weight_kl=self.weight_kl,
+                                         weight_constraint=self.weight_constraint).to(self.device)
         elif self.prompt_type in ['RobustPrompt-T', 'RobustPrompt-T-IA']:
             prompt_filter = build_filter(self._build_filter_config(pt_threshold=self.pt_threshold))
             if self.prompt_variant == 'original':

@@ -4,7 +4,7 @@
 # Uses RobustPrompt-T-NSP which supports all 5 tips natively.
 # Each tip is activated via its threshold; set to -1 (or -1.0) to disable.
 # ============================================================================
-set -euo pipefail
+set -uo pipefail
 
 # ---- Config ----
 PEAK_BB="./pre_trained_model_raw/Cora.GraphCL.GCN.256_hidden_dim.aug1_permE.aug2_maskN.lr_0.001.ratio_0.3.seed_1.pth"
@@ -58,7 +58,8 @@ run_one() {
       --pt_focusedcleaner_threshold $fc \
       --seed $SEEDS \
       $BASE_PARAMS $extra \
-      > "$log" 2>&1
+      > "$log" 2>&1 \
+      || echo "[$(date +%H:%M:%S)] $label ptb=$ptb FAILED (exit=$?)" | tee -a "$LOG_DIR/_errors.log"
   done
 }
 

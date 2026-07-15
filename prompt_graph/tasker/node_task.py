@@ -111,7 +111,7 @@ class NodeTask(BaseTask):
 
 
 
-            if self.prompt_type in ['All-in-one','Gprompt', 'GPF', 'GPF-plus','RobustPrompt-I']:
+            if self.prompt_type in ['All-in-one','Gprompt', 'GPF', 'GPF-plus','RobustPrompt-I', 'RobustPrompt-I-original']:
                   if self.adaptive:
                         file_dir = './{}/{}/{}/{}/{}/{}/shot_{}/{}/induced_graph/'.format(data_dir_name, self.dataset_name, self.adaptive_scenario, str(self.adaptive_split), self.adaptive_attack_model, str(self.adaptive_ptb_rate), str(self.shot_num), str(self.run_split))
                   else:
@@ -157,7 +157,7 @@ class NodeTask(BaseTask):
                   self.output_dim = self.dataset.num_classes
 
 
-            if self.prompt_type in ['All-in-one','Gprompt', 'GPF', 'GPF-plus','RobustPrompt-I']:
+            if self.prompt_type in ['All-in-one','Gprompt', 'GPF', 'GPF-plus','RobustPrompt-I', 'RobustPrompt-I-original']:
                   # file_dir = './data/{}/induced_graph/shot_{}/{}'.format(self.dataset_name, str(self.shot_num), str(self.run_split))
                   # file_path = os.path.join(file_dir, 'induced_graph.pkl')
 
@@ -834,7 +834,7 @@ class NodeTask(BaseTask):
 
 
             # for all-in-one and Gprompt we use k-hop subgraph
-            if self.prompt_type in ['All-in-one', 'Gprompt', 'GPF', 'GPF-plus','RobustPrompt-I']:
+            if self.prompt_type in ['All-in-one', 'Gprompt', 'GPF', 'GPF-plus','RobustPrompt-I', 'RobustPrompt-I-original']:
 
                   # print(len(self.train_dataset))
                   # print(len(self.val_dataset))
@@ -889,7 +889,7 @@ class NodeTask(BaseTask):
                         # val_acc,  F1    = GPFTranductiveEva(self.data, self.data.val_mask, self.gnn, self.prompt, self.answering, self.output_dim, self.device)
 
                   # add by ssh
-                  elif self.prompt_type == 'RobustPrompt-I':
+                  elif self.prompt_type in ['RobustPrompt-I', 'RobustPrompt-I-original']:
                         loss = self.RobustPromptInductiveTrainSynchro(train_loader)
                         # val_acc, F1    = RobustPromptInductiveEva(val_loader,  'Val',  pseudo_model, self.prompt, self.gnn, self.answering, self.output_dim, self.device)
                   elif self.prompt_type in ['RobustPrompt-T', 'RobustPrompt-T-IA', 'RobustPrompt-T-NSP', 'RobustPrompt-T-NSP-IA']:
@@ -951,8 +951,8 @@ class NodeTask(BaseTask):
                   elif self.prompt_type in ['GPF-Tranductive', 'GPF-plus-Tranductive']:
                         test_acc, F1    = GPFTranductiveEva(self.data, self.data.test_mask,  self.gnn, self.prompt, self.answering, self.output_dim, self.device)
             
-                  # add by ssh 
-                  elif self.prompt_type == 'RobustPrompt-I':
+                  # add by ssh
+                  elif self.prompt_type in ['RobustPrompt-I', 'RobustPrompt-I-original']:
                         test_acc, F1    = RobustPromptInductiveEva(test_loader, self.gnn, self.prompt, self.answering, self.output_dim, self.device)
                   elif self.prompt_type in ['RobustPrompt-T', 'RobustPrompt-T-IA', 'RobustPrompt-T-NSP', 'RobustPrompt-T-NSP-IA']:
                         test_acc, F1    = RobustPromptTranductiveEva(self.data, self.data.test_mask,  self.gnn, self.prompt, self.answering, self.output_dim, self.device)
