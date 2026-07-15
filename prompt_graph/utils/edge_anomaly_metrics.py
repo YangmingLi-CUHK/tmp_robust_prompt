@@ -69,6 +69,62 @@ def _binary_metrics(y_true, y_pred):
     }
 
 
+def _valid_scores(y_score):
+    return (
+        y_score is not None
+        and len(y_score) > 0
+        and all(score is not None and math.isfinite(float(score)) for score in y_score)
+    )
+
+
+def _auc_metrics(y_true, y_score):
+    """Threshold-free edge ranking metrics.
+
+    AUC/AP are undefined when the graph has only one class (for example ptb=0.0).
+    In that case NaN is returned so downstream plots do not show a misleading zero.
+    """
+    if not _valid_scores(y_score) or len(set(y_true)) < 2:
+        return {"auc": math.nan, "ap": math.nan}
+    try:
+        from sklearn.metrics import average_precision_score, roc_auc_score
+
+        return {
+            "auc": float(roc_auc_score(y_true, y_score)),
+            "ap": float(average_precision_score(y_true, y_score)),
+        }
+    except Exception:
+        return {"auc": math.nan, "ap": math.nan}
+
+
+def _best_threshold_metrics(y_true, y_score):
+    empty = {
+        "best_f1": math.nan,
+        "best_threshold": math.nan,
+        "best_precision": math.nan,
+        "best_recall": math.nan,
+    }
+    if not _valid_scores(y_score) or len(set(y_true)) < 2:
+        return empty
+
+    try:
+        from sklearn.metrics import precision_recall_curve
+
+        precision, recall, thresholds = precision_recall_curve(y_true, y_score)
+        best = None
+        for p, r, threshold in zip(precision[:-1], recall[:-1], thresholds):
+            f1 = 2 * p * r / (p + r) if p + r > 0 else 0.0
+            if best is None or f1 > best["best_f1"]:
+                best = {
+                    "best_f1": float(f1),
+                    "best_threshold": float(threshold),
+                    "best_precision": float(p),
+                    "best_recall": float(r),
+                }
+        return best if best is not None else empty
+    except Exception:
+        return empty
+
+
 def evaluate_edge_detection(
     attack_edge_index,
     added_edges,
@@ -82,6 +138,7 @@ def evaluate_edge_detection(
         return None
 
     pred_anomaly_mask = _as_cpu_list(pred_anomaly_mask, num_input_edges, default=False)
+    anomaly_score = _as_cpu_list(anomaly_score, num_input_edges, default=None)
 
     by_edge = {}
     for idx, (src, dst) in enumerate(attack_edge_index.t().tolist()):
@@ -90,9 +147,14 @@ def evaluate_edge_detection(
         key = _canonical_key(src, dst, undirected=undirected)
         record = by_edge.setdefault(
             key,
-            {"label": 1 if key in added_edges else 0, "pred": 0},
+            {"label": 1 if key in added_edges else 0, "pred": 0, "score": None},
         )
         record["pred"] = max(record["pred"], int(bool(pred_anomaly_mask[idx])))
+        score = anomaly_score[idx]
+        if score is not None and math.isfinite(float(score)):
+            score = float(score)
+            if record["score"] is None or score > record["score"]:
+                record["score"] = score
 
     if not by_edge:
         return None
@@ -100,8 +162,11 @@ def evaluate_edge_detection(
     records = list(by_edge.values())
     y_true = [r["label"] for r in records]
     y_pred = [r["pred"] for r in records]
+    explicit_scores = [r["score"] for r in records]
 
     metrics = _binary_metrics(y_true, y_pred)
+    metrics.update(_auc_metrics(y_true, explicit_scores))
+    metrics.update(_best_threshold_metrics(y_true, explicit_scores))
     metrics.update(
         {
             "num_edges": len(records),

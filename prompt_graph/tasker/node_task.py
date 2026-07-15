@@ -260,6 +260,10 @@ class NodeTask(BaseTask):
                   f"balanced_accuracy={fmt_metric(metrics.get('balanced_accuracy'))}",
                   f"precision={fmt_metric(metrics.get('precision'))}",
                   f"recall={fmt_metric(metrics.get('recall'))}",
+                  f"auc={fmt_metric(metrics.get('auc'))}",
+                  f"ap={fmt_metric(metrics.get('ap'))}",
+                  f"best_f1={fmt_metric(metrics.get('best_f1'))}",
+                  f"best_threshold={fmt_metric(metrics.get('best_threshold'))}",
                   f"tp={metrics.get('tp', 0)}",
                   f"fp={metrics.get('fp', 0)}",
                   f"fn={metrics.get('fn', 0)}",
@@ -288,12 +292,89 @@ class NodeTask(BaseTask):
                   f"edge_balanced_accuracy={fmt_metric(edge_metrics.get('balanced_accuracy'))}",
                   f"edge_precision={fmt_metric(edge_metrics.get('precision'))}",
                   f"edge_recall={fmt_metric(edge_metrics.get('recall'))}",
+                  f"edge_auc={fmt_metric(edge_metrics.get('auc'))}",
+                  f"edge_ap={fmt_metric(edge_metrics.get('ap'))}",
                   f"node_tp={node_metrics.get('tp', 0)}",
                   f"node_fp={node_metrics.get('fp', 0)}",
                   f"node_fn={node_metrics.get('fn', 0)}",
                   f"edge_tp={edge_metrics.get('tp', 0)}",
                   f"edge_fp={edge_metrics.get('fp', 0)}",
                   f"edge_fn={edge_metrics.get('fn', 0)}",
+            ]
+            print(" | ".join(parts))
+
+
+      def _rank_normalize_edge_scores(self, scores):
+            """Map one detector's scores to [0, 1] while preserving ties and ranking."""
+            scores = scores.detach().float().view(-1)
+            finite = torch.isfinite(scores)
+            normalized = torch.zeros_like(scores)
+            if not finite.any():
+                  return normalized
+            unique, inverse = torch.unique(scores[finite], sorted=True, return_inverse=True)
+            if unique.numel() == 1:
+                  normalized[finite] = 0.5
+            else:
+                  normalized[finite] = inverse.float() / float(unique.numel() - 1)
+            return normalized
+
+
+      def _combined_tip_detection(self, tip_state):
+            by_tip = tip_state.get("by_tip", {})
+            order = ["sim_pt", "degree_pt", "out_detect_pt", "nsp_pt", "focusedcleaner_pt"]
+            active_tips = [tip for tip in order if tip in by_tip]
+            if not active_tips:
+                  return None
+
+            masks = []
+            scores = []
+            for tip in active_tips:
+                  detection = by_tip[tip]
+                  mask = detection.get("pred_anomaly_mask")
+                  score = detection.get("anomaly_score")
+                  if mask is None or score is None:
+                        continue
+                  masks.append(mask.detach().bool().view(-1))
+                  scores.append(self._rank_normalize_edge_scores(score))
+            if not masks:
+                  return None
+
+            combined_mask = torch.stack(masks).any(dim=0)
+            combined_score = torch.stack(scores).max(dim=0).values
+            short = {
+                  "sim_pt": "sim",
+                  "degree_pt": "degree",
+                  "out_detect_pt": "ood",
+                  "nsp_pt": "nsp",
+                  "focusedcleaner_pt": "fc",
+            }
+            return {
+                  "method": "+".join(short[tip] for tip in active_tips),
+                  "num_filters": len(active_tips),
+                  "pred_anomaly_mask": combined_mask,
+                  "anomaly_score": combined_score,
+            }
+
+
+      def _print_combo_detection_metrics(self, combined, metrics):
+            parts = [
+                  "Combo Edge Detection",
+                  f"method={combined['method']}",
+                  f"num_filters={combined['num_filters']}",
+                  "fusion=union_rank_max",
+                  f"f1={fmt_metric(metrics.get('f1'))}",
+                  f"auc={fmt_metric(metrics.get('auc'))}",
+                  f"ap={fmt_metric(metrics.get('ap'))}",
+                  f"best_f1={fmt_metric(metrics.get('best_f1'))}",
+                  f"best_threshold={fmt_metric(metrics.get('best_threshold'))}",
+                  f"precision={fmt_metric(metrics.get('precision'))}",
+                  f"recall={fmt_metric(metrics.get('recall'))}",
+                  f"tpr={fmt_metric(metrics.get('tpr'))}",
+                  f"tnr={fmt_metric(metrics.get('tnr'))}",
+                  f"tp={metrics.get('tp', 0)}",
+                  f"fp={metrics.get('fp', 0)}",
+                  f"fn={metrics.get('fn', 0)}",
+                  f"tn={metrics.get('tn', 0)}",
             ]
             print(" | ".join(parts))
 
@@ -352,7 +433,8 @@ class NodeTask(BaseTask):
             tip_state = getattr(self.prompt, "last_tip_detection", None)
             if tip_state is not None:
                   node_by_tip = tip_state.get("node_by_tip", {})
-                  for tip in ["sim_pt", "degree_pt", "out_detect_pt"]:
+                  by_tip = tip_state.get("by_tip", {})
+                  for tip in ["sim_pt", "degree_pt", "out_detect_pt", "nsp_pt", "focusedcleaner_pt"]:
                         if tip not in node_by_tip:
                               continue
                         node_metrics = evaluate_node_detection(
@@ -360,12 +442,31 @@ class NodeTask(BaseTask):
                               added_edges,
                               node_by_tip.get(tip),
                         )
-                        edge_metrics = evaluate_incident_edge_detection(
+                        detection = by_tip.get(tip)
+                        if detection is not None:
+                              edge_metrics = evaluate_edge_detection(
+                                    tip_state["edge_index"],
+                                    added_edges,
+                                    pred_anomaly_mask=detection.get("pred_anomaly_mask"),
+                                    anomaly_score=detection.get("anomaly_score"),
+                              )
+                        else:
+                              edge_metrics = evaluate_incident_edge_detection(
+                                    tip_state["edge_index"],
+                                    added_edges,
+                                    node_by_tip.get(tip),
+                              )
+                        self._print_tip_detection_metrics(tip, node_metrics, edge_metrics)
+
+                  combined = self._combined_tip_detection(tip_state)
+                  if combined is not None:
+                        combo_metrics = evaluate_edge_detection(
                               tip_state["edge_index"],
                               added_edges,
-                              node_by_tip.get(tip),
+                              pred_anomaly_mask=combined["pred_anomaly_mask"],
+                              anomaly_score=combined["anomaly_score"],
                         )
-                        self._print_tip_detection_metrics(tip, node_metrics, edge_metrics)
+                        self._print_combo_detection_metrics(combined, combo_metrics)
 
                   ood_mask = tip_state.get("out_detect_edge_mask", None)
                   if ood_mask is not None:
@@ -1065,8 +1166,6 @@ class NodeTask(BaseTask):
             # print("Node Task completed")
             # return final_test_acc.cpu().numpy() if isinstance(final_test_acc, torch.Tensor) else final_test_acc
             # ##########################################################################################################################################################
-
-
 
 
 

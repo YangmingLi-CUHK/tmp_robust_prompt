@@ -160,6 +160,7 @@ class RobustPrompt_T_NSP(torch.nn.Module):
 
     def add_muti_pt(self, graph, device):
         node_use_each_pt_whole_graph = {}
+        tip_edge_detection = {}
 
         # 单张图要简单很多 要记录的东西比较少
         g = graph
@@ -190,6 +191,13 @@ class RobustPrompt_T_NSP(torch.nn.Module):
             csim = c / deg
             csim = csim.squeeze()
             node_use_sim_pt = torch.nonzero(csim <= self.pt_dict['sim_pt']).squeeze(-1) # 不能直接用squeeze()，会把所有1维度都压缩，当只有单个节点会有问题
+            sim_node_score = torch.nan_to_num(1.0 - csim, nan=0.0, posinf=0.0, neginf=0.0)
+            sim_node_mask = torch.zeros(g.num_nodes, dtype=torch.bool, device=device)
+            sim_node_mask[node_use_sim_pt] = True
+            tip_edge_detection['sim_pt'] = {
+                'pred_anomaly_mask': sim_node_mask[edge_index[0]] | sim_node_mask[edge_index[1]],
+                'anomaly_score': torch.maximum(sim_node_score[edge_index[0]], sim_node_score[edge_index[1]]),
+            }
 
             #################################
             if self.p_plus and len(node_use_sim_pt) > 0:
@@ -210,6 +218,13 @@ class RobustPrompt_T_NSP(torch.nn.Module):
             row, col = edge_index
             deg = degree(col, x.size(0), dtype=x.dtype)
             node_use_degree_pt = torch.nonzero(deg <= self.pt_dict['degree_pt']).squeeze(-1) # 不能直接用squeeze()，会把所有1维度都压缩，当只有单个节点会有问题
+            degree_node_score = 1.0 / (deg + 1.0)
+            degree_node_mask = torch.zeros(g.num_nodes, dtype=torch.bool, device=device)
+            degree_node_mask[node_use_degree_pt] = True
+            tip_edge_detection['degree_pt'] = {
+                'pred_anomaly_mask': degree_node_mask[edge_index[0]] | degree_node_mask[edge_index[1]],
+                'anomaly_score': torch.maximum(degree_node_score[edge_index[0]], degree_node_score[edge_index[1]]),
+            }
 
             #################################
             if self.p_plus and len(node_use_degree_pt) > 0:
@@ -243,6 +258,10 @@ class RobustPrompt_T_NSP(torch.nn.Module):
             if len(node_use_ood_pt) > 0:
                 g_mutiftpt_record[node_use_ood_pt, pt_range_dict['out_detect_pt'][0] : pt_range_dict['out_detect_pt'][1]] = self.prompt_out_detect_pt
             node_use_each_pt_whole_graph['out_detect_pt'] = node_use_ood_pt
+            tip_edge_detection['out_detect_pt'] = {
+                'pred_anomaly_mask': ood_edge_mask,
+                'anomaly_score': 1.0 - e,
+            }
         else:
             ood_edge_mask = None
             e = None
@@ -265,6 +284,10 @@ class RobustPrompt_T_NSP(torch.nn.Module):
             if len(node_use_nsp_pt) > 0:
                 g_mutiftpt_record[node_use_nsp_pt, pt_range_dict['nsp_pt'][0] : pt_range_dict['nsp_pt'][1]] = self.prompt_nsp_pt
             node_use_each_pt_whole_graph['nsp_pt'] = node_use_nsp_pt
+            tip_edge_detection['nsp_pt'] = {
+                'pred_anomaly_mask': nsp_edge_mask,
+                'anomaly_score': 1.0 - nsp_edge_sim,
+            }
         else:
             nsp_edge_mask = None
             nsp_edge_sim = None
@@ -276,8 +299,13 @@ class RobustPrompt_T_NSP(torch.nn.Module):
             if self._focusedcleaner_cache is None:
                 fc_filter = FocusedCleanerLPFilter(threshold=self.pt_dict['focusedcleaner_pt'])
                 fc_output = fc_filter(graph)
-                self._focusedcleaner_cache = fc_output['node_mask'].detach().clone()
-            node_use_fc_pt = torch.nonzero(self._focusedcleaner_cache).squeeze(-1)
+                self._focusedcleaner_cache = {
+                    'node_keep_mask': fc_output['node_mask'].detach().clone(),
+                    'edge_keep_mask': fc_output['edge_mask'].detach().clone(),
+                    'edge_score': fc_output['edge_score'].detach().clone(),
+                }
+            # Filter masks use True=keep/clean; defense tips need anomalous nodes/edges.
+            node_use_fc_pt = torch.nonzero(~self._focusedcleaner_cache['node_keep_mask']).squeeze(-1)
 
             if self.p_plus and len(node_use_fc_pt) > 0:
                 score = self.focusedcleaner_pt_a(x[node_use_fc_pt])
@@ -288,6 +316,10 @@ class RobustPrompt_T_NSP(torch.nn.Module):
             if len(node_use_fc_pt) > 0:
                 g_mutiftpt_record[node_use_fc_pt, pt_range_dict['focusedcleaner_pt'][0] : pt_range_dict['focusedcleaner_pt'][1]] = self.prompt_focusedcleaner_pt
             node_use_each_pt_whole_graph['focusedcleaner_pt'] = node_use_fc_pt
+            tip_edge_detection['focusedcleaner_pt'] = {
+                'pred_anomaly_mask': ~self._focusedcleaner_cache['edge_keep_mask'],
+                'anomaly_score': self._focusedcleaner_cache['edge_score'],
+            }
 
         if 'other_pt' in self.pt_keys:
             all_nodes    = torch.arange(0, g.num_nodes).to(device)
@@ -358,6 +390,13 @@ class RobustPrompt_T_NSP(torch.nn.Module):
             "out_detect_edge_score": (1.0 - e).detach() if e is not None else None,
             "nsp_edge_mask": nsp_edge_mask.detach() if nsp_edge_mask is not None else None,
             "nsp_edge_score": (1.0 - nsp_edge_sim).detach() if nsp_edge_sim is not None else None,
+            "by_tip": {
+                tip: {
+                    key: value.detach() if isinstance(value, torch.Tensor) else value
+                    for key, value in detection.items()
+                }
+                for tip, detection in tip_edge_detection.items()
+            },
         }
         return g_mutiftpt, node_use_each_pt_whole_graph
 
