@@ -1,13 +1,14 @@
 # Git 同步 SOP
 
-最后更新：2026-07-11
+最后更新：2026-07-16
 
 ## 仓库信息
 
 | 项目 | 值 |
 |------|-----|
-| GitHub 地址 | `https://github.com/DuDouVagrant/DFS_HK.git` |
-| 工作分支 | `YangmingLi-CUHK-patch-1` |
+| GitHub 地址 | `https://github.com/YangmingLi-CUHK/tmp_robust_prompt.git` |
+| 旧仓库（归档） | `https://github.com/DuDouVagrant/DFS_HK.git` |
+| 工作分支 | `main` |
 | 本地目录名 | `DFS_HK5` |
 | 大小 | ~500MB（含历史权重和数据，浅克隆大幅加速） |
 
@@ -24,8 +25,8 @@ git config --global http.lowSpeedLimit 1000
 git config --global http.lowSpeedTime 300
 
 # 1. 浅克隆（只拉最新，不拉历史）
-git clone --depth 1 --branch YangmingLi-CUHK-patch-1 \
-  https://github.com/DuDouVagrant/DFS_HK.git DFS_HK5
+git clone --depth 1 --branch main \
+  https://github.com/YangmingLi-CUHK/tmp_robust_prompt.git DFS_HK5
 
 cd DFS_HK5
 ```
@@ -43,15 +44,15 @@ cd 你的/DFS_HK5/
 
 # 1. 初始化并接上远程
 git init
-git remote add origin https://github.com/DuDouVagrant/DFS_HK.git
-git fetch origin YangmingLi-CUHK-patch-1
+git remote add origin https://github.com/YangmingLi-CUHK/tmp_robust_prompt.git
+git fetch origin main
 
 # 2. 把 git 基准设成远程最新（不动你磁盘上的文件！）
-git reset --mixed origin/YangmingLi-CUHK-patch-1
+git reset --mixed origin/main
 
 # 3. 设分支名和跟踪
-git branch -M YangmingLi-CUHK-patch-1
-git branch --set-upstream-to=origin/YangmingLi-CUHK-patch-1
+git branch -M main
+git branch --set-upstream-to=origin/main
 
 # 4. 看差异（此时 git status 告诉你本地相对云端多了/少/改了啥）
 git status
@@ -79,10 +80,10 @@ git status
 git commit -m "描述这次的改动"
 
 # 5. 先 pull 再 push（避免别人在你之前推了东西导致被拒）
-git pull origin YangmingLi-CUHK-patch-1
+git pull origin main
 
 # 6. 推
-git push origin YangmingLi-CUHK-patch-1
+git push origin main
 ```
 
 ---
@@ -95,8 +96,8 @@ git push origin YangmingLi-CUHK-patch-1
 ```bash
 cd 你的/DFS_HK5/
 
-git fetch origin YangmingLi-CUHK-patch-1
-git reset --hard origin/YangmingLi-CUHK-patch-1
+git fetch origin main
+git reset --hard origin/main
 
 # 可选：清掉未被跟踪的垃圾文件（让目录和远程完全一致）
 git clean -fd
@@ -105,8 +106,8 @@ git clean -fd
 如果只想拉更新但**保留本地未提交的改动**（不覆盖）：
 
 ```bash
-git fetch origin YangmingLi-CUHK-patch-1
-git merge origin/YangmingLi-CUHK-patch-1
+git fetch origin main
+git merge origin/main
 ```
 
 ## 五、常见的坑
@@ -126,7 +127,7 @@ git merge origin/YangmingLi-CUHK-patch-1
 ### 3. push 被拒 `non-fast-forward`
 
 症状：云端有你不了解的新提交。
-解决：先 `git pull origin YangmingLi-CUHK-patch-1`（合并），再 `git push`。如果有冲突就解决冲突再 commit 再 push。
+解决：先 `git pull origin main`（合并），再 `git push`。如果有冲突就解决冲突再 commit 再 push。
 
 ### 4. `git pull` 出 CONFLICT
 
@@ -172,11 +173,11 @@ git config --global http.lowSpeedTime 300
 
 ---
 
-## 六、当前仓库状态备忘（2026-07-11）
+## 六、当前仓库状态备忘（2026-07-16）
 
-- **分支**：`YangmingLi-CUHK-patch-1`（不是 main）
-- **CLAUDE.md**：已从云端删除（办公室电脑选择不保留），仅存于本机 `80406` 上
-- **`.claude/settings.local.json`**：已从云端删除（本地配置文件，不影响他人）
+- **仓库**：已迁移至 `https://github.com/YangmingLi-CUHK/tmp_robust_prompt.git`（旧仓库 `DuDouVagrant/DFS_HK` 归档）
+- **分支**：`main`
+- **本地 origin 注意**：本机 `origin` 仍指向旧仓库，`origin_new` 指向新仓库；需要用 `origin_new` 或更新 `origin` 指向
 - **被 `.gitignore` 排除的**：新 `logs/` 子目录、`*.pth`/`*.pt`/`*.npy`（但不影响已跟踪的老文件）
 - **已跟踪的老二进制**（云端有）：294 个 `.pth` 权重、71 个 `.pt` 数据、84 个日志 — 这些不受 `.gitignore` 影响
 - **主动推送的中间结果**：目前不推，等有明确需要时用 `git add -f` 加
