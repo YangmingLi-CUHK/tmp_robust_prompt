@@ -6,8 +6,8 @@
 # =============================================================================
 set -e
 
-PROJECT_ROOT="/home/tony/LnL/DFS_HK5"
-SCRIPT_DIR="${PROJECT_ROOT}/AttrPrompt-main/AttrPrompt-main"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DATA_ROOT="${PROJECT_ROOT}/data_attack_fewshot/Cora/shot_5/1/Meta_Self/raw"
 
 cd "$SCRIPT_DIR"
