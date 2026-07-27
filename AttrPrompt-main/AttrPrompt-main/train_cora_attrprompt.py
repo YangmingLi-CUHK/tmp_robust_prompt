@@ -26,6 +26,11 @@ from load_cora_metattack import (
     load_cora_metattack,
     node_split_fingerprint,
 )
+from rate_utils import (
+    canonical_rate,
+    canonical_rate_tokens,
+    rate_token,
+)
 
 
 def accuracy(output, labels):
@@ -192,7 +197,10 @@ def main():
     parser.add_argument('--lp', type=float, default=0.2)
 
     args = parser.parse_args()
-    ptb_rates = [float(x) for x in args.ptb_rates.split(',')]
+    ptb_tokens = canonical_rate_tokens(
+        [item.strip() for item in args.ptb_rates.split(',') if item.strip()])
+    ptb_rates = [canonical_rate(token) for token in ptb_tokens]
+    args.train_ptb = canonical_rate(args.train_ptb)
     train_ptb = resolve_rate(args.train_ptb, ptb_rates)
 
     if args.strict_no_clean_forward:
@@ -221,9 +229,12 @@ def main():
             "Protocol violation: clean adjacency tensor was loaded.")
 
     adj_base_cpu = perturbed_adjs[train_ptb]
-    base_source = f"Meta_Self_Cora_{train_ptb}.pt"
+    base_source = f"Meta_Self_Cora_{rate_token(train_ptb)}.pt"
     base_fingerprint = adjacency_fingerprint(adj_base_cpu)
-    split_source = f"Meta_Self_Cora_{train_ptb}_idx_[train|val|test].npy"
+    split_source = (
+        f"Meta_Self_Cora_{rate_token(train_ptb)}"
+        "_idx_[train|val|test].npy"
+    )
     split_fingerprint = node_split_fingerprint(
         idx_train, idx_val, idx_test)
     teacher_metadata, teacher_provenance = verify_teacher_checkpoints(
@@ -447,7 +458,7 @@ def main():
             f"{ptb:7.2f}  {teacher_arr.mean():10.2f}  {arr.mean():10.2f}  "
             f"{arr.mean()-teacher_arr.mean():+9.2f}  {arr.std():10.2f}  "
             f"{farr.mean():10.2f}")
-        rate_summary[str(ptb)] = {
+        rate_summary[rate_token(ptb)] = {
             'teacher_accuracy_mean_pct': float(teacher_arr.mean()),
             'teacher_accuracy_std_pct': float(teacher_arr.std()),
             'prompt_accuracy_mean_pct': float(arr.mean()),

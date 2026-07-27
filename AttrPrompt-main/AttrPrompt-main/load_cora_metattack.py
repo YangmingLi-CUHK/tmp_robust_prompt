@@ -18,6 +18,7 @@ import numpy as np
 import scipy.sparse as sp
 import torch
 from sklearn.neighbors import kneighbors_graph
+from rate_utils import canonical_rate, canonical_rate_tokens, rate_token
 
 
 def adjacency_fingerprint(adj):
@@ -95,7 +96,7 @@ def load_cora_metattack(data_root, k=10, ptb_rates=None, load_clean_adj=True,
         data_root: path to .../Meta_Self/raw/  (contains .pt, .npz, .npy files)
         k: KNN graph neighbors
         ptb_rates: list of perturbation rates, e.g. [0.0, 0.05, ..., 0.25]
-        load_clean_adj: load Meta_Self_Cora_0.0.pt even when 0.0 is not
+        load_clean_adj: load Meta_Self_Cora_0.00.pt even when 0.00 is not
             requested. Set False for a strict polluted-graph-only run.
         build_feature_adj: build/load the attribute-only KNN adjacency. The
             supervised GCN teacher does not need it.
@@ -106,6 +107,9 @@ def load_cora_metattack(data_root, k=10, ptb_rates=None, load_clean_adj=True,
     """
     if ptb_rates is None:
         ptb_rates = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25]
+    ptb_tokens = canonical_rate_tokens(ptb_rates)
+    ptb_rates = [canonical_rate(token) for token in ptb_tokens]
+    split_ptb = canonical_rate(split_ptb)
 
     # -- Features (scipy sparse → dense row-normalized) --
     features_sp = sp.load_npz(os.path.join(data_root, 'Cora_features.npz'))
@@ -121,7 +125,7 @@ def load_cora_metattack(data_root, k=10, ptb_rates=None, load_clean_adj=True,
     labels = torch.tensor(labels_np, dtype=torch.long)
 
     # -- Rate-specific node split indices --
-    split_prefix = f"Meta_Self_Cora_{split_ptb}"
+    split_prefix = f"Meta_Self_Cora_{rate_token(split_ptb)}"
     idx_train = torch.LongTensor(np.load(
         os.path.join(data_root, f'{split_prefix}_idx_train.npy')))
     idx_val = torch.LongTensor(np.load(
@@ -139,7 +143,8 @@ def load_cora_metattack(data_root, k=10, ptb_rates=None, load_clean_adj=True,
     zero_requested = any(np.isclose(ptb, 0.0) for ptb in ptb_rates)
     adj = None
     if load_clean_adj or zero_requested:
-        clean_path = os.path.join(data_root, 'Meta_Self_Cora_0.0.pt')
+        clean_path = os.path.join(
+            data_root, f'Meta_Self_Cora_{rate_token(0)}.pt')
         adj_clean_sp = sparse_pt_to_scipy(clean_path)
         adj = dense_norm_adj(adj_clean_sp)
 
@@ -151,7 +156,8 @@ def load_cora_metattack(data_root, k=10, ptb_rates=None, load_clean_adj=True,
                 raise RuntimeError("Clean adjacency was requested but not loaded.")
             perturbed_adjs[ptb] = adj
         else:
-            pt_path = os.path.join(data_root, f'Meta_Self_Cora_{ptb}.pt')
+            pt_path = os.path.join(
+                data_root, f'Meta_Self_Cora_{rate_token(ptb)}.pt')
             if not os.path.exists(pt_path):
                 raise FileNotFoundError(f"Missing: {pt_path}")
             adj_p_sp = sparse_pt_to_scipy(pt_path)
@@ -161,6 +167,6 @@ def load_cora_metattack(data_root, k=10, ptb_rates=None, load_clean_adj=True,
           f"{labels.max().item()+1} classes")
     print(f"  Split: train={len(idx_train)}, val={len(idx_val)}, test={len(idx_test)}")
     print(f"  Split source: {split_prefix}_idx_[train|val|test].npy")
-    print(f"  Ptb rates: {list(perturbed_adjs.keys())}")
+    print(f"  Ptb rates: {ptb_tokens}")
     print(f"  Clean adjacency tensor loaded: {'YES' if adj is not None else 'NO'}")
     return adj, adj_f, features_tensor, labels, idx_train, idx_val, idx_test, perturbed_adjs

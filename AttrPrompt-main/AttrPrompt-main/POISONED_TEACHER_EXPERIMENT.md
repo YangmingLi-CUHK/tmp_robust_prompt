@@ -38,7 +38,7 @@ Run all rates:
 ```bash
 cd /home/tony/LnL/DFS_HK5/AttrPrompt-main/AttrPrompt-main
 conda activate LnL2
-bash run_poisoned_teacher_attrprompt_server.sh
+RUN_ID=full_v1 bash run_poisoned_teacher_attrprompt_server.sh
 ```
 
 Smoke-test only M-0.25:
@@ -46,28 +46,44 @@ Smoke-test only M-0.25:
 ```bash
 PTB_RATES="0.25" SEEDS=1 TEACHER_EPOCHS=5 PROMPT_EPOCHS=5 \
 OUTPUT_ROOT=./save_cora/poisoned_teacher_smoke \
+RUN_ID=smoke_m025 \
 bash run_poisoned_teacher_attrprompt_server.sh
 ```
 
-Resume prompt experiments from already-generated poisoned teachers:
+Resume an interrupted run with the same rate set:
 
 ```bash
-RETRAIN_TEACHER=0 bash run_poisoned_teacher_attrprompt_server.sh
+RUN_ID=full_v1 RESUME=1 bash run_poisoned_teacher_attrprompt_server.sh
 ```
 
-Outputs are separated by rate:
+Completed rates are detected from their rate-specific CSV and skipped. A
+different rate set or an already-complete run is rejected.
+
+Rates are normalized to two decimal places to match the dataset filenames.
+For example, `0.1` and `0.10` both mean `0.10`; supplying both is rejected as
+a duplicate before training starts.
+
+Every invocation has an isolated run directory. Every rate also gets its own
+CSV immediately after that rate finishes:
 
 ```text
 save_cora/poisoned_teacher_attrprompt/
-  M0p0/
-    GCN/
-    AttrPrompt_dynamic/
-  M0p05/
-  ...
-  M0p25/
-  poisoned_pipeline_summary.csv
+  runs/
+    full_v1/
+      M0p00/
+        GCN/
+        AttrPrompt_dynamic/
+        result_M0p00.csv
+      M0p05/
+        result_M0p05.csv
+      ...
+      M0p25/
+        result_M0p25.csv
+      poisoned_pipeline_summary.csv
 ```
 
-The combined CSV reports the supervised poisoned-teacher accuracy, frozen
-teacher direct-forward accuracy during Phase 2, AttrPrompt accuracy, prompt
-gain, F1, and structure-sanity measurements.
+The script refuses to reuse an existing `RUN_ID` unless `RESUME=1` is supplied.
+The combined CSV is written once, after all requested rates finish. It reports
+the supervised poisoned-teacher accuracy, frozen teacher direct-forward
+accuracy during Phase 2, AttrPrompt accuracy, prompt gain, F1, and
+structure-sanity measurements.

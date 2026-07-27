@@ -18,6 +18,7 @@ from load_cora_metattack import (
     load_cora_metattack,
     node_split_fingerprint,
 )
+from rate_utils import canonical_rate, rate_token
 
 
 def accuracy(output, labels):
@@ -47,6 +48,7 @@ def main():
         help=('For non-zero train_ptb, do not load the clean adjacency tensor '
               'in this teacher-training process'))
     args = parser.parse_args()
+    args.train_ptb = canonical_rate(args.train_ptb)
 
     if args.strict_no_clean_forward and np.isclose(args.train_ptb, 0.0):
         raise ValueError(
@@ -68,9 +70,12 @@ def main():
             "Protocol violation: clean adjacency tensor was loaded.")
 
     adj_train_cpu = adjs[args.train_ptb]
-    graph_source = f"Meta_Self_Cora_{args.train_ptb}.pt"
+    graph_source = f"Meta_Self_Cora_{rate_token(args.train_ptb)}.pt"
     graph_fingerprint = adjacency_fingerprint(adj_train_cpu)
-    split_source = f"Meta_Self_Cora_{args.train_ptb}_idx_[train|val|test].npy"
+    split_source = (
+        f"Meta_Self_Cora_{rate_token(args.train_ptb)}"
+        "_idx_[train|val|test].npy"
+    )
     split_fingerprint = node_split_fingerprint(
         idx_train, idx_val, idx_test)
 
@@ -178,7 +183,9 @@ def main():
 
     mean_test = float(np.mean(all_test) * 100)
     std_test = float(np.std(all_test) * 100)
-    print(f"\nPhase 1 Summary ({args.seeds} seeds, M-{args.train_ptb}):")
+    print(
+        f"\nPhase 1 Summary "
+        f"({args.seeds} seeds, M-{rate_token(args.train_ptb)}):")
     print(f"  Test accuracy: {mean_test:.2f}% +/- {std_test:.2f}%")
     for i, acc in enumerate(all_test):
         print(f"    seed {i}: {acc*100:.2f}%")
