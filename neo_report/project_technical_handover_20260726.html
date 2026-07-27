@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>鲁棒图提示学习项目技术交接与复现审计</title>
+  <style>
+    :root{
+      --paper:#f5f4ef;--surface:#fff;--ink:#17222b;--muted:#5d6870;
+      --line:#d4d8d5;--strong:#aab2af;--nav:#112934;--blue:#245f7a;
+      --teal:#1f6c65;--amber:#8a5c18;--red:#8d3b36;--green:#3f6b49;
+      --soft-blue:#eef5f7;--soft-red:#fbf2f1;--soft-amber:#fbf6ec;
+      --soft-green:#f1f6f1;--code:#eef1ef;--max:1200px
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;background:var(--paper);color:var(--ink);
+      font-family:"Noto Sans SC","Source Han Sans SC","Microsoft YaHei",system-ui,sans-serif;
+      font-size:15px;line-height:1.72
+    }
+    a{color:var(--blue);text-decoration:none;border-bottom:1px solid rgba(36,95,122,.3)}
+    a:hover{border-bottom-color:var(--blue)}
+    code,.mono,.num{
+      font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+      font-variant-numeric:tabular-nums
+    }
+    code{background:var(--code);padding:.08em .32em;border-radius:3px;font-size:.92em;overflow-wrap:anywhere}
+    .layout{display:grid;grid-template-columns:265px minmax(0,1fr);min-height:100vh}
+    aside{
+      position:sticky;top:0;height:100vh;overflow:auto;background:var(--nav);
+      color:#edf3f4;padding:32px 25px 25px;border-right:1px solid #0b1c24
+    }
+    .nav-kicker{font-size:10px;letter-spacing:.17em;color:#80b5c4;text-transform:uppercase;margin-bottom:11px}
+    .nav-title{font-size:18px;line-height:1.4;font-weight:700}
+    .nav-meta{font-size:11px;color:#b4c3c8;line-height:1.55;margin:5px 0 23px}
+    nav a{
+      display:block;color:#b8c6cb;border:0;border-left:2px solid transparent;
+      padding:6px 0 6px 12px;font-size:12.5px;line-height:1.35
+    }
+    nav a:hover,nav a.active{color:#fff;border-left-color:#7bb9c9}
+    .nav-rule{height:1px;background:#2d4650;margin:20px 0}
+    .nav-foot{font-size:10.5px;color:#91a6ae;line-height:1.65}
+    main{min-width:0;padding:0 45px 82px}
+    .page{max-width:var(--max);margin:0 auto}
+    header{padding:63px 0 35px;border-bottom:2px solid var(--ink)}
+    .eyebrow{font-size:11px;letter-spacing:.14em;color:var(--blue);font-weight:750;text-transform:uppercase;margin-bottom:13px}
+    h1{
+      margin:0 0 13px;font-family:"Noto Serif SC","Source Han Serif SC","SimSun",serif;
+      font-size:clamp(34px,5vw,55px);line-height:1.16;letter-spacing:-.025em;font-weight:650
+    }
+    .subtitle{margin:0 0 23px;color:var(--muted);font-size:17px;max-width:930px}
+    .meta{display:flex;gap:7px 21px;flex-wrap:wrap;color:var(--muted);font-size:11.5px}
+    .status-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--surface);border-bottom:1px solid var(--line)}
+    .status-item{padding:17px;border-right:1px solid var(--line)}
+    .status-item:last-child{border-right:0}
+    .status-value{font:750 20px/1.2 Consolas,monospace}
+    .status-label{font-size:10.5px;color:var(--muted);margin-top:3px}
+    section{padding:47px 0 4px;scroll-margin-top:18px}
+    section+section{border-top:1px solid var(--line);margin-top:37px}
+    h2{
+      margin:0 0 21px;font-family:"Noto Serif SC","Source Han Serif SC","SimSun",serif;
+      font-size:28px;line-height:1.3;font-weight:650;letter-spacing:-.015em
+    }
+    h3{font-size:18px;line-height:1.4;margin:31px 0 12px}
+    h4{font-size:14.5px;margin:23px 0 8px}
+    p{margin:0 0 13px}
+    .lead{font-size:16.5px;line-height:1.8;max-width:970px}
+    .abstract{margin-top:24px;padding:19px 21px;border-left:4px solid var(--blue);background:var(--soft-blue);font-size:15.5px}
+    .callout{margin:18px 0;padding:15px 17px;background:var(--surface);border:1px solid var(--strong)}
+    .callout.red{border-left:4px solid var(--red)}
+    .callout.amber{border-left:4px solid var(--amber)}
+    .callout.green{border-left:4px solid var(--green)}
+    .callout-title{font-weight:750;margin-bottom:4px}
+    .small{font-size:11.5px;color:var(--muted)}
+    .label{
+      display:inline-block;padding:1px 7px;border:1px solid var(--strong);border-radius:2px;
+      font-size:10.5px;line-height:1.55;color:var(--muted);white-space:nowrap
+    }
+    .label.a{border-color:#78a7b8;color:var(--blue);background:#f0f7f9}
+    .label.b{border-color:#8eaa95;color:var(--green);background:var(--soft-green)}
+    .label.c{border-color:#c1a473;color:var(--amber);background:var(--soft-amber)}
+    .label.x{border-color:#bd8b86;color:var(--red);background:var(--soft-red)}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+    .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:19px}
+    .flat{border-top:3px solid var(--blue);padding-top:11px}
+    .flat h3{font-size:14.5px;margin:0 0 6px}
+    .flat p{font-size:12.5px;color:var(--muted)}
+    .table-wrap{overflow:auto;border:1px solid var(--line);background:var(--surface);margin:15px 0 9px}
+    table{border-collapse:collapse;width:100%;min-width:780px;font-size:12.2px;line-height:1.48}
+    caption{text-align:left;padding:11px 13px 8px;font-weight:750;font-size:12.5px}
+    th{background:#edf0ee;text-align:left;font-weight:750;border-bottom:1px solid var(--strong);padding:8px 10px;vertical-align:bottom}
+    td{border-bottom:1px solid var(--line);padding:8px 10px;vertical-align:top}
+    tbody tr:last-child td{border-bottom:0}
+    tbody tr:hover{background:#fafbf9}
+    td.num,th.num{text-align:right;white-space:nowrap}
+    td.config{min-width:260px;color:#3e4b53}
+    .row-risk{background:#fff8f5}
+    .row-control{background:#f4f8f4}
+    .row-focus{background:#f3f8fa}
+    .table-note{font-size:11px;color:var(--muted);margin-top:6px}
+    ul,ol{margin:8px 0 15px;padding-left:21px}
+    li{margin:4px 0}
+    .tight li{margin:2px 0}
+    dl{display:grid;grid-template-columns:190px 1fr;margin:14px 0;border-top:1px solid var(--line)}
+    dt,dd{margin:0;padding:9px 8px;border-bottom:1px solid var(--line)}
+    dt{font-weight:750;color:#33434c}
+    dd{color:#445159}
+    .math{
+      overflow:auto;margin:13px 0;padding:16px 19px;background:#1b2b33;color:#f2f6f7;
+      border-left:4px solid #70aebe;font:17px/1.7 "Cambria Math","Times New Roman",serif
+    }
+    .math small{display:block;color:#bfd0d6;font:11px/1.6 "Microsoft YaHei",sans-serif;margin-top:6px}
+    .flow{display:grid;grid-template-columns:1fr 38px 1fr 38px 1fr;align-items:stretch;gap:8px;margin:18px 0}
+    .flow-box{background:var(--surface);border:1px solid var(--strong);padding:14px;min-height:104px}
+    .flow-box strong{display:block;color:var(--blue);margin-bottom:5px}
+    .flow-box span{font-size:12px;color:var(--muted)}
+    .arrow{display:flex;align-items:center;justify-content:center;color:#65757c;font-size:24px}
+    .branch{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+    .branch>div{padding:12px 14px;border:1px solid var(--line);background:#fafbf9;font-size:12.2px}
+    .timeline{border-top:1px solid var(--line);margin-top:16px}
+    .time-row{display:grid;grid-template-columns:122px 185px 1fr;border-bottom:1px solid var(--line);padding:13px 0}
+    .time-date{font:700 11.5px Consolas,monospace;color:var(--blue)}
+    .time-stage{font-weight:750}
+    .time-body{color:#435159}
+    details{border-top:1px solid var(--line);padding:11px 0}
+    summary{cursor:pointer;font-weight:700;color:#34444c}
+    .source-list{columns:2;column-gap:34px;padding-left:19px}
+    .source-list li{break-inside:avoid;margin:0 0 7px;font-size:11.5px}
+    footer{margin-top:58px;padding-top:23px;border-top:2px solid var(--ink);font-size:11px;color:var(--muted)}
+    @media(max-width:980px){
+      .layout{display:block}.layout aside{position:relative;height:auto;padding:21px 23px}
+      nav{display:flex;flex-wrap:wrap;gap:3px 13px}nav a{padding:3px 0;border:0}
+      .nav-rule,.nav-foot{display:none}main{padding:0 23px 58px}.grid-2,.grid-3{grid-template-columns:1fr}
+      .flow{grid-template-columns:1fr}.arrow{transform:rotate(90deg);height:24px}.status-strip{grid-template-columns:1fr 1fr}
+      .time-row{grid-template-columns:100px 145px 1fr}
+    }
+    @media(max-width:640px){
+      .status-strip{grid-template-columns:1fr}.status-item{border-right:0;border-bottom:1px solid var(--line)}
+      .time-row{display:block}.time-stage{margin:3px 0}.branch{grid-template-columns:1fr}.source-list{columns:1}
+    }
+    @media print{
+      body{background:#fff;font-size:10.5pt}.layout{display:block}aside{display:none}main{padding:0}.page{max-width:none}
+      header{padding-top:18px}section{break-inside:auto}a{color:inherit;border:0}.table-wrap{overflow:visible}
+      table{min-width:0;font-size:8.3pt}details{display:block}details>summary{display:none}details>*{display:block!important}
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="nav-kicker">Technical Handover</div>
+    <div class="nav-title">鲁棒图提示学习<br>技术交接与复现审计</div>
+    <div class="nav-meta">Cora · Metattack · GraphCL/GraphMAE<br>只读审计更新：2026-07-27</div>
+    <nav>
+      <a href="#verdict">0.结论边界</a>
+      <a href="#method">1.证据与方法</a>
+      <a href="#structure">2.项目结构</a>
+      <a href="#data">3.数据版本链</a>
+      <a href="#mechanism">4.代码与数学机制</a>
+      <a href="#results">5.结果证据</a>
+      <a href="#timeline">6.项目脉络</a>
+      <a href="#blockers">7.当前困局</a>
+      <a href="#handoff">8.接手方案</a>
+      <a href="#sources">9.来源索引</a>
+    </nav>
+    <div class="nav-rule"></div>
+    <div class="nav-foot">
+      审计快照：<span class="mono">HEAD cde780e</span><br>
+      分支：<span class="mono">YangmingLi-CUHK-patch-1</span><br>
+      未运行训练；未修改项目代码、数据、权重或原报告。
+    </div>
+  </aside>
+
+  <main>
+  <div class="page">
+    <header>
+      <div class="eyebrow">Repository-grounded audit</div>
+      <h1>鲁棒图提示学习项目<br>技术交接与复现审计</h1>
+      <p class="subtitle">依据仓库内全部可读文件、日志、权重、数据指纹、Git历史、PDF/DOCX报告与实际代码路径重建。目的不是给出一个方便但脆弱的解释，而是把不同实验时期、不同数据版本和不同实现严格拆开。</p>
+      <div class="meta">
+        <span>范围：<span class="mono">C:\Users\80406\Desktop\DFS_HK5</span></span>
+        <span>审计日期：2026-07-27</span>
+        <span>结果规范：完整5个seed的简单mean±population std</span>
+        <span>唯一产物：本HTML</span>
+      </div>
+    </header>
+
+    <div class="status-strip">
+      <div class="status-item"><div class="status-value">2,307</div><div class="status-label">非Git内部文件已全量枚举</div></div>
+      <div class="status-item"><div class="status-value">1,459</div><div class="status-label">日志文件逐层检索</div></div>
+      <div class="status-item"><div class="status-value">26+1</div><div class="status-label">PDF+DOCX结构化读取</div></div>
+      <div class="status-item"><div class="status-value">5-seed</div><div class="status-label">本报告本地accuracy统一口径</div></div>
+    </div>
+
+    <section id="verdict">
+      <h2>0.结论边界</h2>
+      <p class="lead">目前没有证据支持把鲁棒性崩塌归结为一个简单的数据Bug，也没有证据支持仅靠微调损失权重可以解决。后期确有使用老师新给服务器数据的手工批次；该外部图未归档，无法判定实际攻击预算。该批次在GraphMAE-GCN256上仍从clean约0.69降至名义M-0.25约0.10。攻击预算偏高是本地已修的数据问题，但不是现象的充分解释。</p>
+
+      <div class="abstract">
+        <strong>可以交接的核心判断：</strong>项目现在混合了论文设定、上游发布代码、兼容性原版克隆、当前双前向实现、5-filter扩展、IA伪标签路径和AttrPrompt监督控制。它们使用的数据图、backbone、提示参数量、训练拓扑和统计方式并不相同。当前最强的确定性问题位于三处：<strong>实验身份未锁定</strong>、<strong>shield在实际自环图上退化</strong>、<strong>τ_tune训练拓扑与推理拓扑不一致</strong>。这三者比攻击预算膨胀更接近主因，但现有档案仍不足以证明单一因果结论。
+      </div>
+
+      <div class="grid-3" style="margin-top:24px">
+        <div class="flat">
+          <h3>已确定</h3>
+          <p>论文攻击实验使用Cora最大连通分量；本地主线使用2708节点全图。默认degree-tip在含自环图上选择0个节点；默认OOD-tip覆盖98.2%至99.9%节点。</p>
+        </div>
+        <div class="flat">
+          <h3>已排除为单因</h3>
+          <p>预算膨胀、transductive可见全图、单纯“有没有剪边”、单纯backbone维度，均无法独立解释clean到高污染的全部落差。</p>
+        </div>
+        <div class="flat">
+          <h3>尚未证明</h3>
+          <p>稠密prompt必然淹没BoW、KL必然有害、p_plus必然过拟合、某一新filter能修复结果。这些仍是机制假设，不应写成根因。</p>
+        </div>
+      </div>
+
+      <h3>本次重审撤回的旧表述</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>旧表述</th><th>重审结果</th><th>现在采用的准确边界</th></tr></thead>
+          <tbody>
+            <tr><td>“后期实验仍全部使用偏高污染图”</td><td><span class="label x">撤回</span></td><td>本地留存的带<code>Pollution Diff</code>主线日志使用旧计数；7月8日DOCX明确记录了老师新给的<code>D:\L\Meta_Self</code>手工批次。该服务器原始图未随仓库保存，不能本地做二进制复核。</td></tr>
+            <tr><td>“IA-PT是测试标签泄漏”</td><td><span class="label x">撤回</span></td><td>MLP梯度只使用35个train真标签；val真标签进入checkpoint逻辑；test真标签只用于打印诊断accuracy，不进入伪标签赋值。它是transductive自训练，但把监督节点从35扩为最多595，必须与直接35-shot分开报告。</td></tr>
+            <tr><td>“2708个节点只剩4种prompt”</td><td><span class="label x">撤回</span></td><td>p_plus=True时每个节点由特征条件化的20-token混合生成连续prompt；少的是filter成员模式，不是实际prompt向量种类。</td></tr>
+            <tr><td>“linear probe不使用图结构”</td><td><span class="label x">撤回</span></td><td><code>eval_pretrain.py</code>先在被攻击的<code>edge_index</code>上运行冻结GNN，再训练LogisticRegression；它仍使用图结构。</td></tr>
+            <tr><td>“sim_pt在实际运行中覆盖约66%节点”</td><td><span class="label x">撤回</span></td><td>66%来自排除自环的离线口径；loader在每个节点加自环。默认阈值0.2下实际运行覆盖clean的85/2708、M-0.25的162/2708。</td></tr>
+            <tr><td>“filter_module参与RobustPrompt-T前向剪边”</td><td><span class="label x">撤回</span></td><td>模块被构造和打印，但在RobustPrompt-T/NSP的Tune与Eva中没有调用；当前只在训练后异常检测诊断中读取。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="method">
+      <h2>1.证据与方法</h2>
+      <p>仓库较凌乱，文件修改时间同时包含真实运行、服务器拷回、Git上传和合并时间。因此，本报告不按“最新脚本=历史实际命令”推断。每项结论按以下顺序取证。</p>
+
+      <dl>
+        <dt><span class="label a">A</span>运行证据</dt>
+        <dd>原始<code>.log/.out</code>中的数据形状、污染差分、完整seed行、模型打印和终止状态；或保存权重可被当前数据只读重放。</dd>
+        <dt><span class="label b">B</span>完整报告</dt>
+        <dd>PDF/DOCX/HTML包含结果、seed、数据路径和主要配置，但原始命令或图二进制不在仓库。</dd>
+        <dt><span class="label c">C</span>实现与脚本</dt>
+        <dd>代码、shell和Git差异可证明“能做什么”或“设计意图”；没有匹配日志时，不证明历史上实际运行过。</dd>
+        <dt><span class="label x">D</span>叙述性记录</dt>
+        <dd>README、CLAUDE/AGENTS、会议文字和文件名用于定位，不覆盖与运行日志或二进制指纹冲突的证据。</dd>
+      </dl>
+
+      <div class="grid-2">
+        <div class="callout">
+          <div class="callout-title">全量范围</div>
+          <p class="small">2,307个文件，约888.7MB；其中1,459个log、346个pth、175个py、73个pt、43个npy、30个sh、26个PDF、20个HTML、15个Markdown、4个notebook、1个DOCX。文本、notebook、PDF和DOCX均做结构化读取；权重和图数据做路径、尺寸、哈希与可行的只读数值重放。</p>
+        </div>
+        <div class="callout">
+          <div class="callout-title">统计规则</div>
+          <p class="small">本地结果只在5个seed均有效时给mean±population std；不删最小值。原始<code>MyTask.py</code>会排序后用<code>[:-1]</code>删除最小seed，本报告不采用该尾部汇总。论文只给点估计时明确标为“无seed/std”。</p>
+        </div>
+      </div>
+      <p class="table-note">日志可用性筛查：1,459份log中约1,187份可解析出5个有限seed；按内容去重后约1,139份；约142条能够组成六浓度、每浓度5个有限seed的完整曲线。另约210份含accuracy/loss NaN，约45份含Traceback。此处是自动筛查数，不是独立实验数；短日志、重复副本和失败任务均不进入结果表。</p>
+
+      <h3>历史命令的重建规则</h3>
+      <ul class="tight">
+        <li>有日志头和seed尾行：以日志为准。</li>
+        <li>有<code>.out</code>明确调用某脚本：脚本仅用于补全日志未打印的参数。</li>
+        <li>只有脚本、没有匹配日志：标为计划或可运行入口，不写成已完成实验。</li>
+        <li>Meeting10交接PDF明确记载最终调参通过服务器手工命令完成，因此缺少<code>.sh</code>不是“未运行”的证据。</li>
+        <li>mtime只用于排序线索；遇到上传/合并时间时，优先使用日志内部打印、文档标题、Git提交和数据指纹。</li>
+      </ul>
+    </section>
+
+    <section id="structure">
+      <h2>2.项目结构与实际运行面</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>路径</th><th>角色</th><th>交接判断</th></tr></thead>
+          <tbody>
+            <tr><td><code>prompt_graph/</code></td><td>当前主代码：数据加载、预训练、prompt、filter、task与evaluation</td><td>运行主线；内部同时保留旧注释、当前实现和实验扩展。</td></tr>
+            <tr><td><code>GPromptShield-master/</code></td><td>上游发布代码快照</td><td>用于区分论文、发布实现和本地改动；发布代码本身也与论文存在差异。</td></tr>
+            <tr><td><code>LnL_heritage/</code>、<code>M15/</code>、<code>中间结果/</code></td><td>历史快照与遗留材料</td><td>用于追溯，不应被Python路径误当作当前主线。</td></tr>
+            <tr><td><code>data_attack_fewshot/</code></td><td>当前specified数据、split、raw与processed缓存</td><td>存在旧raw、新raw和错误复用缓存，必须按具体子目录与哈希引用。</td></tr>
+            <tr><td><code>pre_trained_model_raw/</code>、<code>pre_trained_model/</code></td><td>GraphCL/GraphMAE权重</td><td>文件名保存部分超参数；并非所有运行日志保存了精确checkpoint路径。</td></tr>
+            <tr><td><code>logs/</code></td><td>主要运行证据</td><td>该目录含1,349份<code>.log</code>；全仓共1,459份<code>.log</code>。本地主线可见的污染差分均对应旧计数。</td></tr>
+            <tr><td><code>reports/</code>、<code>advanced_report/</code></td><td>会议报告、生成器、DOCX与诊断</td><td>需要区分“报告生成时的解释”和“原始日志事实”。</td></tr>
+            <tr><td><code>Filter2_material/</code>、<code>AttrPrompt-main/</code></td><td>NSP/FocusedCleaner参考与AttrPrompt新控制分支</td><td>协议与主线不同，不能直接并表宣称方法优劣。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>两阶段主线与三种训练路径</h3>
+      <div class="flow">
+        <div class="flow-box"><strong>阶段A：自监督预训练</strong><span>clean Cora→GraphCL或GraphMAE→保存GCN backbone。下游默认冻结backbone。</span></div>
+        <div class="arrow">→</div>
+        <div class="flow-box"><strong>阶段B：transductive下游</strong><span>全图X/A可见；35个真标签；Metattack图与train/val/test索引对齐。</span></div>
+        <div class="arrow">→</div>
+        <div class="flow-box"><strong>Prompt+分类头</strong><span>节点按tip分组→特征prompt→训练时可τ剪边→测试时完整攻击图前向。</span></div>
+      </div>
+      <div class="branch">
+        <div><strong>MD-PT直接处理：</strong>35个真标签训练RobustPrompt-T；tip只决定每个节点使用哪类特征prompt，<code>other_pt='all'</code>给剩余节点继续加prompt。</div>
+        <div><strong>IA-PT间接放大：</strong>35个train真标签训练无结构MLP→从test索引中按预测类取class-logit最高的最多80个节点→最多560个伪标签→以最多595个监督节点训练prompt。</div>
+      </div>
+
+      <h3>论文、上游与当前实现不是同一个算法</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>实现</th><th>节点筛选</th><th>τ_tune</th><th>训练/推理</th><th>关键状态</th></tr></thead>
+          <tbody>
+            <tr><td>ICLR2025论文</td><td>degree、neighbor similarity、OOD detector等</td><td>基于中间embedding相似度，式(15)</td><td>训练剪边；推理完整biased graph</td><td>攻击实验附录声明使用LCC。</td></tr>
+            <tr><td>上游发布<code>RobustPrompt_T.py</code></td><td>sim、degree；OOD分支为<code>pass</code></td><td>基于<code>X+P</code>特征相似度；一次GNN</td><td>训练剪边；推理不剪</td><td>attention输出随后被L1-normalized输入覆盖。</td></tr>
+            <tr><td>本地兼容克隆<code>RobustPrompt_T_original.py</code></td><td>核心p_plus路径与上游一致</td><td>同上游</td><td>同上游</td><td>仅替换Prompt类；仍使用当前Linear head、loader、hidden dimension、checkpoint、optimizer和early-stop，不是完整vendor pipeline。</td></tr>
+            <tr class="row-focus"><td>当前<code>RobustPrompt_T.py</code></td><td>sim、degree、raw-feature低cosine端点OOD</td><td><code>GNN₁(X+P,A)</code>后按embedding剪边，再<code>GNN₂</code></td><td>训练双前向；推理单前向且不剪</td><td>更接近论文式(15)，但训练/推理拓扑差异仍在。</td></tr>
+            <tr><td><code>RobustPrompt_T_NSP.py</code></td><td>再加NSP与FocusedCleaner-LP tip</td><td>沿用当前双前向</td><td>同当前实现</td><td>5-filter组合实验入口；不是论文原算法。</td></tr>
+            <tr><td>AttrPrompt控制</td><td>无MD-PT tip</td><td>无τ_tune</td><td>监督GCN teacher或蒸馏prompt</td><td>teacher在clean图用35标签训练；协议不同。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="data">
+      <h2>3.数据版本链：不能再只写“Meta_Self”</h2>
+      <p>至少有六个应当分开的数据身份。最重要的纠正是：本地仓库既保存了修正后的raw，也保存了旧processed缓存；而7月8日服务器手工批次引用另一个外部路径。三者不能互相代称。</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>身份</th><th>N/E口径</th><th>证据</th><th>是否可本地复核</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td>论文攻击数据</td><td>Cora LCC：N=2485，E=5069</td><td>论文Appendix A.4/Table4</td><td>否；仓库未保存对应LCC攻击图</td><td>Table1非自适应攻击目标。</td></tr>
+            <tr><td>本地主线clean全图</td><td>N=2708，非自环无向E=5278；loader后含2708自环</td><td>raw图、processed图、日志</td><td>是</td><td>Meeting14/15与5-filter主线。</td></tr>
+            <tr class="row-risk"><td><code>Meta_Self/raw</code></td><td>旧预算；M-0.25实际1658条边翻转=31.41%</td><td>图二进制与<code>logs/</code>目录内927个含污染差分的log文件</td><td>是</td><td>本地归档主线、5-filter、inductive、AttrPrompt脚本数据路径。</td></tr>
+            <tr class="row-control"><td><code>Meta_Self_neo/raw</code></td><td>修正预算；M-0.25实际1319条边翻转=24.99%</td><td>图二进制</td><td>是</td><td>修正后raw；常规loader不能仅靠现有attack字符串安全切换到该目录。</td></tr>
+            <tr class="row-risk"><td><code>Meta_Self_neo/*_processed</code></td><td>六个文件与旧<code>Meta_Self</code>processed逐字节相同</td><td>SHA-256</td><td>是</td><td>缓存污染：目录名是neo，内容仍是旧图。</td></tr>
+            <tr><td><code>D:\L\Meta_Self\raw</code></td><td>N/E及实际flip未知；DOCX仅给出train/test=35/2408</td><td>7月8日GraphMAE实验DOCX</td><td>部分；图二进制和原始日志未入库</td><td>服务器手工150条seed-level基线。</td></tr>
+            <tr><td>AttrPrompt teacher控制</td><td>逻辑路径为<code>Meta_Self/raw</code>；服务器图二进制未归档</td><td>脚本、HTML、保存的10个teacher权重；headline六点可在当前本地旧raw上精确重放</td><td>teacher可重放；x/dynamic权重缺失</td><td>teacher与当前旧raw形成强行为匹配，但不能做SHA-256级服务器图归属；x/dynamic证据更弱。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout amber">
+        <div class="callout-title">论文与发布代码还有一层设定冲突</div>
+        <p>论文附录明确写“largest connected component”，但上游<code>generate_few_shot_attack.py</code>没有提取LCC；它直接使用全图，并用含自环的<code>adj.sum()//2</code>计算预算。本地“原版代码复现失败”因此不能单独证明论文数字虚假，也不能证明本地改动失败：复现实验尚未同时匹配论文LCC、论文τ定义和论文未公开的完整运行配置。</p>
+      </div>
+
+      <h3>旧预算与修正预算的真实边翻转</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th rowspan="2">名义ptb</th><th colspan="4">旧<code>Meta_Self/raw</code></th><th colspan="4">修正<code>Meta_Self_neo/raw</code></th></tr>
+            <tr><th class="num">新增</th><th class="num">删除</th><th class="num">翻转</th><th class="num">实际率</th><th class="num">新增</th><th class="num">删除</th><th class="num">翻转</th><th class="num">实际率</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>0.00</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0.00%</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0.00%</td></tr>
+            <tr><td>0.05</td><td class="num">312</td><td class="num">19</td><td class="num">331</td><td class="num">6.27%</td><td class="num">257</td><td class="num">6</td><td class="num">263</td><td class="num">4.98%</td></tr>
+            <tr><td>0.10</td><td class="num">610</td><td class="num">53</td><td class="num">663</td><td class="num">12.56%</td><td class="num">488</td><td class="num">39</td><td class="num">527</td><td class="num">9.99%</td></tr>
+            <tr><td>0.15</td><td class="num">919</td><td class="num">75</td><td class="num">994</td><td class="num">18.83%</td><td class="num">728</td><td class="num">63</td><td class="num">791</td><td class="num">14.99%</td></tr>
+            <tr><td>0.20</td><td class="num">1218</td><td class="num">108</td><td class="num">1326</td><td class="num">25.12%</td><td class="num">976</td><td class="num">79</td><td class="num">1055</td><td class="num">19.99%</td></tr>
+            <tr><td>0.25</td><td class="num">1507</td><td class="num">151</td><td class="num">1658</td><td class="num">31.41%</td><td class="num">1212</td><td class="num">107</td><td class="num">1319</td><td class="num">24.99%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">分母为clean图5278条非自环无向边。旧预算相对名义值膨胀约25.7%；这是实验强度偏差，不是“整个鲁棒性崩塌”的充分原因。</p>
+
+      <h3>processed缓存为何危险</h3>
+      <p><code>AttackDataset_specified.__init__</code>直接读取<code>processed_paths[0]</code>；只有缓存不存在时才从raw重建。当前<code>Meta_Self</code>与<code>Meta_Self_neo</code>的六组processed文件SHA-256完全相同，且其中边数对应旧图。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ptb</th><th class="num">旧raw经loader应得有向边数(含自环)</th><th class="num">neo raw经loader应得边数</th><th class="num">两目录现存processed</th><th>SHA-256前缀</th></tr></thead>
+          <tbody>
+            <tr><td>0.00</td><td class="num">13264</td><td class="num">13264</td><td class="num">13264</td><td class="mono">6817AF06F420</td></tr>
+            <tr><td>0.05</td><td class="num">13850</td><td class="num">13766</td><td class="num">13850</td><td class="mono">9D86F73A0D83</td></tr>
+            <tr><td>0.10</td><td class="num">14378</td><td class="num">14162</td><td class="num">14378</td><td class="mono">57D14C8F96CE</td></tr>
+            <tr><td>0.15</td><td class="num">14952</td><td class="num">14594</td><td class="num">14952</td><td class="mono">0A69A3D1D0CB</td></tr>
+            <tr><td>0.20</td><td class="num">15484</td><td class="num">15058</td><td class="num">15484</td><td class="mono">DC5F5CD0B72E</td></tr>
+            <tr><td>0.25</td><td class="num">15976</td><td class="num">15474</td><td class="num">15976</td><td class="mono">3DDF73134DA9</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>split本身已经对齐</h3>
+      <p>旧raw与neo raw的全部六个浓度共享同一组索引：train=35、val=265、test=2408；train每类5个。train/val/test哈希分别为<code>1D223096…</code>、<code>00838368…</code>、<code>37FC182A…</code>。因此“各浓度split错位”不是当前主要问题。</p>
+    </section>
+
+    <section id="mechanism">
+      <h2>4.代码与数学机制</h2>
+
+      <h3>4.1默认shield在实际图上如何退化</h3>
+      <p>以下不是对文档的猜测，而是按当前loader语义在旧raw上重放节点筛选：先去除已有自环，再为2708个节点各加一个自环；阈值为<code>sim=0.2</code>、<code>degree=1</code>、<code>OOD=0.4</code>。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ptb</th><th class="num">sim_pt节点</th><th class="num">degree_pt节点</th><th class="num">OOD节点</th><th class="num">other节点</th><th>实际结构</th></tr></thead>
+          <tbody>
+            <tr><td>0.00</td><td class="num">85</td><td class="num">0</td><td class="num">2658</td><td class="num">50</td><td>OOD已覆盖98.15%</td></tr>
+            <tr><td>0.05</td><td class="num">115</td><td class="num">0</td><td class="num">2675</td><td class="num">33</td><td>sim包含于OOD</td></tr>
+            <tr><td>0.10</td><td class="num">127</td><td class="num">0</td><td class="num">2690</td><td class="num">18</td><td>other仅0.66%</td></tr>
+            <tr><td>0.15</td><td class="num">131</td><td class="num">0</td><td class="num">2695</td><td class="num">13</td><td>OOD接近全图</td></tr>
+            <tr><td>0.20</td><td class="num">148</td><td class="num">0</td><td class="num">2700</td><td class="num">8</td><td>仅8个complement</td></tr>
+            <tr class="row-risk"><td>0.25</td><td class="num">162</td><td class="num">0</td><td class="num">2705</td><td class="num">3</td><td>2543个OOD-only、162个sim+OOD、3个other</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">在修正neo raw上，M-0.25仍为sim=148、degree=0、OOD=2700、other=8；预算修正没有改变退化形态。</p>
+
+      <div class="grid-2">
+        <div class="callout red">
+          <div class="callout-title">degree_pt在节点筛选/前向贡献上是no-op</div>
+          <p>代码使用含自环度数<code>deg&lt;=1</code>。图无孤立节点，每个节点至少有自己的自环，所以六个浓度均选择0个节点。给定其余参数完全相同时，degree=1对前向函数没有贡献；但模块实例化会推进RNG，因此完整训练过程不等价于未启用degree。</p>
+        </div>
+        <div class="callout red">
+          <div class="callout-title">OOD不是论文的OOD detector</div>
+          <p>当前实现把任意原始特征cosine≤0.4边的两个端点都标记为OOD。稀疏Cora BoW使几乎每个节点至少连接一条低cosine边，因此M-0.25标记2705/2708节点。</p>
+        </div>
+      </div>
+
+      <h4>filter检测能力与分类结果没有同步</h4>
+      <p>在<code>logs/5filter_combos/all5_ptb0.25.log</code>中，sim-tip对“新增攻击边”检测的edge-F1=0.6466、recall=0.9549；说明其排序/筛选并非完全无信息。该edge指标不是逐边cosine分类，而是把sim节点mask传播到所有相邻边后计算。同批分类accuracy仅0.0987±0.0363。相反，OOD-tip预测几乎全部边异常，TNR=0、balanced accuracy≈0.500；degree-tip始终预测0。最终embedding τ_tune每个seed只预测7至23条异常边，而新增攻击边为1507条，F1仅0.0079至0.0249。</p>
+      <div class="callout amber">
+        <div class="callout-title">这改变了问题定位</div>
+        <p>“filter不能识别任何攻击边”不是准确结论。更精确的困局是：一个有一定边检测能力的sim信号，经过节点分组、p_plus prompt、τ_tune和损失共同优化后，没有转化为分类鲁棒性；同时OOD和degree两个默认tip在运行语义上分别近似全选和全不选。</p>
+      </div>
+
+      <h3>4.2RobustPrompt与GPF/GPF-plus的真实关系</h3>
+      <div class="math">
+        P_v=\frac{1}{|T(v)|}\sum_{t\in T(v)}\operatorname{softmax}(W_tx_v)B_t,\qquad x'_v=x_v+P_v
+        <small>p_plus=True时，每个tip有20×1433的token bank B_t和1433→20的门控W_t；不开attention时，对同一节点命中的tip取均值。</small>
+      </div>
+      <p>当只启用<code>other_pt='all'</code>时，这个加prompt公式与GPF-plus完全同构：<code>softmax(Wx)B</code>加到所有节点。这里仅指prompt公式；普通<code>GPF-plus</code>走induced-subgraph路径，全图可比基线应是<code>GPF-plus-Tranductive</code>。RobustPrompt相对该全图基线新增的不是基础prompt表达能力，而是节点分组、τ剪边和辅助损失。因此，用户关于“结果不应无缘无故比GPF差很多”的直觉成立；现有最需要隔离的是这些新增机制，而不是继续泛调prompt学习率。</p>
+      <p class="table-note">“filter_module不进入前向”只适用于RobustPrompt-T/I/NSP主链；GPPT是例外，它在GNN embedding之后、SimpleMeanConv/TaskToken之前调用filter。两者不能用同一句话概括。</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>组件</th><th class="num">参数量</th><th>当前作用</th></tr></thead>
+          <tbody>
+            <tr><td>每个p_plus tip</td><td class="num">57,340</td><td>20×1433 token bank+Linear(1433→20)。</td></tr>
+            <tr><td>默认sim+degree+OOD+other</td><td class="num">229,360</td><td>degree分支无前向样本；OOD近全图；仍全部被实例化。</td></tr>
+            <tr><td>5-filter+other</td><td class="num">344,040</td><td>六个条件prompt bank；不含分类头。</td></tr>
+            <tr><td>MultiheadAttention</td><td class="num">8,219,688</td><td>即使<code>use_attention=False</code>也被实例化并推进RNG；无前向梯度时不会更新。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Cora输入每行平均18.17个非零词、median=20，已L1归一化，平均L2范数0.255。prompt会把稀疏输入变为稠密输入，这是明确的分布变化；但p_plus初始输出是20个token的加权混合，不能仅用单个token的Glorot范数断言“必然淹没特征”。该项应保留为可测假设。</p>
+
+      <h3>4.3τ_tune：论文、原版和当前实现的核心差异</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>路径</th><th>训练计算</th><th>是否可对τ求梯度</th><th>推理计算</th></tr></thead>
+          <tbody>
+            <tr><td>论文式(15)</td><td><code>H=f(A,X+P)</code>，按<code>cos(H_i,H_j)&gt;τ</code>构造训练图</td><td>硬mask不可导</td><td><code>f(A_att,X+P)</code>，不剪边</td></tr>
+            <tr><td>上游/兼容克隆</td><td>先按<code>cos((X+P)_i,(X+P)_j)</code>剪边，再一次GNN</td><td>硬mask不可导；mask随prompt离散跳变</td><td>完整攻击图一次GNN</td></tr>
+            <tr class="row-focus"><td>当前ours/NSP</td><td>完整图<code>GNN₁</code>→embedding硬剪边→剪枝图<code>GNN₂</code></td><td>hard threshold本身不可导</td><td>完整攻击图一次GNN</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>原版M-0.25复现使用<code>τ=0.5</code>。作为尺度诊断，在不加prompt的原始X上，clean边cosine中位数0.1474、M-0.25为0.1155；低于0.25的非自环边比例从79.37%升至82.97%，低于0.5的比例从98.16%升至98.42%。原版实际mask使用<code>X+P</code>，所以这些比例不是实际剪枝数，但足以说明阈值对稠密prompt的尺度高度敏感。</p>
+      <p>训练后测试又恢复完整攻击图。论文明确如此设计，因此它不是本地偶然写错；但在高污染下，它形成了实质域偏移：分类头在一个由当前prompt离散决定的训练图上学习，却在另一张完整图上评估。</p>
+
+      <h3>4.4损失和训练控制</h3>
+      <div class="math">
+        L=L_{CE}+\alpha L_{MSE}+\beta L_{KL}+\gamma L_{constraint}
+        <small>5-filter主批次：α=0.1、β=0.1、γ=0.2；原版64dim复现：α=0.1、β=0.3、γ=0.2。</small>
+      </div>
+      <ul>
+        <li>当前ours的MSE在τ剪枝后边上计算；上游原版在剪枝前全图边上计算。</li>
+        <li>p_plus=True时<code>L_constraint=0</code>，因此论文的多prompt overlap约束在主批次不生效。</li>
+        <li>每个tip的KL把该tip节点平均embedding对齐到其补集平均embedding。M-0.25时OOD组有2705个节点、补集只有3个，目标均值对三个other-prompt节点极度敏感。</li>
+        <li>训练循环用总训练loss做20次patience；验证集调用被注释。它记录“best”但不保存或恢复prompt/分类头，最终评估停止时的最后状态。</li>
+        <li>若最后loss为NaN，代码直接返回NaN；即使更早epoch已有有效模型，也不会恢复。这与日志中的seed级NaN一致。</li>
+      </ul>
+
+      <h3>4.5组合实验的随机初始化混杂</h3>
+      <p>degree=1选择0个节点，所以理论上“ood”与“degree+ood”的前向函数只差一个从未命中节点的degree模块。但<code>NodeTask</code>按<code>GNN→prompt→answering</code>初始化；启用degree会先随机初始化额外token bank，再初始化后续other bank和分类头。相同seed因此不再代表相同有效参数初值。31组合之间的差异混合了filter效果和RNG位移，不能做严格因果排序。</p>
+
+      <h3>4.6两个容易误读的辅助路径</h3>
+      <div class="grid-2">
+        <div class="callout">
+          <div class="callout-title">IA-PT不是直接标签泄漏</div>
+          <p class="small"><code>get_psu_labels()</code>只看MLP logits和test索引，不读取真实test标签。MLP梯度只使用35个train标签；val真标签进入退化的checkpoint逻辑；test真标签仅计算最终诊断accuracy。epoch0验证后模型没有切回train，后续Dropout关闭且BatchNorm统计冻结；best变量又在每个epoch重置，通常保存最后一个val-accuracy非零状态，而非真正best checkpoint。</p>
+        </div>
+        <div class="callout">
+          <div class="callout-title">“linear probe”仍是图模型</div>
+          <p class="small"><code>eval_pretrain.py</code>先用攻击图计算GNN embedding，再做LogisticRegression；并按test accuracy排序checkpoint。如果“peak backbone”由该排序选择，则模型选择是test-informed，必须在最终实验中重做test-blind选择。</p>
+        </div>
+      </div>
+      <div class="callout red">
+        <div class="callout-title">Inductive子图路径存在真实标签条件化</div>
+        <p class="small"><code>induced_graph.py</code>用中心节点真实类别补齐同类节点，val/test中心也在内；clean路径的<code>smallest_size=5</code>，attacked路径为100。缓存<code>induced_graph.pkl</code>的身份又不包含数据哈希、源码版本、smallest_size或生成seed。<code>RobustPrompt-I-original</code>也共享这套当前子图生成和缓存，并非完整上游inductive pipeline。因而7月16日ours/original日志不能用于证明prompt数学设计优劣；其中多个seed为NaN，也不能从剩余seed补算曲线。</p>
+      </div>
+      <p>此外，当前GraphCL的<code>permE</code>实现只随机删除比例为<code>aug_ratio</code>的有向边，不执行GraphCL通常含义下的删边+加边置换；它还可能破坏增强视图的无向对称性。该行为与上游发布代码一致，所以它是backbone实现风险，而不是本地后来改坏。</p>
+    </section>
+
+    <section id="results">
+      <h2>5.结果证据：按数据身份分开</h2>
+      <p>以下只挑能够改变判断的少量结果。不同表不做横向显著性比较；每张表都给出六个污染浓度、完整配置边界和证据等级。</p>
+
+      <h3>5.1服务器记录的外部新数据批次：名义高污染下仍然崩塌</h3>
+      <p><span class="label b">B</span>来源为<a href="../advanced_report/李志远同学260708.docx">李志远同学260708.docx</a>。文档记录：<code>D:\L\Meta_Self\raw</code>、GraphMAE-GCN256、checkpoint<code>Cora.GraphMAE.GCN.256hidden_dim.seed_2.pth</code>、split=35/2408、seeds=1/16/32/48/56；DOCX报告称5种prompt×6浓度×5seed共150条seed-level结果全部有效。原始图、逐seed日志和精确prompt命令未入库，因此数据边数和实际攻击预算不能本地复核。</p>
+      <div class="table-wrap">
+        <table>
+          <caption>DOCX报告的Accuracy，5seed mean±std；原始seed日志未归档，源文档未说明std的ddof</caption>
+          <thead><tr><th>Prompt</th><th class="num">0.00</th><th class="num">0.05</th><th class="num">0.10</th><th class="num">0.15</th><th class="num">0.20</th><th class="num">0.25</th></tr></thead>
+          <tbody>
+            <tr class="row-focus"><td>Gprompt</td><td class="num">0.6909±0.0016</td><td class="num">0.4826±0.0031</td><td class="num">0.3559±0.0022</td><td class="num">0.2476±0.0007</td><td class="num">0.1665±0.0009</td><td class="num">0.1002±0.0030</td></tr>
+            <tr><td>GPPT</td><td class="num">0.7039±0.0000</td><td class="num">0.1790±0.0000</td><td class="num">0.2031±0.0000</td><td class="num">0.1894±0.0000</td><td class="num">0.1968±0.0000</td><td class="num">0.1096±0.0000</td></tr>
+            <tr><td>All-in-one</td><td class="num">0.1545±0.0000</td><td class="num">0.1818±0.0236</td><td class="num">0.2067±0.0269</td><td class="num">0.2759±0.0342</td><td class="num">0.2918±0.0229</td><td class="num">0.2867±0.0275</td></tr>
+            <tr><td>GPF-plus</td><td class="num">0.4044±0.0133</td><td class="num">0.2575±0.0020</td><td class="num">0.1633±0.0088</td><td class="num">0.1101±0.0047</td><td class="num">0.2223±0.0020</td><td class="num">0.2196±0.0031</td></tr>
+            <tr><td>GPF</td><td class="num">0.2509±0.0512</td><td class="num">0.2207±0.0161</td><td class="num">0.1662±0.0293</td><td class="num">0.2521±0.0364</td><td class="num">0.2446±0.0466</td><td class="num">0.1683±0.0392</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">All-in-one的accuracy上升伴随极低Macro-F1，原DOCX已明确不能解释为鲁棒性增强。GPPT全曲线和All-in-one clean的std均为0；文档给出五个seed设定，但逐seed原始行缺失，所以只能按报告值保留，不能独立验证五次运行是否不同。该批是“服务器外部新数据上仍差”的直接报告证据，不是“修正预算后仍差”的可验证证据。</p>
+
+      <h3>5.2本地5-filter主批次：直接35-shot与IA必须分表理解</h3>
+      <p><span class="label a">A</span>来源为完整日志和<a href="../advanced_report/5filter_combo_data.json">5filter_combo_data.json</a>；本报告重新采用全部5seed，不使用<code>MyTask.py</code>删除最小值后的尾部汇总。数据为旧processed计数；backbone为GraphCL-GCN256“peak”；epochs=200、prompt_lr=0.01、p_plus=True、attention=False、τ=0.25、MSE/KL/constraint=0.1/0.1/0.2；all5阈值=sim0.2/degree1/OOD0.4/NSP0.3/FC0.5。</p>
+      <div class="table-wrap">
+        <table>
+          <caption>RobustPrompt-T-NSP all5，Accuracy，完整5seed mean±std</caption>
+          <thead><tr><th>监督协议</th><th class="num">0.00</th><th class="num">0.05</th><th class="num">0.10</th><th class="num">0.15</th><th class="num">0.20</th><th class="num">0.25</th></tr></thead>
+          <tbody>
+            <tr class="row-risk"><td>直接处理：35个真标签</td><td class="num">0.5935±0.0187</td><td class="num">0.1913±0.0266</td><td class="num">0.1031±0.0228</td><td class="num">0.0789±0.0115</td><td class="num">0.0840±0.0106</td><td class="num">0.0987±0.0363</td></tr>
+            <tr class="row-control"><td>IA：35真标签+最多560伪标签</td><td class="num">0.4965±0.0679</td><td class="num">0.5296±0.0428</td><td class="num">0.4878±0.0532</td><td class="num">0.4733±0.0777</td><td class="num">0.5484±0.0410</td><td class="num">0.4366±0.0670</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>IA结果表明加入大量test节点伪标签与更高accuracy相关，但没有保存伪标签precision，不能证明这些伪监督可靠，也不能证明all5 shield有效；它改变了训练信息量。直接35-shot行则说明5个filter全开没有解决主问题。</p>
+
+      <h3>5.3上游兼容克隆：目前仍不是论文复现</h3>
+      <p><span class="label a">A</span>日志为<a href="../logs/orig_64dim_clean.log">orig_64dim_clean.log</a>和<a href="../logs/orig_64dim_ptb025.log">orig_64dim_ptb025.log</a>。Cora全图N=2708、split=1、seeds=1–5、GCN64、p_plus=True、attention=False、τ=0.5、MSE/KL/constraint=0.1/0.3/0.2；日志未打印prompt_lr，精确checkpoint和完整命令也未保存。只有clean与M-0.25完成，M-0.25有1/5seed NaN。</p>
+      <div class="table-wrap">
+        <table>
+          <caption>兼容克隆Accuracy；“—”表示未运行或未保存</caption>
+          <thead><tr><th>实现</th><th class="num">0.00</th><th class="num">0.05</th><th class="num">0.10</th><th class="num">0.15</th><th class="num">0.20</th><th class="num">0.25</th></tr></thead>
+          <tbody>
+            <tr><td>RobustPrompt-T original-compatible</td><td class="num">0.4414±0.0749</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">不可汇总：1/5 NaN</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">M-0.25其余4个seed为0.0835/0.0797/0.0901/0.0814；按项目规范不以4seed均值替代5seed结果。该批使用2708节点旧预算全图，与论文2485节点LCC不一致。</p>
+
+      <h3>5.4保存权重的配对只读重放：预算修正影响很小</h3>
+      <p><span class="label a">A</span>使用AttrPrompt目录保存的GCN teacher权重<code>model_0.pth</code>至<code>model_4.pth</code>，不训练，按其两层GCN公式分别在旧raw和neo raw上重放。teacher为GCN1433→16→7，在clean图以35个train标签训练，epochs=400、lr=0.01、weight_decay=5e-4、dropout=0.5、patience=100，val=265；输入、split和权重完全相同，只替换攻击邻接，结果用test=2408节点计算。</p>
+      <div class="table-wrap">
+        <table>
+          <caption>监督GCN teacher，seeds0–4，Accuracy mean±std</caption>
+          <thead><tr><th>评估图</th><th class="num">0.00</th><th class="num">0.05</th><th class="num">0.10</th><th class="num">0.15</th><th class="num">0.20</th><th class="num">0.25</th></tr></thead>
+          <tbody>
+            <tr><td>旧<code>Meta_Self/raw</code></td><td class="num">0.6868±0.0132</td><td class="num">0.6836±0.0149</td><td class="num">0.6817±0.0151</td><td class="num">0.6783±0.0150</td><td class="num">0.6759±0.0148</td><td class="num">0.6736±0.0154</td></tr>
+            <tr class="row-control"><td>修正<code>Meta_Self_neo/raw</code></td><td class="num">0.6868±0.0132</td><td class="num">0.6832±0.0132</td><td class="num">0.6834±0.0143</td><td class="num">0.6783±0.0141</td><td class="num">0.6790±0.0148</td><td class="num">0.6761±0.0147</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>在这个固定监督控制上，M-0.25修正预算只提高0.25个百分点。这不能外推为所有prompt的影响，但直接支持“预算Bug不是崩塌主因”。同时，它说明同一攻击图对不同训练范式的影响差异极大：问题不是“图一被污染任何模型都必然只剩10%”。</p>
+
+      <h3>5.5论文目标：仅作目标值，不与本地表直接并列排名</h3>
+      <p><span class="label c">论文</span>Table1只报告clean和M-0.25，没有0.05至0.20曲线，也没有seed-level/std。论文攻击Cora使用LCC；以下保留六列以明确缺失范围。</p>
+      <div class="table-wrap">
+        <table>
+          <caption>ICLR2025 Table1 Cora 5-shot点估计</caption>
+          <thead><tr><th>Pretrain</th><th>Prompt</th><th class="num">0.00</th><th class="num">0.05</th><th class="num">0.10</th><th class="num">0.15</th><th class="num">0.20</th><th class="num">0.25</th></tr></thead>
+          <tbody>
+            <tr><td>GraphCL</td><td>GPF</td><td class="num">0.5406</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">0.3383</td></tr>
+            <tr><td>GraphCL</td><td>GPF-plus</td><td class="num">0.6639</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">0.3683</td></tr>
+            <tr><td>GraphCL</td><td>GPPT</td><td class="num">0.4524</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">0.2086</td></tr>
+            <tr><td>GraphCL</td><td>MD-PT</td><td class="num">0.4939</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">0.4806</td></tr>
+            <tr><td>GraphCL</td><td>IA-PT</td><td class="num">0.5782</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">0.5882</td></tr>
+            <tr><td>GraphMAE</td><td>GPF</td><td class="num">0.6671</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">0.3882</td></tr>
+            <tr><td>GraphMAE</td><td>GPF-plus</td><td class="num">0.6340</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">0.3946</td></tr>
+            <tr><td>GraphMAE</td><td>GPPT</td><td class="num">0.6779</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">0.4317</td></tr>
+            <tr><td>GraphMAE</td><td>MD-PT</td><td class="num">0.6249</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">0.6249</td></tr>
+            <tr><td>GraphMAE</td><td>IA-PT</td><td class="num">0.6893</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">未报告</td><td class="num">0.6830</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="timeline">
+      <h2>6.项目脉络：按证据而非文件名拼接</h2>
+      <div class="timeline">
+        <div class="time-row"><div class="time-date">2026-04/05</div><div class="time-stage">上游引入与早期修复</div><div class="time-body">导入GPromptShield；围绕filter_module、attention、forward与数据路径逐步修复。Meeting10交接记录最终调参多为服务器手工命令，不能用现存shell反推全部实验。</div></div>
+        <div class="time-row"><div class="time-date">2026-06-03</div><div class="time-stage">本地“论文对齐”</div><div class="time-body">移除filter_module主前向，形成<code>add prompt→GNN₁→embedding τ→GNN₂</code>。这比发布代码更接近论文式(15)，但不是发布代码的忠实行为。</div></div>
+        <div class="time-row"><div class="time-date">2026-06-14~20</div><div class="time-stage">数据统一与Meeting13/14</div><div class="time-body">统一<code>data_attack_fewshot</code>、修复多项链路；完成stable/peak GraphCL backbone和大规模filter阈值矩阵。多数报告使用原脚本删最小seed的聚合，后续应重新按5seed读取。</div></div>
+        <div class="time-row"><div class="time-date">2026-07-04~09</div><div class="time-stage">攻击预算修正</div><div class="time-body">代码注释与diagnostics记录7月4日修正预算公式；修正raw最迟在7月9日随Git提交出现。现存neo processed没有随raw更新，留下缓存身份冲突。</div></div>
+        <div class="time-row"><div class="time-date">2026-07-05</div><div class="time-stage">原版64dim复现</div><div class="time-body">clean完成5seed；M-0.25出现1个NaN且其余约8%。该批仍是全图旧预算，并未匹配论文LCC。</div></div>
+        <div class="time-row"><div class="time-date">2026-07-08</div><div class="time-stage">服务器新数据GraphMAE基线</div><div class="time-body">DOCX记录老师新给<code>D:\L\Meta_Self</code>，5种prompt×5seed×6浓度共150条。Gprompt与GPPT仍在M-0.25降到约10%。</div></div>
+        <div class="time-row"><div class="time-date">2026-07-09~14</div><div class="time-stage">Meeting15/17扩展</div><div class="time-body">加入original分派、GraphMAE、NSP、FocusedCleaner-LP、5-filter组合、IA与边检测。组合日志归档mtime为7月12日，内容属于带Meeting17检测插桩的代码族；精确run commit未保存。日志污染差分可独立证明该批使用旧预算。</div></div>
+        <div class="time-row"><div class="time-date">2026-07-15~16</div><div class="time-stage">inductive原版对照</div><div class="time-body">加入RobustPrompt-I-original与inductive日志；留存日志仍打印旧污染计数。</div></div>
+        <div class="time-row"><div class="time-date">2026-07-22</div><div class="time-stage">AttrPrompt控制</div><div class="time-body">接入AttrPrompt、保存10个监督GCN teacher权重。脚本和HTML记录的逻辑路径为<code>Meta_Self/raw</code>；服务器图二进制未归档。保存权重在当前本地旧raw上的重放与headline形成强匹配，但不能写成服务器图版本已锁定。</div></div>
+      </div>
+      <p class="table-note">Git提交日期常为“集中上传日期”，不是实验发生日期。本时间线在可能时使用日志、DOCX标题和输出文件时间交叉约束。</p>
+    </section>
+
+    <section id="blockers">
+      <h2>7.当前困局与优先级</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>优先级</th><th>困局</th><th>证据状态</th><th>为何阻止结论</th></tr></thead>
+          <tbody>
+            <tr class="row-risk"><td><span class="label x">P0</span></td><td>实验身份没有机器可验证manifest</td><td>已确定</td><td>论文LCC、本地全图、旧raw、新raw、错误processed和外部服务器图被同称为“Meta_Self”；同名ptb不代表同一图。</td></tr>
+            <tr class="row-risk"><td><span class="label x">P0</span></td><td>默认shield在含自环图上退化</td><td>已确定</td><td>degree恒0；OOD近全图；other补集缩至3个节点；KL和prompt分组不再具有设计中的多场景语义。</td></tr>
+            <tr class="row-risk"><td><span class="label x">P0</span></td><td>τ训练/推理拓扑错配</td><td>已确定行为，因果待隔离</td><td>hard mask不可导且随prompt离散变化；训练剪边、测试恢复完整攻击图。原版和ours又采用不同相似度空间。</td></tr>
+            <tr><td><span class="label c">P1</span></td><td>训练不恢复best状态</td><td>已确定</td><td>早停只计训练loss，val被注释；评估最后epoch；NaN seed无法由之前有效checkpoint恢复。</td></tr>
+            <tr><td><span class="label c">P1</span></td><td>组合实验不是配对因果实验</td><td>已确定</td><td>无效degree模块仍改变后续prompt和head初始化；31组合最大值还有多重选择偏差。</td></tr>
+            <tr><td><span class="label c">P1</span></td><td>Inductive输入与缓存协议不成立</td><td>已确定</td><td>子图补齐读取val/test中心真实类别；clean/attacked最小子图大小不同；缓存键缺少数据和生成身份。现有inductive曲线不能比较ours与original。</td></tr>
+            <tr><td><span class="label c">P1</span></td><td>论文复现条件仍不完整</td><td>已确定缺口</td><td>缺LCC攻击图、完整命令、seed明细和发布实现与论文式(15)差异；不能把当前失败简化为“论文不可复现”。</td></tr>
+            <tr><td><span class="label">P2</span></td><td>prompt密度、容量与KL可能放大漂移</td><td>机制假设</td><td>输入稀疏而prompt稠密；p_plus参数多；OOD补集极小。但尚无相同初始化、逐组件开关的严格证据。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>已经可以排除的绕路</h3>
+      <ul>
+        <li>继续围绕0.1/0.3等损失权重做无结构网格搜索：会把协议和运行语义问题埋得更深。</li>
+        <li>把“transductive攻击者可见全图”当成Bug：这是Metattack与本项目声明的威胁模型。</li>
+        <li>把预算修正当成主要修复：本地配对teacher重放显示修正预算影响很小；外部新数据批次也未改善现象，但其实际预算未知。</li>
+        <li>继续用“最佳combo”解释某filter有效：当前RNG不配对，degree又是no-op。</li>
+        <li>把IA高accuracy写成MD-PT鲁棒：IA使用最多595个监督节点，属于另一种信息协议。</li>
+      </ul>
+
+      <div class="callout red">
+        <div class="callout-title">诚实结论</div>
+        <p>现有证据不足以承诺一个能够把M-0.25稳定提高到0.4或0.5的极简代码改动。可以给出的极简方案是一个能够在最少实验中判定“shield还有没有值得修的因果增益”的结构化对照；如果该对照失败，应停止在当前MD-PT结构上继续堆filter。</p>
+      </div>
+    </section>
+
+    <section id="handoff">
+      <h2>8.给下一位研究者的极简接手方案</h2>
+      <h3>第一步：冻结唯一实验身份</h3>
+      <p>不要先改模型。先为一次canonical run保存以下manifest；缺一项，结果不进入主表。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>类别</th><th>必须保存</th></tr></thead>
+          <tbody>
+            <tr><td>代码</td><td>Git commit、dirty status、完整命令、Python/PyTorch/PyG版本。</td></tr>
+            <tr><td>数据</td><td>raw图SHA-256、processed图SHA-256、N、非自环无向E、自环数、每个ptb新增/删除/翻转数、LCC/full标志。</td></tr>
+            <tr><td>split</td><td>train/val/test索引哈希、大小、每类shot数。</td></tr>
+            <tr><td>backbone</td><td>checkpoint路径+SHA-256、预训练数据身份、hidden dim、预训练选择是否使用test。</td></tr>
+            <tr><td>运行</td><td>五个固定seed的逐seedaccuracy、NaN、停止epoch、最佳/最终checkpoint策略。</td></tr>
+            <tr><td>统计</td><td>不删seed；5/5有效才给mean±population std；同时给clean和全部五个污染浓度。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>第二步：只做四个共享初始化的结构对照</h3>
+      <ol>
+        <li><strong>GPF-plus-Tranductive：</strong>全图直接prompt基线；不要使用普通induced-subgraph版GPF-plus。</li>
+        <li><strong>other-only：</strong>复用GPF-plus-Tranductive完全相同的token bank、门控和分类头初值；关闭tip、τ和辅助损失。理论上应与该全图基线一致，用来验证pipeline。</li>
+        <li><strong>sim分组only：</strong>在第2项权重上只加入sim节点分组，不加τ/MSE/KL；检验filter分组本身是否带来增益。</li>
+        <li><strong>sim+τ拓扑2×2：</strong>训练剪/不剪×测试剪/不剪，仍复制相同初值；判定崩塌来自τ本身还是train/eval错配。</li>
+      </ol>
+      <p>四项均在同一修正raw图、同一split、同一backbone、同一5seed上跑完整六浓度。不要重新随机初始化“等价”模块；应显式复制有效参数state_dict后再加结构差异。</p>
+
+      <h3>第三步：只保留两个协议外对照</h3>
+      <ul>
+        <li><strong>LCC vs full：</strong>同一生成器、同一真实预算、同一split规则分别构造，直接量化论文数据设定差异。</li>
+        <li><strong>IA独立表：</strong>作为独立自训练对照，报告每类实际选中伪标签数、伪标签precision和35→N扩展量；不与35-shot直接处理混称。</li>
+      </ul>
+
+      <div class="callout green">
+        <div class="callout-title">停止条件</div>
+        <p>若第2项能够复现GPF-plus，而第3项没有稳定增益、第4项任何τ拓扑都没有增益，则可以较有把握地停止当前MD-PT shield路线；下一步应转向“不依赖攻击图消息传播”的结构门控或监督扩展，而不是再增加第六、第七个filter。若sim分组only有增益而τ版本失效，则保留filter，删除τ和相关辅助损失才是最小结构方案。</p>
+      </div>
+
+      <p class="small">本审计没有执行上述训练，也没有修改任何代码、数据、权重、日志或旧报告。</p>
+    </section>
+
+    <section id="sources">
+      <h2>9.主要来源索引</h2>
+      <ul class="source-list">
+        <li><a href="../reference/GPromptShield Elevating Resilience in Graph Prompt Learning Against Adversarial Attacks.pdf">GPromptShield论文PDF</a>：式(10)–(16)、Table1、Appendix A.4/Table4。</li>
+        <li><a href="../GPromptShield-master/prompt_graph/prompt/RobustPrompt_T.py">上游RobustPrompt_T.py</a>：feature-level τ、OOD pass、attention覆盖。</li>
+        <li><a href="../prompt_graph/prompt/RobustPrompt_T_original.py">本地兼容克隆</a>：原版运行分派。</li>
+        <li><a href="../prompt_graph/prompt/RobustPrompt_T.py">当前RobustPrompt_T.py</a>：双前向embedding τ、当前OOD。</li>
+        <li><a href="../prompt_graph/prompt/RobustPrompt_T_NSP.py">RobustPrompt_T_NSP.py</a>：NSP/FocusedCleaner tip与5-filter路径。</li>
+        <li><a href="../prompt_graph/tasker/node_task.py">node_task.py</a>：数据加载、IA、训练循环、异常检测。</li>
+        <li><a href="../prompt_graph/data/induced_graph.py">induced_graph.py</a>：inductive子图补齐与真实类别条件化。</li>
+        <li><a href="../prompt_graph/tasker/task.py">task.py</a>：初始化顺序、prompt分派、optimizer。</li>
+        <li><a href="../prompt_graph/evaluation/RobustPromptTranductiveEva.py">RobustPromptTranductiveEva.py</a>：推理不剪边。</li>
+        <li><a href="../data_attack_fewshot/attackdata_specified.py">attackdata_specified.py</a>：processed优先与自环处理。</li>
+        <li><a href="../generate_few_shot_attack.py">generate_few_shot_attack.py</a>：修正后的非自环预算。</li>
+        <li><a href="../GPromptShield-master/generate_few_shot_attack.py">上游攻击生成器</a>：含自环预算、全图路径。</li>
+        <li><a href="../advanced_report/李志远同学260708.docx">7月8日GraphMAE新数据DOCX</a>：150条服务器手工基线。</li>
+        <li><a href="../advanced_report/5filter_combo_data.json">5-filter结构化结果</a>：逐组合逐浓度5seed数据。</li>
+        <li><a href="../logs/5filter_combos/all5_ptb0.25.log">all5 M-0.25日志</a>：数据计数、配置、seed与检测指标。</li>
+        <li><a href="../logs/orig_64dim_clean.log">原版64dim clean日志</a>与<a href="../logs/orig_64dim_ptb025.log">M-0.25日志</a>。</li>
+        <li><a href="../neo_report/attrprompt_baseline.html">AttrPrompt原报告</a>及<a href="../AttrPrompt-main/AttrPrompt-main/save_cora/GCN/">保存的GCN teacher权重</a>。</li>
+        <li><a href="../eval_pretrain.py">eval_pretrain.py</a>：攻击图embedding probe与test排序。</li>
+        <li><a href="../prompt_graph/utils/perturbation.py">GraphCL augmentation实现</a>：permE仅删边。</li>
+        <li><a href="../MyTask.py">MyTask.py</a>：尾部seed聚合删除最小值。</li>
+        <li><a href="../reports/项目历史时间线_至Meeting14.md">Meeting14前历史时间线</a>。</li>
+        <li><a href="../reports/meeting14_full_experiment_report.html">Meeting14全量报告</a>。</li>
+        <li><a href="../advanced_report/meeting15_diagnostics.html">Meeting15 diagnostics</a>与<a href="../advanced_report/meeting15_root_cause.html">旧root-cause报告</a>：本报告已对其中若干过度结论做撤回。</li>
+        <li><a href="../advanced_report/gpromptshield_pretrain_graph_audit_20260726.html">预训练/下游图审计</a>：clean预训练与attacked下游链。</li>
+        <li><a href="../reports/26.5.28_meeting_10_交接_rprompt调参(2).pdf">Meeting10交接PDF</a>：手工服务器调参记录。</li>
+      </ul>
+
+      <details>
+        <summary>本报告中的可复核数字</summary>
+        <ul class="small">
+          <li>文件总数、扩展名分布：仓库递归枚举，排除<code>.git</code>内部。</li>
+          <li>旧/neo边翻转：对应raw稀疏图与clean图集合差。</li>
+          <li>processed相等：六对文件逐个SHA-256。</li>
+          <li>filter覆盖：按<code>attackdata_specified.py</code>自环语义和RobustPrompt代码阈值重放。</li>
+          <li>AttrPrompt teacher：直接读取保存权重和raw稀疏图，以两层<code>A_norm XW</code>公式只读重放；10seed聚合可精确复现原HTML headline，本表按项目规范仅用seed0–4。该重放证明当前本地旧raw能够复现headline，不等价于服务器图的字节级身份已经证明。</li>
+          <li>5-filter：从结构化JSON与原始日志交叉检查，使用5个seed的简单mean±population std。</li>
+        </ul>
+      </details>
+    </section>
+
+    <footer>
+      <p>技术交接审计·2026-07-27。结论只覆盖当前仓库快照和已保存的外部报告；未保存的服务器命令、图二进制或日志不作反向臆测。</p>
+    </footer>
+  </div>
+  </main>
+</div>
+
+<script>
+  (() => {
+    const links=[...document.querySelectorAll('nav a')];
+    const sections=links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+    const sync=()=>{
+      let active=sections[0];
+      for(const s of sections){if(s.getBoundingClientRect().top<=110)active=s}
+      links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+active.id));
+    };
+    addEventListener('scroll',sync,{passive:true});sync();
+  })();
+</script>
+</body>
+</html>

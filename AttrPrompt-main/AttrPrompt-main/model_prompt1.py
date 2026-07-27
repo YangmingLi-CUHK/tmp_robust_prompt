@@ -116,9 +116,13 @@ class DynamicPrompt(nn.Module):
         # base_prompt = F.normalize(F.relu(self.prompt_g(x, adj_f)), dim=1)
         # base_prompt = F.relu(self.prompt_g2(base_prompt, adj_f))  #先学一个固定的prompt
         if adj_a.is_sparse:
-            adj_a = adj_a.to_dense()
-        adj_a.fill_diagonal_(0)
-        neighbor = torch.mm(adj_a, x)
+            adj_neighbor = adj_a.to_dense()
+        else:
+            adj_neighbor = adj_a.clone()
+        # Exclude self-neighbors for the gate without mutating the adjacency
+        # that is subsequently consumed by the frozen GCN.
+        adj_neighbor.fill_diagonal_(0)
+        neighbor = torch.mm(adj_neighbor, x)
         # neighbor = 0.5*(neighbor+x)
         #
         gamma = self.gamma_1(neighbor)  # + self.gamma_2(x)

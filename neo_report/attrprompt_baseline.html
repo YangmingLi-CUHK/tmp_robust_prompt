@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AttrPrompt Baseline — Cora 5-shot + Metattack</title>
+<style>
+  :root { --bg: #fff; --text: #222; --muted: #666; --border: #e0e0e0; --accent: #2563eb; }
+  body { font: 14px/1.5 system-ui, -apple-system, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: var(--text); background: var(--bg); }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 28px 0 8px; }
+  .meta { color: var(--muted); font-size: 12px; margin-bottom: 24px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 10px; text-align: right; }
+  th { font-weight: 600; border-bottom: 2px solid var(--border); color: var(--muted); font-size: 12px; text-transform: uppercase; }
+  td { border-bottom: 1px solid var(--border); }
+  td:first-child, th:first-child { text-align: left; }
+  tr.highlight td { background: #f0f4ff; font-weight: 600; }
+  .good { color: #16a34a; }
+  .bad { color: #dc2626; }
+  .ok { color: #d97706; }
+  .note { background: #f8f8f8; padding: 10px 14px; border-left: 3px solid var(--accent); font-size: 13px; margin: 16px 0; }
+  ul { padding-left: 18px; }
+  li { margin: 3px 0; font-size: 13px; }
+  .row-label { font-weight: 500; }
+</style>
+</head>
+<body>
+
+<h1>AttrPrompt Baseline — Cora 5-shot + Metattack</h1>
+<p class="meta">Server: RTX 5090 &nbsp;|&nbsp; 10 seeds &nbsp;|&nbsp; 2026-07-22 &nbsp;|&nbsp; Data: <code>data_attack_fewshot/Cora/shot_5/1/Meta_Self</code></p>
+
+<h2>1. Results Summary</h2>
+<table>
+  <tr><th>Method</th><th>Clean</th><th>M-0.05</th><th>M-0.10</th><th>M-0.15</th><th>M-0.20</th><th>M-0.25</th><th>Δ (clean→M-0.25)</th></tr>
+  <tr>
+    <td class="row-label">GCN Teacher (no prompt)</td>
+    <td>68.91 ± 1.49</td>
+    <td>68.82 ± 1.65</td>
+    <td>68.69 ± 1.56</td>
+    <td>68.31 ± 1.51</td>
+    <td>68.11 ± 1.53</td>
+    <td><strong>68.03 ± 1.50</strong></td>
+    <td class="good">−0.88</td>
+  </tr>
+  <tr class="highlight">
+    <td class="row-label">AttrPrompt x (linear)</td>
+    <td>68.81 ± 2.20</td>
+    <td>68.40 ± 2.43</td>
+    <td>67.83 ± 2.77</td>
+    <td>66.72 ± 2.93</td>
+    <td>65.86 ± 3.17</td>
+    <td><strong>65.47 ± 3.33</strong></td>
+    <td class="ok">−3.34</td>
+  </tr>
+  <tr>
+    <td class="row-label">AttrPrompt dynamic (paper)</td>
+    <td>38.30 ± 8.08</td>
+    <td>37.23 ± 8.06</td>
+    <td>36.69 ± 8.15</td>
+    <td>36.13 ± 8.19</td>
+    <td>35.59 ± 8.13</td>
+    <td><strong>35.22 ± 8.11</strong></td>
+    <td class="bad">−3.08</td>
+  </tr>
+</table>
+
+<h2>2. Key Observations</h2>
+<ul>
+  <li><strong>GCN Teacher alone is highly robust</strong> — only 0.9pp drop from clean to M-0.25. The Metattack perturbation (up to 25% edges added) barely affects a 5-shot GCN, likely because global edge perturbation doesn't concentrate on the 35 labeled nodes' neighborhoods.</li>
+  <li><strong>AttrPrompt x</strong> preserves teacher performance on clean data (68.81% vs 68.91%), but amplifies degradation under attack (−3.3pp vs teacher's −0.9pp). The adversarial PGD training on edges does not transfer to Metattack defense.</li>
+  <li><strong>AttrPrompt dynamic</strong> (paper's default, IB=True, norm_if=True) collapses to ~38% across all ptb rates — a 30pp degradation from teacher. The KNN-graph gating mechanism + adversarial PGD causes severe distribution shift. This holds <em>despite</em> the norm_if bug being fixed.</li>
+</ul>
+
+<h2>3. Configuration</h2>
+<table>
+  <tr><th>Parameter</th><th>GCN Teacher</th><th>AttrPrompt x</th><th>AttrPrompt dynamic</th></tr>
+  <tr><td>Architecture</td><td>2-layer GCN (16-dim)</td><td>Linear(1433→1433) + ReLU</td><td>DynamicPrompt (GCN + gate)</td></tr>
+  <tr><td>Parameters</td><td>~23K</td><td>~2M (prompt gen.)</td><td>~6M (prompt gen.)</td></tr>
+  <tr><td>Training</td><td>CE on 35 labels</td><td>KL distill + PGD (attack_iters=1)</td><td>KL distill + PGD + IB (w=0.05)</td></tr>
+  <tr><td>IB</td><td>—</td><td>False</td><td>True</td></tr>
+  <tr><td>norm_if</td><td>—</td><td>True</td><td>True</td></tr>
+  <tr><td>Epochs</td><td>400 (early stop)</td><td>150</td><td>200</td></tr>
+</table>
+
+<h2>4. Per-Seed Detail</h2>
+
+<h3>GCN Teacher</h3>
+<table>
+  <tr><th>Seed</th><th>Clean</th><th>M-0.05</th><th>M-0.10</th><th>M-0.15</th><th>M-0.20</th><th>M-0.25</th></tr>
+  <tr><td>0</td><td>66.49</td><td>66.45</td><td>66.11</td><td>65.86</td><td>65.99</td><td>65.45</td></tr>
+  <tr><td>1</td><td>69.81</td><td>69.68</td><td>69.73</td><td>69.31</td><td>69.23</td><td>69.19</td></tr>
+  <tr><td>2</td><td>69.93</td><td>69.52</td><td>69.60</td><td>69.10</td><td>69.02</td><td>69.10</td></tr>
+  <tr><td>3</td><td>69.31</td><td>69.23</td><td>68.98</td><td>68.73</td><td>68.44</td><td>68.52</td></tr>
+  <tr><td>4</td><td>67.86</td><td>67.77</td><td>68.01</td><td>67.73</td><td>67.19</td><td>67.61</td></tr>
+  <tr><td>5</td><td>70.85</td><td>70.93</td><td>70.77</td><td>70.35</td><td>70.10</td><td>69.89</td></tr>
+  <tr><td>6</td><td>70.85</td><td>70.56</td><td>70.43</td><td>70.14</td><td>70.35</td><td>70.06</td></tr>
+  <tr><td>7</td><td>67.11</td><td>67.48</td><td>67.19</td><td>66.45</td><td>66.07</td><td>66.03</td></tr>
+  <tr><td>8</td><td>67.40</td><td>66.82</td><td>66.86</td><td>66.45</td><td>66.20</td><td>66.03</td></tr>
+  <tr><td>9</td><td>69.48</td><td>69.77</td><td>69.27</td><td>69.02</td><td>68.48</td><td>68.40</td></tr>
+</table>
+
+<h3>AttrPrompt x</h3>
+<table>
+  <tr><th>Seed</th><th>Clean</th><th>M-0.05</th><th>M-0.10</th><th>M-0.15</th><th>M-0.20</th><th>M-0.25</th></tr>
+  <tr><td>0</td><td>65.99</td><td>65.70</td><td>64.41</td><td>62.79</td><td>61.00</td><td>59.93</td></tr>
+  <tr><td>1</td><td>69.14</td><td>68.69</td><td>67.94</td><td>66.69</td><td>65.61</td><td>65.66</td></tr>
+  <tr><td>2</td><td>70.81</td><td>70.39</td><td>69.89</td><td>68.94</td><td>67.90</td><td>67.11</td></tr>
+  <tr><td>3</td><td>64.16</td><td>63.08</td><td>62.00</td><td>60.63</td><td>59.76</td><td>59.34</td></tr>
+  <tr><td>4</td><td>67.11</td><td>66.15</td><td>65.24</td><td>64.33</td><td>63.33</td><td>62.87</td></tr>
+  <tr><td>5</td><td>70.22</td><td>70.43</td><td>69.93</td><td>68.98</td><td>68.02</td><td>67.65</td></tr>
+  <tr><td>6</td><td>70.43</td><td>70.10</td><td>69.93</td><td>68.56</td><td>67.98</td><td>67.65</td></tr>
+  <tr><td>7</td><td>69.19</td><td>68.98</td><td>68.94</td><td>67.94</td><td>67.61</td><td>67.32</td></tr>
+  <tr><td>8</td><td>69.73</td><td>69.68</td><td>69.56</td><td>68.60</td><td>67.98</td><td>67.86</td></tr>
+  <tr><td>9</td><td>71.35</td><td>70.76</td><td>70.47</td><td>69.73</td><td>69.35</td><td>69.31</td></tr>
+</table>
+
+</body>
+</html>

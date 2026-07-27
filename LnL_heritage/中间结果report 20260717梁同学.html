@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meeting 17｜Similarity Filter NaN 复现实验报告</title>
+  <style>
+    :root {
+      --ink:#172033; --muted:#667085; --line:#e2e8f0; --paper:#fff; --wash:#f4f7fb;
+      --navy:#14234a; --blue:#294fc4; --cyan:#078aa5; --green:#147a55;
+      --amber:#a85e00; --red:#b8323a; --red-soft:#fff1f2; --green-soft:#effaf5;
+    }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; color:var(--ink); background:var(--wash); font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; line-height:1.65; }
+    .hero { color:#fff; background:linear-gradient(125deg,var(--navy) 0%,var(--blue) 57%,var(--cyan) 100%); padding:56px 24px 52px; }
+    .hero-inner, main { max-width:1180px; margin:0 auto; }
+    .eyebrow { font-size:13px; letter-spacing:.15em; opacity:.78; text-transform:uppercase; }
+    h1 { margin:8px 0 12px; font-size:clamp(30px,5vw,50px); line-height:1.17; }
+    .subtitle { max-width:940px; margin:0; font-size:17px; opacity:.9; }
+    main { padding:30px 22px 70px; }
+    section,.card { background:var(--paper); border:1px solid var(--line); border-radius:16px; box-shadow:0 8px 28px rgba(28,42,75,.06); }
+    section { padding:26px 28px; margin:18px 0; }
+    h2 { margin:0 0 14px; font-size:24px; }
+    h3 { margin:21px 0 8px; font-size:18px; }
+    p { margin:8px 0 13px; }
+    .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:-50px 0 22px; }
+    .card { padding:18px 20px; }
+    .label { color:var(--muted); font-size:13px; }
+    .value { margin-top:4px; font-size:27px; font-weight:760; line-height:1.25; }
+    .note { margin-top:5px; color:var(--muted); font-size:12px; }
+    .good { color:var(--green); } .warn { color:var(--amber); } .bad { color:var(--red); }
+    .callout { margin:14px 0; padding:14px 17px; border-left:5px solid var(--amber); border-radius:10px; background:#fff8eb; }
+    .callout strong { color:#804800; }
+    .conclusion { border-left-color:var(--green); background:var(--green-soft); }
+    .conclusion strong { color:#106343; }
+    .danger { border-left-color:var(--red); background:var(--red-soft); }
+    .danger strong { color:#972b32; }
+    .table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:12px; }
+    table { width:100%; border-collapse:collapse; min-width:760px; }
+    th,td { padding:11px 13px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+    th:first-child,td:first-child { text-align:left; }
+    th { background:#f7f9fc; color:#40506b; font-size:13px; }
+    tr:last-child td { border-bottom:0; }
+    tr.highlight td { background:var(--green-soft); font-weight:650; }
+    tr.weak td { background:#fff8eb; }
+    tr.failure td { background:var(--red-soft); }
+    code { padding:2px 6px; border-radius:5px; background:#eef2f8; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+    pre { overflow:auto; margin:12px 0; padding:15px 17px; color:#e7eefc; background:#182238; border-radius:11px; font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    ul,ol { padding-left:22px; } li { margin:6px 0; }
+    .two-col { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    .mini { padding:16px 18px; border:1px solid var(--line); border-radius:12px; background:#fafbfe; }
+    .mini h3 { margin-top:0; }
+    .bar-list { margin:16px 0 4px; }
+    .bar-row { display:grid; grid-template-columns:150px 1fr 80px; align-items:center; gap:12px; margin:11px 0; }
+    .bar-label { font-size:14px; }
+    .track { height:13px; overflow:hidden; background:#edf1f7; border-radius:999px; }
+    .fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#d13c49,#ef7a62); }
+    .fill.green { background:linear-gradient(90deg,#14805a,#24b47e); }
+    .bar-value { text-align:right; color:var(--muted); font-size:13px; }
+    .chain { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px; margin:18px 0; }
+    .chain .step { max-width:180px; padding:11px 13px; text-align:center; border:1px solid var(--line); border-radius:10px; background:#f8fafc; font-size:13px; }
+    .chain .critical { border-color:#f0adb3; color:#8f2931; background:var(--red-soft); font-weight:650; }
+    .arrow { color:#9aa4b2; font-size:20px; }
+    .metric-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:15px 0; }
+    .metric { padding:13px 15px; border:1px solid var(--line); border-radius:11px; background:#fafbfe; }
+    .metric b { display:block; margin-top:2px; font-size:21px; }
+    .source-links { display:flex; flex-wrap:wrap; gap:12px; }
+    .source-links a { padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#f8fafc; }
+    a { color:var(--blue); text-decoration:none; } a:hover { text-decoration:underline; }
+    .footer { margin-top:26px; text-align:center; color:var(--muted); font-size:12px; }
+    @media(max-width:900px){ .grid{grid-template-columns:1fr 1fr;margin-top:-34px}.two-col{grid-template-columns:1fr}.metric-strip{grid-template-columns:1fr}.bar-row{grid-template-columns:120px 1fr 70px} }
+    @media(max-width:560px){ .grid{grid-template-columns:1fr} section{padding:20px 17px}.hero{padding-top:38px}.bar-row{grid-template-columns:100px 1fr 58px}.arrow{transform:rotate(90deg)} }
+    @media print { body{background:#fff}.hero{padding:30px 24px}main{max-width:none;padding:18px}section,.card{box-shadow:none;break-inside:avoid}.grid{margin-top:15px}.source-links{display:none} }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">Meeting 17 · Numerical Stability · Root-cause Analysis</div>
+      <h1>Similarity Filter NaN<br>复现实验完整报告</h1>
+      <p class="subtitle">汇总 <code>logs/5filter_nan_reproduction</code> 下 repro 与 full 两批实验，覆盖精确重复、跨 seed、扰动率、loss/tau/学习率敏感性以及多 filter 交互。</p>
+    </div>
+  </header>
+
+  <main>
+    <div class="grid">
+      <div class="card"><div class="label">实验总数</div><div class="value">132</div><div class="note">两批全部执行完成</div></div>
+      <div class="card"><div class="label">NONFINITE</div><div class="value bad">29</div><div class="note">总体 22.0%，无命令级 FAIL</div></div>
+      <div class="card"><div class="label">同配置复现率</div><div class="value bad">9 / 20</div><div class="note">seed=2 原始配置，45%</div></div>
+      <div class="card"><div class="label">首次异常阶段</div><div class="value warn">backward</div><div class="note">29/29 均为 sim gradients</div></div>
+    </div>
+
+    <section>
+      <h2>执行摘要</h2>
+      <div class="callout danger"><strong>主结论：</strong>NaN 已被高概率复现并定位到 similarity prompt 的反向传播。29 次异常中，forward tensor、CE/MSE/KL、total loss 和参数在更新前均有限；只有 <code>sim</code> 参数组的 57,340 个梯度在 <code>loss.backward()</code> 后同时变为 NaN。</div>
+      <ol>
+        <li><strong>相同 seed 仍随机分叉：</strong>完全相同的 seed=2 配置重复 20 次，9 次异常，首次异常分布于 epoch 120–237。</li>
+        <li><strong>攻击不是必要条件：</strong>干净图 <code>ptb=0.0</code> 也触发 NaN。</li>
+        <li><strong>tau 不是必要条件：</strong><code>no_tau</code> 仍在 epoch 131 触发；tau=0.4 也在 epoch 98 触发。</li>
+        <li><strong>其他 filter 不是最初污染源：</strong>多 filter 异常中 degree、NSP、FC、other 和 answering 在裁剪前均有限，只有 sim 全量 NaN。</li>
+        <li><strong>高度可信根因：</strong>prompt 融合使用 <code>torch.all(... != 0)</code> 判断有效行，并在 <code>torch.where</code> 内提前执行可能除零的表达式；这能完整解释“forward 有限、backward NaN”。</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>批次完整性与异常率</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>批次</th><th>实验数</th><th>DONE</th><th>NONFINITE</th><th>异常率</th><th>FAIL</th></tr></thead>
+          <tbody>
+            <tr><td>20260717_173644_repro</td><td>20</td><td>12</td><td class="bad">8</td><td class="bad">40.0%</td><td>0</td></tr>
+            <tr><td>20260717_175631_full</td><td>112</td><td>91</td><td class="bad">21</td><td class="bad">18.8%</td><td>0</td></tr>
+            <tr class="highlight"><td>合计</td><td>132</td><td>103</td><td>29</td><td>22.0%</td><td>0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>总体比例混合了不同配置，仅作运行概览。最可靠的复现统计是两批各 10 次 seed=2 精确重复：repro 为 4/10，full 为 5/10，合计 9/20。</p>
+      <div class="bar-list">
+        <div class="bar-row"><div class="bar-label">repro 精确重复</div><div class="track"><div class="fill" style="width:40%"></div></div><div class="bar-value">4 / 10</div></div>
+        <div class="bar-row"><div class="bar-label">full 精确重复</div><div class="track"><div class="fill" style="width:50%"></div></div><div class="bar-value">5 / 10</div></div>
+        <div class="bar-row"><div class="bar-label">合并精确重复</div><div class="track"><div class="fill" style="width:45%"></div></div><div class="bar-value">9 / 20</div></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>首次异常定位</h2>
+      <div class="metric-strip">
+        <div class="metric"><span class="label">repro 首次异常</span><b>epoch 67–249</b><span class="note">中位数 196，平均 180.5</span></div>
+        <div class="metric"><span class="label">full 首次异常</span><b>epoch 74–244</b><span class="note">中位数 138，平均 154.8</span></div>
+        <div class="metric"><span class="label">异常 stage 一致性</span><b class="bad">29 / 29</b><span class="note">bad_stage=gradients</span></div>
+      </div>
+      <div class="two-col">
+        <div class="mini">
+          <h3>异常前仍然有限</h3>
+          <ul>
+            <li>feature norm、edge cosine、csim</li>
+            <li>prompt output、intermediate/final embedding</li>
+            <li>tau similarity、logits</li>
+            <li>CE、MSE、KL、constraint、total loss</li>
+            <li>optimizer 更新前全部参数</li>
+          </ul>
+        </div>
+        <div class="mini">
+          <h3>backward 后的首个异常</h3>
+          <pre>gradients_before_clip:
+sim:
+  numel = 57340
+  finite = False
+  nan = 57340
+other = finite
+answering = finite</pre>
+        </div>
+      </div>
+      <div class="callout"><strong>梯度裁剪的连带效应：</strong><code>clip_grad_norm_(self.parameters())</code> 计算到 NaN 总范数后，会把原本有限的 other prompt 梯度也污染成 NaN。answering 使用独立裁剪，所以仍保持有限。由此可区分“最初异常源”和“二次污染”。</div>
+    </section>
+
+    <section>
+      <h2>扰动率：攻击不是必要条件</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>扰动率</th><th>NONFINITE / 总数</th><th>异常率</th><th>成功组 Accuracy</th><th>成功组 Macro-F1</th></tr></thead>
+          <tbody>
+            <tr><td>0.00</td><td>1 / 5</td><td>20%</td><td>0.6561</td><td>0.6392</td></tr>
+            <tr><td>0.05</td><td>1 / 5</td><td>20%</td><td>0.1397</td><td>0.1100</td></tr>
+            <tr><td>0.10</td><td>1 / 5</td><td>20%</td><td>0.0787</td><td>0.0944</td></tr>
+            <tr><td>0.15</td><td>1 / 5</td><td>20%</td><td>0.0629</td><td>0.0599</td></tr>
+            <tr><td>0.20</td><td>0 / 5</td><td class="good">0%</td><td>0.0821</td><td>0.0691</td></tr>
+            <tr class="weak"><td>0.25</td><td>2 / 5</td><td>40%</td><td>0.0750</td><td>0.0442</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout"><strong>解释限制：</strong>每个浓度只有 5 次，不能建立“扰动率越高越容易 NaN”的单调关系。但 clean 图也触发，足以排除攻击数据是必要原因。</div>
+    </section>
+
+    <section>
+      <h2>Loss、tau 与优化敏感性</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>配置</th><th>状态</th><th>Accuracy</th><th>Macro-F1</th><th>停止 epoch</th><th>判断</th></tr></thead>
+          <tbody>
+            <tr><td>original</td><td>DONE</td><td>0.0660</td><td>0.0845</td><td>230</td><td>单次正常不代表安全</td></tr>
+            <tr><td>safe loss</td><td>DONE</td><td>0.1013</td><td>0.1122</td><td>179</td><td>MSE=0, KL=0.001</td></tr>
+            <tr><td>CE only</td><td>DONE</td><td>0.0976</td><td>0.1123</td><td>203</td><td>需重复验证</td></tr>
+            <tr class="failure"><td>MSE only</td><td class="bad">NONFINITE</td><td>—</td><td>—</td><td>157</td><td>KL 不是必要条件</td></tr>
+            <tr><td>KL=0.001</td><td>DONE</td><td>0.0872</td><td>0.0981</td><td>155</td><td>与 safe loss 参数相同</td></tr>
+            <tr><td>KL=0.01</td><td>DONE</td><td>0.1042</td><td>0.0820</td><td>140</td><td>单次结果</td></tr>
+            <tr><td>KL=0.1</td><td>DONE</td><td>0.0772</td><td>0.1051</td><td>169</td><td>单次结果</td></tr>
+            <tr class="failure"><td>no tau</td><td class="bad">NONFINITE</td><td>—</td><td>—</td><td>150</td><td>tau 不是必要条件</td></tr>
+            <tr><td>tau=0.1</td><td>DONE</td><td>0.0934</td><td>0.1085</td><td>155</td><td>单次结果</td></tr>
+            <tr><td>tau=0.2</td><td>DONE</td><td>0.0664</td><td>0.0736</td><td>172</td><td>单次结果</td></tr>
+            <tr><td>tau=0.3</td><td>DONE</td><td>0.0644</td><td>0.0842</td><td>161</td><td>单次结果</td></tr>
+            <tr class="failure"><td>tau=0.4</td><td class="bad">NONFINITE</td><td>—</td><td>—</td><td>117</td><td>首次异常 epoch 98</td></tr>
+            <tr><td>no p_plus</td><td>DONE</td><td>0.0914</td><td>0.0810</td><td>270</td><td>非严格单变量消融</td></tr>
+            <tr class="highlight"><td>lr=0.001</td><td>DONE</td><td>0.0984</td><td>0.0948</td><td>300</td><td>跑满 300 epoch</td></tr>
+            <tr class="highlight"><td>lr=0.003</td><td>DONE</td><td>0.1030</td><td>0.0889</td><td>300</td><td>跑满 300 epoch</td></tr>
+            <tr><td>lr=0.03</td><td>DONE</td><td>0.0847</td><td>0.0506</td><td>39</td><td>过早停止</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><code>safe_loss</code> 与 <code>kl_0001</code> 实际参数完全相同，可视为两次随机重复。<code>no_pplus</code> 同时让 constraint loss 从恒零变为有效，因此也不是纯粹的 p_plus 单变量实验。</p>
+    </section>
+
+    <section>
+      <h2>Similarity threshold</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>阈值</th><th>选中节点</th><th>选中比例</th><th>状态</th><th>Accuracy</th><th>Macro-F1</th></tr></thead>
+          <tbody>
+            <tr><td>0.10</td><td>20</td><td>0.7%</td><td>DONE</td><td>0.1462</td><td>0.1085</td></tr>
+            <tr><td>0.20</td><td>127</td><td>4.7%</td><td>DONE</td><td>0.0660</td><td>0.0845</td></tr>
+            <tr class="highlight"><td>0.30</td><td>717</td><td>26.5%</td><td>DONE</td><td>0.1495</td><td>0.1335</td></tr>
+            <tr><td>0.40</td><td>1709</td><td>63.1%</td><td>DONE</td><td>0.1404</td><td>0.1315</td></tr>
+            <tr><td>0.50</td><td>2321</td><td>85.7%</td><td>DONE</td><td>0.1196</td><td>0.0924</td></tr>
+          </tbody>
+        </table>
+      </div>
+    <section>
+      <h2>Filter 组合：稳定性与任务性能</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>组合</th><th>NONFINITE</th><th>异常率</th><th>成功组 Accuracy</th><th>成功组 F1</th><th>关键现象</th></tr></thead>
+          <tbody>
+            <tr class="failure"><td>sim+degree2</td><td>2 / 5</td><td>40%</td><td>0.1031</td><td>0.0976</td><td>sim 仍为首个异常组</td></tr>
+            <tr class="highlight"><td>sim+NSP</td><td>0 / 5</td><td>0%</td><td>0.1126</td><td>0.1091</td><td>稳定且检测平衡</td></tr>
+            <tr class="highlight"><td>sim+OOD 0.2</td><td>0 / 5</td><td>0%</td><td>0.1321</td><td>0.1403</td><td>OOD 选中 2490 节点</td></tr>
+            <tr class="highlight"><td>sim+OOD 0.4</td><td>0 / 5</td><td>0%</td><td>0.1336</td><td>0.1534</td><td>OOD 几乎全选</td></tr>
+            <tr><td>sim+FC</td><td>1 / 5</td><td>20%</td><td>0.1169</td><td>0.1197</td><td>Edge AUC/AP 较高</td></tr>
+            <tr><td>sim+degree2+NSP</td><td>1 / 5</td><td>20%</td><td>0.1012</td><td>0.1069</td><td>degree2 选中 265 节点</td></tr>
+            <tr><td>sim+NSP+FC</td><td>1 / 5</td><td>20%</td><td>0.0901</td><td>0.1074</td><td>sim 仍为首个异常组</td></tr>
+            <tr class="highlight"><td>all5 calibrated</td><td>0 / 5</td><td>0%</td><td>0.1170</td><td>0.1088</td><td>覆盖广，但性能无增益</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout conclusion"><strong>对根因的重要佐证：</strong>sim+OOD 和 all5 几乎覆盖所有节点。即使某一行 sim prompt 被错误当作 padding，节点通常仍有 OOD 等其他 prompt，使 <code>node_prompt_len</code> 不归零，因此 0/5 触发。sim+degree2 留下大量 sim-only 节点，异常率仍为 40%。</div>
+    </section>
+
+    <section>
+      <h2>组合的异常边检测指标</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>组合</th><th>有效 n</th><th>Edge F1</th><th>ROC-AUC</th><th>Balanced Acc</th><th>AP</th></tr></thead>
+          <tbody>
+            <tr><td>sim+degree2</td><td>3</td><td>0.3984</td><td>0.8800</td><td>0.8132</td><td>0.3857</td></tr>
+            <tr class="highlight"><td>sim+NSP</td><td>5</td><td>0.4245</td><td>0.9339</td><td>0.8306</td><td>0.7047</td></tr>
+            <tr><td>sim+OOD 0.2</td><td>5</td><td>0.2408</td><td>0.9113</td><td>0.6299</td><td>0.4757</td></tr>
+            <tr class="weak"><td>sim+OOD 0.4</td><td>5</td><td>0.1952</td><td>0.9113</td><td>0.5189</td><td>0.4757</td></tr>
+            <tr><td>sim+FC</td><td>4</td><td>0.3498</td><td class="good">0.9406</td><td>0.7756</td><td class="good">0.7433</td></tr>
+            <tr><td>sim+degree2+NSP</td><td>4</td><td>0.3976</td><td>0.8793</td><td>0.8127</td><td>0.3830</td></tr>
+            <tr><td>sim+NSP+FC</td><td>4</td><td>0.3654</td><td>0.9308</td><td>0.7878</td><td>0.6981</td></tr>
+            <tr class="weak"><td>all5 calibrated</td><td>5</td><td>0.2297</td><td>0.8562</td><td>0.6072</td><td>0.3305</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>sim+NSP 的 Edge F1 与 Balanced Accuracy 最好；sim+FC 的 AUC/AP 最高。OOD=0.4 虽然任务 F1 较高，但只剩 18 个 other 节点，二值检测 Balanced Accuracy 接近随机，属于阈值严重过宽。</p>
+    </section>
+
+    <section>
+      <h2>高度可信的根因</h2>
+      <p>当前 prompt 融合代码：</p>
+      <pre>wo_padding_mask = torch.all(g_mutiftpt_record != padding, dim=-1, keepdim=True)
+node_prompt_len = wo_padding_mask.sum(1)
+
+g_mutiftpt_final_output = torch.where(
+    node_prompt_len != 0,
+    g_mutiftpt_record.sum(1) / node_prompt_len,
+    padding
+)</pre>
+      <div class="chain">
+        <div class="step">sim prompt 某个维度<br>精确等于 0</div><div class="arrow">→</div>
+        <div class="step"><code>torch.all</code><br>误判整行为 padding</div><div class="arrow">→</div>
+        <div class="step critical"><code>node_prompt_len=0</code><br>分支内提前除零</div><div class="arrow">→</div>
+        <div class="step">forward 被 where<br>遮盖而保持有限</div><div class="arrow">→</div>
+        <div class="step critical">backward 产生 NaN<br>sim 梯度全污染</div>
+      </div>
+      <div class="two-col">
+        <div class="mini">
+          <h3>问题 1：有效行判断</h3>
+          <p><code>torch.all(row != 0)</code> 要求 1433 个维度全部非零。一个合法 prompt 只要一个维度恰好为 0，就会被误判为 padding。语义上至少应当使用 <code>any</code>，更稳妥的是直接使用节点–prompt 分配 mask。</p>
+        </div>
+        <div class="mini">
+          <h3>问题 2：where 不阻止除零</h3>
+          <p><code>torch.where</code> 的两个输入表达式都会先计算。即使 forward 最终选择 padding，除零分支的 backward 仍可能形成 <code>0 × inf = NaN</code>。</p>
+        </div>
+      </div>
+      <div class="callout danger"><strong>证据强度：</strong>29 次异常全部满足同一特征，且多 filter 实验中始终只有 sim 首先 NaN；no-tau、clean 图、MSE-only 也会触发。尚缺的最后直接证据是异常当步的 <code>node_prompt_len==0</code> 节点计数。</div>
+    </section>
+
+    <section>
+      <h2>最终验证</h2>
+      <div class="callout conclusion"><strong>最终判断：</strong>NaN 的直接发生点已经确定为 similarity prompt backward。现有全部实验最支持 prompt 融合处错误的 padding 判断与隐藏除零；攻击、tau、KL 和其他 filter 均不是必要原因。</div>
+    </section>
+
+    <section>
+      <h2>数据与代码入口</h2>
+      <div class="source-links">
+        <a href="logs/5filter_nan_reproduction/20260717_173644_repro/status.tsv">repro 状态汇总</a>
+        <a href="logs/5filter_nan_reproduction/20260717_175631_full/status.tsv">full 状态汇总</a>
+        <a href="logs/5filter_nan_reproduction/20260717_173644_repro/">repro 日志目录</a>
+        <a href="logs/5filter_nan_reproduction/20260717_175631_full/">full 日志目录</a>
+        <a href="prompt_graph/prompt/RobustPrompt_T_NSP.py">RobustPrompt_T_NSP.py</a>
+        <a href="run_5filter_nan_reproduction.sh">复现实验脚本</a>
+      </div>
+    </section>
+
+    <div class="footer">生成日期：2026-07-17｜数据源：logs/5filter_nan_reproduction｜报告仅汇总已有日志，未修改实验结果</div>
+  </main>
+</body>
+</html>

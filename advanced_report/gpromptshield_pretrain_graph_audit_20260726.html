@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPromptShield 预训练图来源审计</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #687083;
+      --line: #dfe4ec;
+      --soft: #f5f7fa;
+      --paper: #ffffff;
+      --blue: #2459b7;
+      --blue-soft: #edf3ff;
+      --green: #16724a;
+      --green-soft: #eaf8f0;
+      --amber: #9a5b00;
+      --amber-soft: #fff6df;
+      --red: #a73535;
+      --red-soft: #fff0f0;
+      --purple: #6545a5;
+      --purple-soft: #f3efff;
+      --shadow: 0 10px 30px rgba(31, 43, 68, .08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #eef1f5;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+    }
+    a { color: var(--blue); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    code, pre, .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 26px auto 52px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+    }
+    header {
+      padding: 34px 42px 28px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(115deg, rgba(36,89,183,.08), transparent 44%),
+        var(--paper);
+    }
+    .eyebrow {
+      color: var(--blue);
+      font-weight: 750;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+    h1 { margin: 8px 0 8px; font-size: clamp(25px, 4vw, 40px); line-height: 1.18; letter-spacing: -.025em; }
+    .subtitle { max-width: 850px; margin: 0; color: var(--muted); font-size: 15px; }
+    .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.72);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    main { padding: 0 42px 42px; }
+    section { padding-top: 34px; }
+    h2 { margin: 0 0 16px; font-size: 21px; letter-spacing: -.012em; }
+    h3 { margin: 0 0 8px; font-size: 15px; }
+    p { margin: 8px 0; }
+    .verdict {
+      margin-top: 30px;
+      padding: 22px 24px;
+      background: var(--green-soft);
+      border: 1px solid #b9e1ca;
+      border-left: 5px solid var(--green);
+    }
+    .verdict strong { display: block; font-size: 22px; line-height: 1.35; color: #0f5d3b; }
+    .verdict p { max-width: 920px; }
+    .grid-4, .grid-2 {
+      display: grid;
+      gap: 14px;
+    }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 18px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat, .panel {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      padding: 16px;
+    }
+    .stat b { display: block; font-size: 26px; line-height: 1.2; }
+    .stat span { color: var(--muted); font-size: 12px; }
+    .panel h3 { display: flex; align-items: center; gap: 8px; }
+    .tag {
+      display: inline-block;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .tag.explicit, .tag.decisive { color: var(--green); background: var(--green-soft); }
+    .tag.code, .tag.corroborating { color: var(--blue); background: var(--blue-soft); }
+    .tag.inference, .tag.augmentation { color: var(--amber); background: var(--amber-soft); }
+    .tag.limit, .tag.artifact { color: var(--red); background: var(--red-soft); }
+    .tag.downstream { color: var(--purple); background: var(--purple-soft); }
+    .tag.neutral { color: #596173; background: #eef0f4; }
+    .comparison {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .comparison th, .comparison td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .comparison th { color: var(--muted); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; background: var(--soft); }
+    .comparison tr:last-child td { border-bottom: 0; }
+    .callout {
+      padding: 14px 16px;
+      border-left: 4px solid var(--amber);
+      background: var(--amber-soft);
+      margin: 14px 0;
+    }
+    .evidence-list {
+      counter-reset: evidence;
+      display: grid;
+      gap: 10px;
+    }
+    .evidence {
+      counter-increment: evidence;
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+    }
+    .evidence::before {
+      content: counter(evidence);
+      width: 28px; height: 28px;
+      display: grid; place-items: center;
+      border-radius: 50%;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-weight: 800;
+    }
+    .evidence p { margin: 4px 0; }
+    .quote {
+      margin: 9px 0 0;
+      padding: 10px 12px;
+      background: var(--soft);
+      border-left: 3px solid var(--blue);
+      font-family: Georgia, "Times New Roman", serif;
+      color: #313b50;
+    }
+    pre {
+      margin: 9px 0 0;
+      padding: 12px 14px;
+      overflow: auto;
+      background: #172033;
+      color: #edf2fb;
+      font-size: 12px;
+      line-height: 1.55;
+      border-radius: 4px;
+    }
+    .flow-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 18px;
+      align-items: stretch;
+    }
+    .flow-card { border: 1px solid var(--line); background: var(--soft); padding: 14px; overflow: auto; }
+    .flow-card svg { width: 100%; min-width: 740px; height: auto; display: block; }
+    .flow-node { cursor: pointer; }
+    .flow-node rect { transition: fill .15s, stroke .15s, transform .15s; transform-box: fill-box; transform-origin: center; }
+    .flow-node:hover rect, .flow-node:focus rect { fill: #fff; stroke: var(--blue); transform: scale(1.02); }
+    .flow-node text { pointer-events: none; font-size: 12px; font-weight: 650; fill: var(--ink); }
+    .flow-node .sub { font-size: 10px; font-weight: 500; fill: var(--muted); }
+    .detail {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      padding: 17px;
+      min-height: 220px;
+    }
+    .detail .path { font-size: 11px; word-break: break-all; color: var(--muted); }
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 10px;
+      margin: 12px 0;
+    }
+    input[type="search"] {
+      width: 100%;
+      border: 1px solid #bfc6d2;
+      padding: 10px 12px;
+      font: inherit;
+      color: inherit;
+      background: #fff;
+    }
+    .filters { display: flex; flex-wrap: wrap; gap: 6px; }
+    button {
+      border: 1px solid #bfc6d2;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 10px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+    }
+    button:hover, button.active { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); }
+    .table-wrap { overflow: auto; border: 1px solid var(--line); }
+    #auditTable { width: 100%; min-width: 940px; border-collapse: collapse; font-size: 12px; }
+    #auditTable th {
+      position: sticky; top: 0; z-index: 1;
+      background: #edf0f5;
+      text-align: left;
+      padding: 9px 10px;
+      border-bottom: 1px solid #cdd3dd;
+    }
+    #auditTable td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    #auditTable tbody tr:nth-child(even) { background: #fafbfc; }
+    #auditTable .file { max-width: 350px; word-break: break-word; }
+    #auditTable .finding { min-width: 390px; }
+    .audit-summary { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; margin: 8px 0; }
+    details { border: 1px solid var(--line); padding: 11px 13px; background: var(--paper); }
+    details + details { margin-top: 8px; }
+    summary { cursor: pointer; font-weight: 700; }
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 22px 42px;
+      color: var(--muted);
+      font-size: 11px;
+      background: var(--soft);
+    }
+    .copy-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+    .copy-status { color: var(--green); font-size: 12px; }
+    @media (max-width: 850px) {
+      .shell { width: 100%; margin: 0; border-left: 0; border-right: 0; }
+      header, main, footer { padding-left: 20px; padding-right: 20px; }
+      .grid-4, .grid-2, .flow-layout { grid-template-columns: 1fr; }
+      .controls { grid-template-columns: 1fr; }
+      .detail { min-height: 0; }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ink: #e8edf6; --muted: #aeb7c8; --line: #3a4354; --soft: #202633;
+        --paper: #171c26; --blue: #8fb6ff; --blue-soft: #202f4b;
+        --green: #73d7aa; --green-soft: #173428; --amber: #efbd68; --amber-soft: #372d19;
+        --red: #ff9a9a; --red-soft: #3a2023; --purple: #c1a8ff; --purple-soft: #2d2545;
+      }
+      body { background: #11151d; }
+      .shell { box-shadow: none; }
+      header { background: linear-gradient(115deg, rgba(78,128,218,.14), transparent 44%), var(--paper); }
+      input[type="search"], button { background: #151a23; color: var(--ink); border-color: var(--line); }
+      #auditTable th { background: #252c39; border-color: var(--line); }
+      #auditTable tbody tr:nth-child(even) { background: #1b212c; }
+      .quote { color: var(--ink); }
+      .flow-node text { fill: var(--ink); }
+      .flow-node .sub { fill: var(--muted); }
+      .flow-node rect { fill: #202633; }
+      .flow-node:hover rect, .flow-node:focus rect { fill: #283141; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="eyebrow">Repository & Paper Audit · 2026-07-26</div>
+    <h1>GPromptShield 预训练图来源审计</h1>
+    <p class="subtitle">问题：原版代码是否讨论、并实际决定预训练使用干净图还是污染图？本报告覆盖 <code>GPromptShield-master</code> 全部 83 个文件，并将活动代码路径与论文原文逐层对齐。</p>
+    <div class="meta">
+      <span class="pill">83 / 83 文件</span>
+      <span class="pill">67 个 Python 文件 AST 审查</span>
+      <span class="pill">21 页论文渲染 + 文本核对</span>
+      <span class="pill">只读审计；未改实验代码</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="verdict" id="verdict">
+      <strong>结论：论文与活动代码都指向“干净图预训练”；代码中的精确实现是无攻击扰动的 <code>Meta_Self-0.0</code> 最大连通分量（LCC），不是非零 ptb 的 Metattack 污染图。</strong>
+      <p>污染图只在 downstream prompt tuning / evaluation 分支按 <code>attack_downstream</code> 与 <code>attack_method</code> 加载。必须同时保留两个限定：预训练基图不是原始完整 Planetoid，而是 clean LCC；GraphCL 会在 clean LCC 上生成 drop-node / edge-drop 等自监督增强视图，这属于 augmentation，不是攻击者投毒。</p>
+    </div>
+
+    <div class="grid-4" aria-label="审计覆盖统计">
+      <div class="stat"><b>67</b><span>Python：全部 UTF-8 解码并成功 AST parse</span></div>
+      <div class="stat"><b>6</b><span>Shell：逐行审查预训练、下游和攻击生成命令</span></div>
+      <div class="stat"><b>8</b><span>2 notebooks + 6 图表 PDF：逐 cell / 逐页审查</span></div>
+      <div class="stat"><b>2</b><span>1 pyc 二进制缓存 + 1 .gitignore：元数据与作用核对</span></div>
+    </div>
+
+    <section id="semantics">
+      <h2>先拆清“干净 / 污染”的四个层次</h2>
+      <table class="comparison">
+        <thead><tr><th>层次</th><th>仓库中的实际对象</th><th>结论</th><th>证据强度</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>预训练源图</td>
+            <td><code>Attack-{dataset}</code> 包装器中的 <code>Meta_Self-0.0</code> LCC</td>
+            <td>无攻击扰动；不是原始完整图，但属于 clean baseline</td>
+            <td><span class="tag decisive">活动代码 + 作者注释</span></td>
+          </tr>
+          <tr>
+            <td>预训练 batch / graph view</td>
+            <td>GraphCL 的 <code>dropN</code>、<code>permE</code>、<code>maskN</code>；GraphMAE 的 feature mask</td>
+            <td>有意的自监督增强，不是 MetaAttack / poisoning</td>
+            <td><span class="tag augmentation">代码事实</span></td>
+          </tr>
+          <tr>
+            <td>下游 prompt tuning 图</td>
+            <td><code>Meta_Self-0.25</code>、DICE、random、heuristic 或 adaptive poisoning graph</td>
+            <td>可被污染；攻击参数只进入 downstream loader</td>
+            <td><span class="tag downstream">活动代码 + 实验脚本</span></td>
+          </tr>
+          <tr>
+            <td>历史 checkpoint 的真实来源</td>
+            <td>脚本引用的 <code>pre_trained_model*</code> 文件</td>
+            <td>本快照没有任何 <code>.pth/.pt</code> 或 raw adjacency，无法做内容级溯源</td>
+            <td><span class="tag limit">不可由本快照证明</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout"><b>命名陷阱：</b><code>Attack_data</code> 是数据包装目录名，不代表每个文件都被攻击。实际语义由 <code>ptb_rate</code> 决定；这里硬编码为 <code>0.0</code>。代码打印 “LLC” 是拼写不一致，紧邻注释和论文 Appendix A.4.1 都明确指向 largest connected component（LCC）。</div>
+    </section>
+
+    <section id="flow">
+      <h2>活动调用链：clean pretrain 与 attacked downstream 在哪里分叉</h2>
+      <div class="flow-layout">
+        <div class="flow-card">
+          <svg viewBox="0 0 920 470" role="img" aria-labelledby="flowTitle flowDesc">
+            <title id="flowTitle">GPromptShield 预训练与下游攻击调用链</title>
+            <desc id="flowDesc">上半部分为干净 LCC 预训练路径，下半部分为固定 checkpoint 配合污染下游图的路径。点击节点查看证据。</desc>
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#7b879c"></path>
+              </marker>
+              <marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#2459b7"></path>
+              </marker>
+              <marker id="arrowRed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#a73535"></path>
+              </marker>
+            </defs>
+
+            <text x="22" y="28" font-size="12" font-weight="800" fill="#16724a">PRETRAIN · CLEAN BASE GRAPH</text>
+            <line x1="145" y1="98" x2="190" y2="98" stroke="#2459b7" stroke-width="2" marker-end="url(#arrowBlue)"/>
+            <line x1="325" y1="98" x2="370" y2="98" stroke="#2459b7" stroke-width="2" marker-end="url(#arrowBlue)"/>
+            <line x1="505" y1="98" x2="550" y2="98" stroke="#2459b7" stroke-width="2" marker-end="url(#arrowBlue)"/>
+            <line x1="685" y1="98" x2="730" y2="98" stroke="#2459b7" stroke-width="2" marker-end="url(#arrowBlue)"/>
+            <line x1="797" y1="137" x2="797" y2="184" stroke="#7b879c" stroke-width="2" marker-end="url(#arrow)"/>
+            <line x1="730" y1="223" x2="685" y2="223" stroke="#7b879c" stroke-width="2" marker-end="url(#arrow)"/>
+
+            <g class="flow-node" tabindex="0" data-key="pretrain-sh">
+              <rect x="20" y="62" width="125" height="72" rx="7" fill="#edf3ff" stroke="#87a9e5"/>
+              <text x="82" y="90" text-anchor="middle">pretrain.sh</text>
+              <text class="sub" x="82" y="110" text-anchor="middle">无 attack / ptb 参数</text>
+            </g>
+            <g class="flow-node" tabindex="0" data-key="my-pretrain">
+              <rect x="190" y="62" width="135" height="72" rx="7" fill="#edf3ff" stroke="#87a9e5"/>
+              <text x="257" y="90" text-anchor="middle">MyPretrain.py</text>
+              <text class="sub" x="257" y="110" text-anchor="middle">构造预训练器</text>
+            </g>
+            <g class="flow-node" tabindex="0" data-key="pretrain-class">
+              <rect x="370" y="62" width="135" height="72" rx="7" fill="#edf3ff" stroke="#87a9e5"/>
+              <text x="437" y="88" text-anchor="middle">GraphCL /</text>
+              <text x="437" y="106" text-anchor="middle">GraphMAE</text>
+              <text class="sub" x="437" y="123" text-anchor="middle">调用 NodePretrain</text>
+            </g>
+            <g class="flow-node" tabindex="0" data-key="node-pretrain">
+              <rect x="550" y="62" width="135" height="72" rx="7" fill="#edf3ff" stroke="#87a9e5"/>
+              <text x="617" y="90" text-anchor="middle">NodePretrain</text>
+              <text class="sub" x="617" y="110" text-anchor="middle">load4node_demo2</text>
+            </g>
+            <g class="flow-node" tabindex="0" data-key="clean-lcc">
+              <rect x="730" y="54" width="135" height="86" rx="7" fill="#eaf8f0" stroke="#6bb88f"/>
+              <text x="797" y="82" text-anchor="middle">Meta_Self-0.0</text>
+              <text x="797" y="101" text-anchor="middle">clean LCC</text>
+              <text class="sub" x="797" y="120" text-anchor="middle">active hard-code</text>
+            </g>
+            <g class="flow-node" tabindex="0" data-key="augmentation">
+              <rect x="730" y="184" width="135" height="78" rx="7" fill="#fff6df" stroke="#d4aa62"/>
+              <text x="797" y="211" text-anchor="middle">SSL augmentation</text>
+              <text class="sub" x="797" y="232" text-anchor="middle">dropN / permE / mask</text>
+              <text class="sub" x="797" y="248" text-anchor="middle">≠ adversarial poison</text>
+            </g>
+            <g class="flow-node" tabindex="0" data-key="checkpoint">
+              <rect x="550" y="184" width="135" height="78" rx="7" fill="#f3efff" stroke="#9c86cf"/>
+              <text x="617" y="212" text-anchor="middle">frozen checkpoint</text>
+              <text class="sub" x="617" y="233" text-anchor="middle">后续只加载权重</text>
+            </g>
+
+            <text x="22" y="320" font-size="12" font-weight="800" fill="#a73535">DOWNSTREAM · OPTIONAL ATTACKED GRAPH</text>
+            <line x1="175" y1="385" x2="235" y2="385" stroke="#a73535" stroke-width="2" marker-end="url(#arrowRed)"/>
+            <line x1="390" y1="385" x2="450" y2="385" stroke="#a73535" stroke-width="2" marker-end="url(#arrowRed)"/>
+            <line x1="605" y1="385" x2="665" y2="385" stroke="#7b879c" stroke-width="2" marker-end="url(#arrow)"/>
+            <path d="M617 262 L617 300 L745 300 L745 345" fill="none" stroke="#6545a5" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+
+            <g class="flow-node" tabindex="0" data-key="task-script">
+              <rect x="20" y="348" width="155" height="74" rx="7" fill="#fff0f0" stroke="#d69191"/>
+              <text x="97" y="376" text-anchor="middle">task_muti*.sh</text>
+              <text class="sub" x="97" y="397" text-anchor="middle">attack_method / nonzero ptb</text>
+            </g>
+            <g class="flow-node" tabindex="0" data-key="node-task">
+              <rect x="235" y="348" width="155" height="74" rx="7" fill="#fff0f0" stroke="#d69191"/>
+              <text x="312" y="376" text-anchor="middle">NodeTask</text>
+              <text class="sub" x="312" y="397" text-anchor="middle">attack_downstream branch</text>
+            </g>
+            <g class="flow-node" tabindex="0" data-key="attacked-loader">
+              <rect x="450" y="348" width="155" height="74" rx="7" fill="#fff0f0" stroke="#d69191"/>
+              <text x="527" y="374" text-anchor="middle">attack loader</text>
+              <text class="sub" x="527" y="395" text-anchor="middle">Meta / DICE / adaptive</text>
+            </g>
+            <g class="flow-node" tabindex="0" data-key="prompt-tuning">
+              <rect x="665" y="340" width="160" height="90" rx="7" fill="#f3efff" stroke="#9c86cf"/>
+              <text x="745" y="369" text-anchor="middle">prompt tuning</text>
+              <text x="745" y="388" text-anchor="middle">on attacked graph</text>
+              <text class="sub" x="745" y="410" text-anchor="middle">same frozen checkpoint</text>
+            </g>
+          </svg>
+        </div>
+        <aside class="detail" id="flowDetail" aria-live="polite">
+          <span class="tag code">点击节点</span>
+          <h3>证据说明</h3>
+          <p>点击左侧任一节点，查看对应文件、行号及其在证据链中的作用。</p>
+        </aside>
+      </div>
+    </section>
+
+    <section id="evidence-chain">
+      <h2>证据链：从论文明文到代码实际加载</h2>
+      <div class="evidence-list">
+        <article class="evidence">
+          <div>
+            <h3><span class="tag explicit">论文明文</span> Problem Statement 直接规定 clean pretrain</h3>
+            <p>论文第 5 页写明：预训练 GNN 使用 clean graphs，随后冻结参数；攻击发生在 downstream graph data。</p>
+            <div class="quote">“we pretrain a GNN model on clean graphs and freeze its parameters.”</div>
+            <p><a href="../reference/GPromptShield%20Elevating%20Resilience%20in%20Graph%20Prompt%20Learning%20Against%20Adversarial%20Attacks.pdf#page=5">论文 PDF，第 5 页</a></p>
+          </div>
+        </article>
+        <article class="evidence">
+          <div>
+            <h3><span class="tag explicit">仓库内明文</span> Prompt 原文直接写出 clean-pretrain / attacked-downstream 假设</h3>
+            <p><a href="../GPromptShield-master/prompt_graph/prompt/RobustPrompt_I_Test.py">RobustPrompt_I_Test.py:132-137</a> 的作者注释明确写道：预训练数据集被假定为干净，而下游任务图被攻击或扰动。这条证据表达设计意图；后续 loader 调用链则证明活动代码如何落实它。</p>
+            <div class="quote">“我们假定预训练过程中用到的数据集是干净的，但是在下游任务上的图是被攻击或扰动的”</div>
+          </div>
+        </article>
+        <article class="evidence">
+          <div>
+            <h3><span class="tag code">代码入口</span> 预训练命令没有 attack / ptb 输入</h3>
+            <p><a href="../GPromptShield-master/pretrain.sh">pretrain.sh:1-10</a> 只传 GraphCL、dataset、GNN 和训练超参；<a href="../GPromptShield-master/MyPretrain.py">MyPretrain.py:11-30</a> 创建预训练器后调用 <code>pt.pretrain()</code>，没有把下游攻击参数传入。</p>
+            <pre>pretrain.sh → MyPretrain.py → GraphCL(dataset_name=..., ...) → pt.pretrain()</pre>
+          </div>
+        </article>
+        <article class="evidence">
+          <div>
+            <h3><span class="tag code">活动调用</span> GraphCL / GraphMAE 共同进入 NodePretrain</h3>
+            <p><a href="../GPromptShield-master/prompt_graph/pretrain/GraphCL.py">GraphCL.py:22-24</a> 与 <a href="../GPromptShield-master/prompt_graph/pretrain/GraphMAE.py">GraphMAE.py:198-204</a> 对 Cora / Citeseer / Cora_ml 等节点图调用 <code>NodePretrain</code>。</p>
+            <pre>GraphCL.load_graph_data → NodePretrain
+GraphMAE.load_graph_data → NodePretrain</pre>
+          </div>
+        </article>
+        <article class="evidence">
+          <div>
+            <h3><span class="tag decisive">决定性活动代码</span> raw Planetoid 被注释，实际硬编码 Meta_Self-0.0 LCC</h3>
+            <p><a href="../GPromptShield-master/prompt_graph/data/load4data.py">load4data.py:869-883, 970-999</a> 是核心：<code>NodePretrain</code> 调 <code>load4node_demo2</code>；其中 raw Planetoid 分支被注释，活动分支打印使用 largest connected component，并传入 <code>Meta_Self, 0.0</code>。</p>
+            <pre># use the largest connected component
+print('Now use LLC datasets for pretrain !')
+dataset = get_dataset(path, 'Attack-' + dataname, 'Meta_Self', 0.0)
+# 0.0的扰动率即代表最大联通分量</pre>
+          </div>
+        </article>
+        <article class="evidence">
+          <div>
+            <h3><span class="tag corroborating">加载器闭环</span> 0.0 决定最终 adjacency 文件</h3>
+            <p><a href="../GPromptShield-master/data_pyg/data_pyg.py">data_pyg.py:46-48</a> 将 <code>Attack-*</code> 路由到 <code>AttackDataset</code>；<a href="../GPromptShield-master/data_pyg/Attack_data/attackdata.py">attackdata.py:39,57</a> 用 method + ptb 拼出并加载 <code>Meta_Self_&lt;dataset&gt;_0.0.pt</code>。</p>
+          </div>
+        </article>
+        <article class="evidence">
+          <div>
+            <h3><span class="tag explicit">作者用语交叉验证</span> 攻击生成器把 0.0 基图称为 clean data</h3>
+            <p><a href="../GPromptShield-master/generate_few_shot_attack.py">generate_few_shot_attack.py:47-52, 101, 128, 137</a> 先加载注释所称的 clean data（<code>Meta_Self-0.0</code>），再由请求的非零预算生成并保存 <code>modified_adj</code>。</p>
+          </div>
+        </article>
+        <article class="evidence">
+          <div>
+            <h3><span class="tag downstream">下游分叉</span> attack 参数只进入 NodeTask 的下游 loader</h3>
+            <p><a href="../GPromptShield-master/prompt_graph/tasker/node_task.py">node_task.py:32-38, 69-90</a> 根据 <code>attack_downstream</code> 选择 attacked loader；<a href="../GPromptShield-master/prompt_graph/tasker/task.py">task.py:221-229</a> 随后只加载既有 checkpoint。<a href="../GPromptShield-master/task_muti.sh">task_muti.sh:5-6, 49, 61-62</a> 也把固定 checkpoint 与变化的 attack/ptb 分开传递。</p>
+          </div>
+        </article>
+        <article class="evidence">
+          <div>
+            <h3><span class="tag explicit">论文实验设置</span> 攻击对象明指 downstream graph data</h3>
+            <p>论文第 9 页说明：对用于 prompt tuning 的 downstream graph data 施加 MetaAttack / DICE / random / heuristic；第 10 页 adaptive poisoning 同样是 downstream prompt tuning 场景。</p>
+            <div class="quote">“We attack downstream graph data used for prompt tuning …”</div>
+            <p><a href="../reference/GPromptShield%20Elevating%20Resilience%20in%20Graph%20Prompt%20Learning%20Against%20Adversarial%20Attacks.pdf#page=9">论文 PDF，第 9 页</a></p>
+          </div>
+        </article>
+        <article class="evidence">
+          <div>
+            <h3><span class="tag explicit">LCC 对齐</span> 论文 Appendix A.4.1 与代码 0.0 注释一致</h3>
+            <p>论文第 17-18 页说明 attacked-data 设置只考虑 largest connected component，并给出 Cora LCC 2485 节点、Cora-ML 2810 节点。代码中 <code>Meta_Self-0.0</code> 被明确解释为该最大连通分量，因此它是“无攻击 LCC”，不是 full raw graph。</p>
+            <p><a href="../reference/GPromptShield%20Elevating%20Resilience%20in%20Graph%20Prompt%20Learning%20Against%20Adversarial%20Attacks.pdf#page=17">论文 PDF，第 17 页</a></p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="negative-evidence">
+      <h2>排除歧义：哪些表象不能作为“污染预训练”的证据</h2>
+      <div class="grid-2">
+        <div class="panel">
+          <h3><span class="tag neutral">命名</span> <code>Attack_data</code> 路径</h3>
+          <p>它是统一数据包装器。真正选择由 <code>attackmethod</code> 与 <code>ptb_rate</code> 共同决定；预训练活动代码传的是 <code>0.0</code>。</p>
+        </div>
+        <div class="panel">
+          <h3><span class="tag augmentation">增强</span> GraphCL 的边/节点变化</h3>
+          <p>GraphCL 基于 clean LCC 生成自监督 view。它会改动训练视图，但无攻击损失、无 victim/surrogate、无非零 ptb，不能等价为 poisoning。</p>
+        </div>
+        <div class="panel">
+          <h3><span class="tag downstream">脚本</span> <code>adaptive poisoning</code></h3>
+          <p><code>task_muti_adaptive.sh</code> 的 poisoning 和 ptb 参数位于 <code>--attack_downstream</code> 后；只影响 NodeTask 加载的下游图。</p>
+        </div>
+        <div class="panel">
+          <h3><span class="tag limit">路径名</span> <code>pre_trained_model_adaptive</code></h3>
+          <p>这是 checkpoint 路径名，不是 provenance 证据。当前活动预训练代码没有非零 adaptive graph 输入；相关 “adaptive clean” loader 还是注释状态且 ptb 为 0。</p>
+        </div>
+      </div>
+      <details>
+        <summary>GraphCL 增强的精确限定</summary>
+        <p><a href="../GPromptShield-master/prompt_graph/pretrain/GraphCL.py">GraphCL.py:29-52, 104-109</a> 默认 <code>aug1='dropN'</code>、<code>aug2='permE'</code>；<a href="../GPromptShield-master/prompt_graph/utils/perturbation.py">perturbation.py:5-21, 23-69</a> 实现节点删除、边删除和特征 mask。<code>permE</code> 名称虽像 edge permutation，当前实现实际上只随机保留一部分边。两次 <code>graph_views</code> 还复用同一 <code>g</code> 对象，没有 clone，因此 view 可能串行受前一次原地修改影响；这是实现细节/潜在增强偏差，但仍不是攻击图预训练。</p>
+      </details>
+      <details>
+        <summary>所有预训练入口的交叉验证</summary>
+        <p>GraphCL、GraphMAE 通过 <code>NodePretrain</code> 进入 0.0 LCC；Edgepred_Gprompt 通过 <code>load4link_prediction_single_graph → load4node_demo2</code>；NodeMultiGprompt 通过 <code>process.load_data → load4node_demo2</code>；图分类预训练则由 <code>load4graph</code> 读取 TUDataset，没有 attack loader。预训练入口及 <code>prompt_graph/pretrain/**</code> 中没有 <code>attack</code>、<code>ptb</code>、<code>poison</code> 参数命中。</p>
+      </details>
+    </section>
+
+    <section id="limits">
+      <h2>证据边界：当前快照能证明与不能证明什么</h2>
+      <table class="comparison">
+        <thead><tr><th>判断</th><th>状态</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td>论文设定是否 clean pretrain</td><td><span class="tag decisive">可证明</span></td><td>第 5 页明文。</td></tr>
+          <tr><td>当前源码若按活动路径运行会加载哪张预训练基图</td><td><span class="tag decisive">可证明</span></td><td><code>load4node_demo2</code> 硬编码 <code>Meta_Self-0.0</code> LCC。</td></tr>
+          <tr><td>非零攻击图是否进入当前预训练入口</td><td><span class="tag decisive">可排除</span></td><td>预训练入口无 attack/ptb 参数；静态调用图没有从 attack loader 到 pretrain class 的活动边。</td></tr>
+          <tr><td>脚本引用的历史 checkpoint 是否确由当前 clean 路径生成</td><td><span class="tag limit">不可证明</span></td><td>文件夹中没有任何 <code>.pth/.pt</code>、raw adjacency、训练日志或 git commit metadata。</td></tr>
+          <tr><td><code>Meta_Self-0.0.pt</code> 的内容是否逐边等于 clean LCC</td><td><span class="tag limit">不可内容验证</span></td><td>实际数据文件不在快照；只能由活动参数、生成器逻辑、作者注释和论文定义形成一致证据链。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="file-audit">
+      <h2>83 / 83 逐文件审查矩阵</h2>
+      <p>表格默认显示全部文件。可按文件名、作用或结论搜索；点击状态按钮筛选。核心证据文件给出行号，其余文件明确标记是否有选择预训练图的能力。</p>
+      <div class="controls">
+        <input id="search" type="search" placeholder="搜索文件、模块、clean、attack、augmentation…">
+        <div class="filters" id="filters" aria-label="状态筛选"></div>
+      </div>
+      <div class="audit-summary">
+        <span id="resultCount">83 个文件</span>
+        <span>Manifest SHA-256: <span class="mono">44a4ebeaeb68564c0593f15be1eee635613bd4534bf2ad62ad4863d98b0f15d6</span></span>
+      </div>
+      <div class="table-wrap">
+        <table id="auditTable">
+          <thead><tr><th>#</th><th>文件</th><th>状态</th><th>逐文件结论</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="copy-row">
+        <button id="copyConclusion">复制核心结论</button>
+        <span id="copyStatus" class="copy-status" aria-live="polite"></span>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    审计范围固定为本地 <code>GPromptShield-master</code> 快照；清单由递归包含隐藏文件的文件枚举生成。83 项 manifest 的每一行是“完整小写 SHA-256 + 两个空格 + 相对路径 + LF”，按路径排序并以无 BOM 的 UTF-8 拼接（末行同样保留 LF），再计算上方汇总 SHA-256。论文位于 <code>reference/</code>，不计入 83 个仓库文件。
+  </footer>
+</div>
+
+<script>
+  const files = String.raw`
+.gitignore
+data_attack_fewshot/attackdata_specified.py
+data_pyg/Attack_data/__pycache__/attackdata.cpython-39.pyc
+data_pyg/Attack_data/attackdata.py
+data_pyg/Attack_unit_test_data/attackunitdata.py
+data_pyg/data_pyg.py
+exp_record.ipynb
+figure_plot/GraphPrompt_attack_exp_Citeseer_10_shot.pdf
+figure_plot/GraphPrompt_attack_exp_Citeseer_5_shot.pdf
+figure_plot/GraphPrompt_attack_exp_Citeseer_5_shot_pic2.pdf
+figure_plot/GraphPrompt_attack_exp_Cora_10_shot.pdf
+figure_plot/GraphPrompt_attack_exp_Cora_5_shot.pdf
+figure_plot/GraphPrompt_attack_exp_Cora_5_shot_pic2.pdf
+figure_plot/prompt_attack.ipynb
+generate_few_shot_attack.py
+generate_few_shot_attack.sh
+generate_few_shot_attack_batch.sh
+MyPretrain.py
+MyTask.py
+pretrain.sh
+prompt_graph/__init__.py
+prompt_graph/data/__init__.py
+prompt_graph/data/induced_graph.py
+prompt_graph/data/load4data.py
+prompt_graph/evaluation/__init__.py
+prompt_graph/evaluation/AllInOneEva.py
+prompt_graph/evaluation/eva.py
+prompt_graph/evaluation/GNNEva.py
+prompt_graph/evaluation/GPFEva.py
+prompt_graph/evaluation/GPFTranductiveEva.py
+prompt_graph/evaluation/GPPTEva.py
+prompt_graph/evaluation/GpromptEva.py
+prompt_graph/evaluation/MultiGpromptEva.py
+prompt_graph/evaluation/RobustPromptInductiveEva.py
+prompt_graph/evaluation/RobustPromptTranductiveEva.py
+prompt_graph/model/__init__.py
+prompt_graph/model/GAT.py
+prompt_graph/model/GCN.py
+prompt_graph/model/GCov.py
+prompt_graph/model/GIN.py
+prompt_graph/model/GraphSAGE.py
+prompt_graph/model/GraphTransformer.py
+prompt_graph/pretrain/__init__.py
+prompt_graph/pretrain/base.py
+prompt_graph/pretrain/Edgepred_Gprompt.py
+prompt_graph/pretrain/GraphCL.py
+prompt_graph/pretrain/GraphMAE.py
+prompt_graph/pretrain/MultiGPrompt.py
+prompt_graph/prompt/__init__.py
+prompt_graph/prompt/AllInOnePrompt.py
+prompt_graph/prompt/GPF.py
+prompt_graph/prompt/GPPTPrompt.py
+prompt_graph/prompt/GPrompt.py
+prompt_graph/prompt/MultiGPrompt.py
+prompt_graph/prompt/RobustPrompt_GPF.py
+prompt_graph/prompt/RobustPrompt_I.py
+prompt_graph/prompt/RobustPrompt_I_Test.py
+prompt_graph/prompt/RobustPrompt_T.py
+prompt_graph/tasker/__init__.py
+prompt_graph/tasker/graph_task.py
+prompt_graph/tasker/node_task.py
+prompt_graph/tasker/task.py
+prompt_graph/utils/__init__.py
+prompt_graph/utils/act.py
+prompt_graph/utils/aug.py
+prompt_graph/utils/center_embedding.py
+prompt_graph/utils/cmd.py
+prompt_graph/utils/constraint.py
+prompt_graph/utils/edge_index_to_sparse_matrix.py
+prompt_graph/utils/get_args.py
+prompt_graph/utils/loss.py
+prompt_graph/utils/mkdir.py
+prompt_graph/utils/perturbation.py
+prompt_graph/utils/pgd.py
+prompt_graph/utils/prepare_structured_data.py
+prompt_graph/utils/print_para.py
+prompt_graph/utils/process.py
+prompt_graph/utils/robustpt.py
+prompt_graph/utils/seed.py
+task.sh
+task_muti.sh
+task_muti_adaptive.sh
+zcy_edge.py
+`.trim().split("\n");
+
+  const audit = {
+    ".gitignore": ["artifact", "忽略 checkpoint / logs / Experiment；第 2 行 /pre_trained_model* 解释了为何快照没有权重，但不决定 clean/poison。"],
+    "data_attack_fewshot/attackdata_specified.py": ["downstream", "指定 few-shot split 的攻击图 loader；按 method/ptb 读 adjacency，由 downstream specified 分支调用，不进入活动预训练入口。"],
+    "data_pyg/Attack_data/__pycache__/attackdata.cpython-39.pyc": ["artifact", "Python 3.9 bytecode 缓存；二进制无独立设计说明。header/source size 与旁边 attackdata.py 对应，未发现可推翻源码语义的独立证据。"],
+    "data_pyg/Attack_data/attackdata.py": ["corroborating", "参数化 AttackDataset；第 39、57 行由 method + ptb 决定精确 adjacency。调用者传 0.0 时读取 0.0 基图。"],
+    "data_pyg/Attack_unit_test_data/attackunitdata.py": ["downstream", "adaptive attack graph loader；按 scenario/model/ptb 读取 A_perturbed_budget_ptb_*。活动预训练没有调用。"],
+    "data_pyg/data_pyg.py": ["corroborating", "数据工厂；第 46-48 行将 Attack-* 路由给 AttackDataset，自身不选择 ptb。"],
+    "exp_record.ipynb": ["downstream", "5 个 markdown cell：记录固定 GraphCL checkpoint 在 Meta_Self-0.0/0.2 下游条件的结果；没有说明或改变预训练图来源。"],
+    "figure_plot/prompt_attack.ipynb": ["downstream", "1 个绘图 cell：将下游 Clean/Meta 20% 精度画成雷达图；没有预训练数据加载。"],
+    "generate_few_shot_attack.py": ["decisive", "第 47-52 行显式把 Meta_Self-0.0 称为 clean data；第 101/128/137 行再按预算生成并保存 modified_adj。"],
+    "generate_few_shot_attack.sh": ["downstream", "单次攻击数据生成命令；当前 ptb_rate=0.0，用于生成 clean baseline，不是预训练入口。"],
+    "generate_few_shot_attack_batch.sh": ["downstream", "批量生成 ptb=0.2 的 few-shot attack 数据；与 MyPretrain 调用链分离。"],
+    "MyPretrain.py": ["corroborating", "预训练总入口；第 11-24 行选择 GraphCL/Edgepred/NodeMultiGprompt/GraphMAE，第 30 行运行；没有 attack/ptb 参数传入。"],
+    "MyTask.py": ["downstream", "下游总入口；第 34-38 行把 checkpoint 与 attack_downstream/attack_method 分开传给 NodeTask。"],
+    "pretrain.sh": ["corroborating", "GraphCL 预训练配置；第 1-10 行只含 dataset/GNN/epoch/seed/device，无 attack/ptb。"],
+    "prompt_graph/__init__.py": ["neutral", "仅导入 data/model/pretrain/prompt/tasker/utils 六个子包，不选择任何图。"],
+    "prompt_graph/data/__init__.py": ["neutral", "仅重新导出 NodePretrain、clean/downstream loaders 等符号；选择逻辑在 load4data.py。"],
+    "prompt_graph/data/induced_graph.py": ["neutral", "从调用者传入的 data/edge_index 构造 induced subgraph；上游给什么图就处理什么图，本文件不决定源图。"],
+    "prompt_graph/data/load4data.py": ["decisive", "决定性文件：第 869-883 行注释 raw Planetoid，活动代码硬编码 Meta_Self-0.0 LCC；第 970-999 行 NodePretrain 使用它；第 190-202/377-425 行是独立 downstream attack loaders。"],
+    "prompt_graph/pretrain/__init__.py": ["neutral", "仅导出四类预训练器，不加载数据。"],
+    "prompt_graph/pretrain/base.py": ["neutral", "预训练基类：设备、GNN、优化器初始化；不决定图来源。"],
+    "prompt_graph/pretrain/Edgepred_Gprompt.py": ["corroborating", "第 20-21 行通过 load4link_prediction_single_graph 取数据；后者在 load4data.py:753-754 调 load4node_demo2，因此节点图仍走 0.0 LCC。"],
+    "prompt_graph/pretrain/GraphCL.py": ["corroborating", "第 23-24 行调用 NodePretrain；第 29-52/104-109 行从 clean 基图生成自监督 views。无 attack/ptb 输入。"],
+    "prompt_graph/pretrain/GraphMAE.py": ["corroborating", "第 200-204 行节点数据调用 NodePretrain；feature mask / 可选 edge-drop 是生成式预训练增强，不是攻击数据。"],
+    "prompt_graph/pretrain/MultiGPrompt.py": ["corroborating", "NodePrePrompt 第 45 行调用 process.load_data；其再调 load4node_demo2，走 0.0 LCC。aug_random_edge/mask 属于预训练增强。"],
+    "prompt_graph/prompt/RobustPrompt_I_Test.py": ["corroborating", "第 132-137 行作者注释直接声明：预训练数据集假定为干净，下游图被攻击或扰动；本文件消费下游 batch，不负责预训练数据加载。"],
+    "prompt_graph/tasker/__init__.py": ["neutral", "仅导出 NodeTask/GraphTask。"],
+    "prompt_graph/tasker/graph_task.py": ["downstream", "图级下游训练器；数据由调用者注入，继承 BaseTask 加载 checkpoint，不选择节点预训练图。"],
+    "prompt_graph/tasker/node_task.py": ["downstream", "第 32-38、69-90 行把 attack_downstream 路由到 attacked loaders，随后初始化 GNN；第 573 行空列表使 578-620 的 clean_dataset_pretrain 片段不可达。"],
+    "prompt_graph/tasker/task.py": ["corroborating", "BaseTask 保存 checkpoint 与 downstream attack 参数；第 221-229 行只加载 state_dict。prompt 优化器不包含 GNN 参数，backbone 实际冻结。"],
+    "prompt_graph/utils/aug.py": ["augmentation", "MultiGPrompt 的随机 edge add/drop、node mask 等 SSL augmentation；不加载 MetaAttack 数据，也不决定 pretrain 基图。"],
+    "prompt_graph/utils/get_args.py": ["corroborating", "参数定义将 --attack_downstream / --attack_method 与 --pre_train_model_path 分开；没有给 MyPretrain 的 poisoned-pretrain 选项。"],
+    "prompt_graph/utils/perturbation.py": ["augmentation", "GraphCL graph_views：drop_nodes、permute_edges（当前实现为随机删边）、mask_nodes。修改 clean 训练 view，但不是 adversarial poisoning。"],
+    "prompt_graph/utils/pgd.py": ["downstream", "定义 PGD 图攻击器；由 robust utility 使用，MyPretrain 和 pretrain classes 没有调用。"],
+    "prompt_graph/utils/process.py": ["corroborating", "第 175-176 行 load_data 直接调用 load4node_demo2，使 NodeMultiGprompt 预训练也走 Meta_Self-0.0 LCC。"],
+    "prompt_graph/utils/robustpt.py": ["downstream", "伪标签、回答头微调、detector 与 PGD adversarial adjacency 工具；服务 robust downstream 路径，不是 MyPretrain 的数据入口。"],
+    "task.sh": ["downstream", "固定 GraphCL checkpoint 与 --attack_downstream --attack_method heuristic-0.5 并列；展示“同一预训练权重 + 下游攻击图”。"],
+    "task_muti.sh": ["downstream", "第 5-6 行固定 GraphMAE checkpoint；第 61-62/99-100 行循环变化下游 attack/ptb，不重新预训练。"],
+    "task_muti_adaptive.sh": ["downstream", "第 64-69 行 adaptive poisoning 参数只传给 downstream；pre_trained_model_adaptive 只是路径名，无法证明污染预训练。"],
+    "zcy_edge.py": ["downstream", "实验性边/图任务脚本，直接载入外部 checkpoint；无预训练图选择，且存在未定义变量，非主预训练入口。"]
+  };
+
+  const plotPdf = path => path.startsWith("figure_plot/") && path.endsWith(".pdf");
+  const evalFile = path => path.startsWith("prompt_graph/evaluation/");
+  const modelFile = path => path.startsWith("prompt_graph/model/");
+  const promptFile = path => path.startsWith("prompt_graph/prompt/");
+
+  function fallback(path) {
+    if (plotPdf(path)) return ["downstream", "单页雷达图；视觉核对仅比较下游 Clean 与 Meta 20% 性能，没有预训练图来源说明。"];
+    if (evalFile(path)) return ["neutral", "评估函数消费调用者传入的 data/embedding；不加载数据集、不选择 clean/poisoned pretrain graph。"];
+    if (modelFile(path)) return ["neutral", "GNN 网络层实现，只消费 x/edge_index；不加载数据、不选择预训练图来源。"];
+    if (promptFile(path)) return ["neutral", "Prompt 结构/优化实现，消费上游 data 与冻结 GNN；不负责选择预训练源图。"];
+    if (path.startsWith("prompt_graph/utils/")) return ["neutral", "通用数学/张量/随机种子/打印辅助函数；没有预训练图加载决策。"];
+    return ["neutral", "已审查；不包含预训练 clean/poison 图选择逻辑。"];
+  }
+
+  const labels = {
+    decisive: "决定性",
+    corroborating: "佐证",
+    downstream: "仅下游/攻击",
+    augmentation: "自监督增强",
+    artifact: "产物/配置",
+    neutral: "无图源决策"
+  };
+  const rows = files.map((path, i) => {
+    const [status, finding] = audit[path] || fallback(path);
+    return { index: i + 1, path, status, finding };
+  });
+
+  const tbody = document.querySelector("#auditTable tbody");
+  const search = document.querySelector("#search");
+  const filterBox = document.querySelector("#filters");
+  const count = document.querySelector("#resultCount");
+  let active = "all";
+
+  function render() {
+    const q = search.value.trim().toLowerCase();
+    const visible = rows.filter(row => {
+      const statusOk = active === "all" || row.status === active;
+      const textOk = !q || `${row.path} ${labels[row.status]} ${row.finding}`.toLowerCase().includes(q);
+      return statusOk && textOk;
+    });
+    tbody.innerHTML = visible.map(row => `
+      <tr>
+        <td>${row.index}</td>
+        <td class="file"><a href="../GPromptShield-master/${encodeURI(row.path)}"><code>${row.path}</code></a></td>
+        <td><span class="tag ${row.status}">${labels[row.status]}</span></td>
+        <td class="finding">${row.finding}</td>
+      </tr>`).join("");
+    count.textContent = `显示 ${visible.length} / ${rows.length} 个文件`;
+  }
+
+  const statuses = ["all", ...Object.keys(labels)];
+  statuses.forEach(status => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = status === "all" ? "全部" : labels[status];
+    button.className = status === active ? "active" : "";
+    button.addEventListener("click", () => {
+      active = status;
+      [...filterBox.children].forEach(b => b.classList.remove("active"));
+      button.classList.add("active");
+      render();
+    });
+    filterBox.appendChild(button);
+  });
+  search.addEventListener("input", render);
+  render();
+
+  const flowDetails = {
+    "pretrain-sh": ["pretrain.sh", "1-10", "GraphCL + Cora_ml 配置；没有 attack_method、ptb 或 poisoning 参数。"],
+    "my-pretrain": ["MyPretrain.py", "11-30", "构造 GraphCL/GraphMAE 等预训练器并运行；攻击参数没有传入。"],
+    "pretrain-class": ["prompt_graph/pretrain/GraphCL.py / GraphMAE.py", "23-24 / 200-204", "两条节点预训练主线都调用 NodePretrain。"],
+    "node-pretrain": ["prompt_graph/data/load4data.py", "970-999", "NodePretrain 先调用 load4node_demo2，再把图切成 cluster subgraphs。"],
+    "clean-lcc": ["prompt_graph/data/load4data.py", "869-883", "活动分支硬编码 Meta_Self-0.0，并由注释定义为最大连通分量。"],
+    "augmentation": ["prompt_graph/pretrain/GraphCL.py + utils/perturbation.py", "29-52,104-109 / 5-69", "clean LCC 生成 SSL views；这是训练增强，不是攻击者污染。"],
+    "checkpoint": ["prompt_graph/tasker/task.py", "221-229", "下游只加载已有 state_dict；优化器不包含 GNN 参数。"],
+    "task-script": ["task_muti.sh / task_muti_adaptive.sh", "5-6,61-62 / 64-69", "checkpoint 固定，attack_method 与 ptb 在下游循环变化。"],
+    "node-task": ["prompt_graph/tasker/node_task.py", "32-38,69-90", "attack_downstream 为真时调用 attacked data loader。"],
+    "attacked-loader": ["prompt_graph/data/load4data.py", "190-202,377-425", "在 downstream 根据 attack_method 拆出 attack type 与非零 ptb。"],
+    "prompt-tuning": ["prompt_graph/tasker/node_task.py", "训练/评估主循环", "被攻击的下游图与冻结 checkpoint 在这里汇合，训练 prompt + answering head。"]
+  };
+  const detail = document.querySelector("#flowDetail");
+  document.querySelectorAll(".flow-node").forEach(node => {
+    const show = () => {
+      const [path, lines, text] = flowDetails[node.dataset.key];
+      detail.innerHTML = `<span class="tag code">调用链证据</span><h3>${path}</h3><p>${text}</p><div class="path">行号：${lines}</div>`;
+    };
+    node.addEventListener("click", show);
+    node.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); show(); }
+    });
+  });
+
+  const conclusion = `GPromptShield 预训练图来源审计结论：
+1. 论文第 5 页明文规定：在 clean graphs 上预训练 GNN 并冻结参数。
+2. 当前活动代码的精确实现：Meta_Self-0.0 最大连通分量（LCC），不是非零 ptb 的攻击图。
+3. GraphCL/GraphMAE 的 mask、dropN、permE 是 SSL augmentation，不等同于 adversarial poisoning。
+4. 非零 attack/ptb 只进入 downstream NodeTask loader；固定 checkpoint 与 attacked graph 在 prompt tuning 阶段汇合。
+5. 本快照没有 .pth/.pt 或 raw adjacency，因此不能内容级证明历史 checkpoint provenance，也不能逐边验证 0.0 文件。`;
+  document.querySelector("#copyConclusion").addEventListener("click", async () => {
+    const status = document.querySelector("#copyStatus");
+    try {
+      await navigator.clipboard.writeText(conclusion);
+      status.textContent = "已复制";
+    } catch {
+      status.textContent = "浏览器拒绝剪贴板权限，请手动复制报告顶部结论。";
+    }
+  });
+</script>
+</body>
+</html>

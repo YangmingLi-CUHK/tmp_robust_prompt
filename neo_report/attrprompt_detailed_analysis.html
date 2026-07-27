@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AttrPrompt — Full Technical Trace with Reference Methods</title>
+<style>
+  :root { --bg: #fff; --text: #1a1a1a; --muted: #6b7280; --border: #e5e7eb; --code-bg: #f3f4f6; }
+  body { font: 14px/1.6 system-ui, -apple-system, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 24px; color: var(--text); background: var(--bg); }
+  h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+  h2 { font-size: 17px; font-weight: 600; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; color: #374151; }
+  .meta { color: var(--muted); font-size: 12px; margin-bottom: 28px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 5px 8px; text-align: left; border: 1px solid var(--border); }
+  th { background: #f9fafb; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  tr.dim td { font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace; font-size: 12px; background: #fefefe; }
+  td.desc { color: var(--muted); font-size: 12px; }
+  pre { background: var(--code-bg); padding: 14px 18px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5; margin: 8px 0 16px; }
+  code { font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace; font-size: 12px; background: var(--code-bg); padding: 1px 4px; border-radius: 3px; }
+  pre code { padding: 0; background: none; }
+  .dim-row td:first-child { color: #2563eb; font-weight: 500; }
+  .sep td { border-top: 2px solid #d1d5db; }
+  .ref { border-left: 3px solid #f59e0b; padding-left: 16px; margin: 12px 0; }
+  .ref-label { font-size: 11px; text-transform: uppercase; font-weight: 600; color: #d97706; margin-bottom: 4px; }
+  .section-desc { font-size: 13px; color: var(--muted); margin: 4px 0 12px; }
+  .toc { margin: 20px 0; padding: 0; list-style: none; }
+  .toc li { margin: 4px 0; font-size: 13px; }
+  .toc a { color: #2563eb; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<h1>AttrPrompt — Full Technical Trace</h1>
+<p class="meta">Cora 5-shot + Metattack &nbsp;|&nbsp; 2708 nodes &middot; 1433 feat &middot; 7 classes &nbsp;|&nbsp; 2026-07-22</p>
+
+<ol class="toc">
+  <li><a href="#s1">1. Data Pipeline</a></li>
+  <li><a href="#s2">2. Phase 1: GCN Teacher Pretraining</a></li>
+  <li><a href="#s3">3. Phase 2: AttrPrompt — Node_prompt</a></li>
+  <li><a href="#s4">4. DynamicPrompt Generator (paper default)</a></li>
+  <li><a href="#s5">5. x_prompt Generator (simpler variant)</a></li>
+  <li><a href="#s6">6. CLUB / Information Bottleneck</a></li>
+  <li><a href="#s7">7. Reference: SimPGCN (WSDM'21)</a></li>
+  <li><a href="#s8">8. Reference: TopologyAttack (IJCAI'19)</a></li>
+  <li><a href="#s9">9. Complete Dimension Trace Table</a></li>
+</ol>
+
+<!-- ================================================================================== -->
+<h2 id="s1">1. Data Pipeline</h2>
+<p class="section-desc">Source: <code>data_attack_fewshot/Cora/shot_5/1/Meta_Self/raw/</code> &nbsp;→&nbsp; AttrPrompt-compatible tensors via <code>load_cora_metattack.py</code>.</p>
+
+<h3>1.1 Raw Files → Processed Tensors</h3>
+<table>
+  <tr><th>Step</th><th>Operation</th><th>Input Shape</th><th>Output Shape</th><th>Note</th></tr>
+  <tr class="dim-row"><td>①</td><td>Load features (scipy sparse)</td><td>—</td><td><code>sp.csr [2708, 1433]</code></td><td class="desc">BoW, 1.27% density</td></tr>
+  <tr class="dim-row"><td>②</td><td>Row-normalize features</td><td><code>[2708, 1433]</code></td><td><code>dense [2708, 1433]</code></td><td class="desc"><code>D_row^{-1} X</code> — each row sums to ~1</td></tr>
+  <tr class="dim-row"><td>③</td><td>Load labels</td><td>—</td><td><code>LongTensor [2708]</code></td><td class="desc">0&ndash;6, imbalanced</td></tr>
+  <tr class="dim-row"><td>④</td><td>Load split indices (ptb=0.0)</td><td>—</td><td><code>train [35] / val [265] / test [2408]</code></td><td class="desc">Identical across all 6 ptb rates</td></tr>
+  <tr class="dim-row"><td>⑤</td><td>Load clean adj (<code>Meta_Self_Cora_0.0.pt</code>)</td><td><code>torch.sparse [2708, 2708]</code></td><td><code>scipy.csr [2708, 2708]</code></td><td class="desc">5278 undirected edges + 2708 self-loops = 13264 nnz</td></tr>
+  <tr class="dim-row"><td>⑥</td><td>Remove self-loops → normalize</td><td><code>csr [2708, 2708]</code></td><td><code>dense [2708, 2708]</code></td><td class="desc"><code>D^{-½}(A_no_self + I)D^{-½}</code></td></tr>
+  <tr class="dim-row"><td>⑦</td><td>Build KNN graph (k=10, cosine)</td><td><code>dense [2708, 1433]</code></td><td><code>dense [2708, 2708]</code></td><td class="desc">Symmetric, binarized, then <code>D^{-½}(A_f+I)D^{-½}</code></td></tr>
+  <tr class="dim-row"><td>⑧</td><td>Load perturbed adjs ×5</td><td><code>torch.sparse [2708, 2708]</code></td><td><code>dense [2708, 2708]</code></td><td class="desc">Same normalization as ⑥. 5571&ndash;6634 edges (ptb 0.05&ndash;0.25)</td></tr>
+</table>
+
+<h3>1.2 Final Variable Names (AttrPrompt Convention)</h3>
+<table>
+  <tr><th>Variable</th><th>Shape</th><th>Content</th></tr>
+  <tr class="dim-row"><td><code>features</code></td><td><code>[2708, 1433]</code></td><td>Row-normalized dense features</td></tr>
+  <tr class="dim-row"><td><code>adj</code></td><td><code>[2708, 2708]</code></td><td>Clean normalized adjacency <code>D^{-½}(A+I)D^{-½}</code></td></tr>
+  <tr class="dim-row"><td><code>adj_f</code></td><td><code>[2708, 2708]</code></td><td>KNN feature graph, same normalization</td></tr>
+  <tr class="dim-row"><td><code>labels</code></td><td><code>[2708]</code></td><td>Integer class labels</td></tr>
+  <tr class="dim-row"><td><code>idx_train</code></td><td><code>[35]</code></td><td>Training node indices</td></tr>
+  <tr class="dim-row"><td><code>idx_val</code></td><td><code>[265]</code></td><td>Validation node indices</td></tr>
+  <tr class="dim-row"><td><code>idx_test</code></td><td><code>[2408]</code></td><td>Test node indices</td></tr>
+  <tr class="dim-row"><td><code>perturbed_adjs[ptb]</code></td><td><code>[2708, 2708]</code></td><td>Perturbed adj at rate <code>ptb</code></td></tr>
+</table>
+
+
+<!-- ================================================================================== -->
+<h2 id="s2">2. Phase 1: GCN Teacher Pretraining</h2>
+<p class="section-desc">Script: <code>train_cora_gcn.py</code>. Trains a 2-layer GCN from scratch on the 5-shot split.</p>
+
+<h3>2.1 GCN Architecture (<code>model_prompt1.GCN</code>)</h3>
+<table>
+  <tr><th>Layer</th><th>Class</th><th>Weight Shape</th><th>Operation</th><th>Output Shape</th></tr>
+  <tr class="dim-row"><td>gc1</td><td><code>GraphConvolution(1433, 16)</code></td><td><code>[1433, 16]</code></td><td><code>ReLU(adj @ (x @ W1))</code></td><td><code>[2708, 16]</code></td></tr>
+  <tr class="dim-row"><td>dropout</td><td><code>p=0.5</code></td><td>—</td><td>Random zero 50% of units (train only)</td><td><code>[2708, 16]</code></td></tr>
+  <tr class="dim-row"><td>gc2</td><td><code>GraphConvolution(16, 7)</code></td><td><code>[16, 7]</code></td><td><code>log_softmax(adj @ (h @ W2))</code></td><td><code>[2708, 7]</code></td></tr>
+</table>
+
+<p>Total params: <code>1433×16 + 16 + 16×7 + 7 = 23,103</code></p>
+
+<h3>2.2 GraphConvolution.forward</h3>
+<pre><code>def forward(self, input, adj):
+    support = torch.mm(input, self.weight)   # [N, in] @ [in, out] → [N, out]
+    output  = torch.spmm(adj, support)        # [N, N] @ [N, out] → [N, out]
+    return output + self.bias                 # [N, out]</code></pre>
+
+<h3>2.3 Training Loop</h3>
+<pre><code>for epoch in range(400):
+    output = model(features, adj, epoch, test=0)       # [2708, 7]
+    loss = F.nll_loss(output[idx_train], labels[idx_train])
+    #         CE on 35 labeled nodes only
+    loss.backward()
+    optimizer.step()                                   # Adam, lr=0.01, wd=5e-4
+
+    # Validate on all 2708 nodes, select by val accuracy (early stop patience=100)</code></pre>
+
+<h3>2.4 Result</h3>
+<p>10 seeds: <strong>68.91% ± 1.49%</strong> test accuracy on clean adj.</p>
+
+
+<!-- ================================================================================== -->
+<h2 id="s3">3. Phase 2: AttrPrompt — <code>Node_prompt</code></h2>
+<p class="section-desc">Script: <code>train_cora_attrprompt.py</code>. Loads frozen GCN teacher, trains only the prompt generator.</p>
+
+<h3>3.1 Model Construction</h3>
+<pre><code>model = Node_prompt(
+    nfeat=1433, nhid=16, nclass=7,
+    dropout=0.5, p=0.02, cuda_id=0,
+    IB=True,                    # enable CLUB mutual info regularization
+    attack_iters=1, step_size=0.02,
+    mask_type='adv',            # PGD adversarial training on edges
+    prompt_type='dynamic',      # DynamicPrompt generator
+    norm_if=True,               # Cora: NO L2 normalization on prompt
+    lp=0.2, num_nodes=2708,
+)
+
+# Load pretrained teacher, freeze it
+model.model_teacher.load_state_dict(torch.load('save_cora/GCN/model_{seed}.pth'))
+for p in model.model_teacher.parameters():
+    p.requires_grad = False     # only generator is trained</code></pre>
+
+<h3>3.2 Node_prompt.forward() — Training Mode (train=True)</h3>
+
+<p>The training forward performs PGD on the adjacency to find worst-case edge perturbations, then generates a prompt to compensate.</p>
+
+<h4>Stage A: PGD Attack on Adjacency (attack_iters=1)</h4>
+
+<table>
+  <tr><th>Step</th><th>Operation</th><th>Shape</th><th>Note</th></tr>
+  <tr class="dim-row"><td>A1</td><td><code>adj_raw = where(adj_a > 0, 1, 0)</code></td><td><code>[2708, 2708]</code></td><td class="desc">Binary-fy the normalized clean adj</td></tr>
+  <tr class="dim-row"><td>A2</td><td><code>delta = zeros_like(adj_a)</code></td><td><code>[2708, 2708]</code></td><td class="desc">requires_grad=True, perturbation variable</td></tr>
+  <tr class="dim-row"><td>A3</td><td><code>A_pert_raw = clamp(adj_raw + delta, 0, 1)</code></td><td><code>[2708, 2708]</code></td><td class="desc">Continuous perturbed adj (not binary)</td></tr>
+  <tr class="dim-row"><td>A4</td><td><code>A_pert_norm = D^{-½} A_pert_raw D^{-½}</code></td><td><code>[2708, 2708]</code></td><td class="desc">Re-normalize perturbed adj</td></tr>
+  <tr class="dim-row"><td>A5</td><td><code>x_prompt = generator(x, adj_f, A_pert_norm)</code></td><td><code>[2708, 1433]</code></td><td class="desc">Prompt from KNN graph + perturbed structure</td></tr>
+  <tr class="dim-row"><td>A6</td><td><code>x_in = 0.5 * (x + x_prompt)</code></td><td><code>[2708, 1433]</code></td><td class="desc">Feature interpolation (hardcoded α=0.5)</td></tr>
+  <tr class="dim-row"><td>A7</td><td><code>out_student = teacher(x_in, A_pert_norm)</code></td><td><code>[2708, 7]</code></td><td class="desc">log_softmax</td></tr>
+  <tr class="dim-row"><td>A8</td><td><code>out_teacher = teacher(x, adj_a)</code></td><td><code>[2708, 7]</code></td><td class="desc">Teacher on clean features + clean adj</td></tr>
+  <tr class="dim-row"><td>A9</td><td><code>loss_adv = KL(out_student || out_teacher)</code></td><td>scalar</td><td class="desc">batchmean over all 2708 nodes</td></tr>
+  <tr class="dim-row"><td>A10</td><td><code>loss_adv.backward()</code> → <code>∂loss/∂delta</code></td><td><code>[2708, 2708]</code></td><td class="desc">Gradient through normalize → clamp → delta</td></tr>
+  <tr class="dim-row"><td>A11</td><td><code>delta += 0.02 * sign(grad)</code></td><td><code>[2708, 2708]</code></td><td class="desc">PGD step in sign(grad) direction</td></tr>
+  <tr class="dim-row"><td>A12</td><td><code>delta = clamp(delta, -0.1, 0.1)</code></td><td><code>[2708, 2708]</code></td><td class="desc">ε=0.1 Box constraint</td></tr>
+</table>
+
+<h4>Stage B: Final Forward (after PGD) & IB</h4>
+
+<table>
+  <tr><th>Step</th><th>Operation</th><th>Shape</th><th>Note</th></tr>
+  <tr class="dim-row"><td>B1</td><td><code>A_adv_raw = clamp(adj_raw + delta.detach(), 0, 1)</code></td><td><code>[2708, 2708]</code></td><td class="desc">Final perturbed adj (delta frozen)</td></tr>
+  <tr class="dim-row"><td>B2</td><td><code>adj_adv = D^{-½} A_adv_raw D^{-½}</code></td><td><code>[2708, 2708]</code></td><td class="desc">Normalized</td></tr>
+  <tr class="dim-row"><td>B3</td><td><code>x_prompt = generator(x, adj_f, adj_adv)</code></td><td><code>[2708, 1433]</code></td><td class="desc">Prompt on worst-case perturbed adj</td></tr>
+  <tr class="dim-row"><td>B4</td><td><code>x_in = 0.5 * (x + x_prompt)</code></td><td><code>[2708, 1433]</code></td><td class="desc">Feature interpolation</td></tr>
+  <tr class="dim-row"><td>B5</td><td><code>out = teacher(x_in, adj_adv)</code></td><td><code>[2708, 7]</code></td><td class="desc">Student output (log_softmax)</td></tr>
+  <tr class="dim-row"><td>B6</td><td><code>out_teacher = teacher(x, adj_a, return_x=True)</code></td><td><code>([2708,7], [2708,7])</code></td><td class="desc">Tuple: (log_softmax, pre-softmax logits)</td></tr>
+  <tr class="dim-row"><td>B7</td><td><code>H_noisy = teacher(x, adj_adv)</code></td><td><code>[2708, 7]</code></td><td class="desc">Teacher on clean features + perturbed adj</td></tr>
+  <tr class="dim-row"><td>B8</td><td><code>H_noisy = normalize(H_noisy)</code></td><td><code>[2708, 7]</code></td><td class="desc">(H - mean)/std, per-dimension</td></tr>
+</table>
+
+<h4>Stage C: Loss Computation</h4>
+
+<pre><code># KL divergence: force student (prompt + adv adj) to match teacher (clean)
+loss_kl = F.kl_div(out, out_teacher[0], reduction='batchmean', log_target=True)
+#         KL( P_teacher || P_student ) — both are log-probabilities
+#         = Σ_i exp(T_i) · (T_i - S_i) / N        where T=teacher log-prob, S=student log-prob
+
+# IB: minimize mutual information between prompt and noisy representation
+loss_ib = club_module(x_prompt, H_noisy)    # scalar — see §6
+
+loss_train = loss_kl + 0.05 * loss_ib
+loss_train.backward()
+optimizer.step()                             # Adam, lr=0.01, wd=5e-4
+
+# Then: train CLUB for 5 iterations (see §6)
+</code></pre>
+
+<h3>3.3 Node_prompt.forward() — Inference Mode (train=False)</h3>
+
+<table>
+  <tr><th>Step</th><th>Operation</th><th>Shape</th></tr>
+  <tr class="dim-row"><td>I1</td><td><code>x_prompt = generator(x, adj_f, adj_test)</code></td><td><code>[2708, 1433]</code></td></tr>
+  <tr class="dim-row"><td>I2</td><td><code>x_in = 0.5 * (x + x_prompt)</code></td><td><code>[2708, 1433]</code></td></tr>
+  <tr class="dim-row"><td>I3</td><td><code>out = teacher(x_in, adj_test)</code></td><td><code>[2708, 7]</code></td></tr>
+</table>
+
+<p>No PGD. No IB. The prompt is generated from <code>adj_f</code> (KNN) and <code>adj_test</code> (structure, possibly perturbed).</p>
+
+
+<!-- ================================================================================== -->
+<h2 id="s4">4. DynamicPrompt Generator</h2>
+<p class="section-desc">The paper's default prompt generator for Cora. <code>norm_if=True, IB=True</code>.</p>
+
+<h3>4.1 Architecture</h3>
+<pre><code>class DynamicPrompt(nn.Module):
+    def __init__(self, nfeat=1433, nhid=1433, ...):
+        self.prompt_g  = GraphConvolution(1433, 1433)    # weight [1433, 1433]
+        self.gamma_1   = nn.Linear(1433, 1433, bias=False) # weight [1433, 1433]
+        # norm_if=True: no beta_1, no L2 normalization
+        self.lrelu     = nn.LeakyReLU(0.2)
+    # Total params: 1433² + 1433² = 4,106,978</code></pre>
+
+<h3>4.2 Forward Pass — Dimension Trace</h3>
+
+<table>
+  <tr><th>Line</th><th>Operation</th><th>Input Shape(s)</th><th>Output Shape</th></tr>
+  <tr class="dim-row"><td>L115</td><td><code>F.relu(self.prompt_g(x, adj_f))</code></td><td><code>x [2708,1433], adj_f [2708,2708]</code></td><td><code>base_prompt [2708, 1433]</code></td></tr>
+  <tr class="sep dim-row"><td colspan="4"><em>Inside GraphConvolution(1433,1433):</em></td></tr>
+  <tr class="dim-row"><td></td><td><code>torch.mm(x, self.weight)</code></td><td><code>[2708,1433] @ [1433,1433]</code></td><td><code>[2708, 1433]</code></td></tr>
+  <tr class="dim-row"><td></td><td><code>torch.spmm(adj_f, support)</code></td><td><code>[2708,2708] @ [2708,1433]</code></td><td><code>[2708, 1433]</code></td></tr>
+  <tr class="sep dim-row"><td colspan="4"></td></tr>
+  <tr class="dim-row"><td>L120</td><td><code>adj_a.fill_diagonal_(0)</code></td><td><code>adj_a [2708,2708]</code></td><td><code>[2708,2708]</code></td></tr>
+  <tr class="dim-row"><td>L121</td><td><code>torch.mm(adj_a, x)</code></td><td><code>[2708,2708] @ [2708,1433]</code></td><td><code>neighbor [2708, 1433]</code></td></tr>
+  <tr class="dim-row"><td>L124</td><td><code>self.gamma_1(neighbor)</code></td><td><code>[2708,1433] @ [1433,1433]^T</code></td><td><code>[2708, 1433]</code></td></tr>
+  <tr class="dim-row"><td>L128</td><td><code>LeakyReLU(0.2)(·) + 1</code></td><td><code>[2708, 1433]</code></td><td><code>gamma [2708, 1433] ∈ (0.8, ∞)</code></td></tr>
+  <tr class="dim-row"><td>L129</td><td><code>gamma * base_prompt</code></td><td><code>[2708,1433] ⊙ [2708,1433]</code></td><td><code>learned_prompt [2708, 1433]</code></td></tr>
+  <tr class="dim-row"><td>—</td><td><code>norm_if=True: no F.normalize, no beta</code></td><td></td><td><code>[2708, 1433]</code></td></tr>
+</table>
+
+<h3>4.3 What Each Component Does</h3>
+<table>
+  <tr><th>Component</th><th>Equation</th><th>Dimension</th><th>Role</th></tr>
+  <tr>
+    <td><code>base_prompt</code></td>
+    <td><code>ReLU( D_f<sup>−½</sup>A_f D_f<sup>−½</sup> · X · W<sub>prompt</sub> )</code></td>
+    <td><code>[N, 1433]</code></td>
+    <td class="desc">Node prompt from KNN feature graph — encodes feature-space neighborhood structure</td>
+  </tr>
+  <tr>
+    <td><code>gamma</code></td>
+    <td><code>LeakyReLU( (A·X) · W<sub>γ</sub> ) + 1</code></td>
+    <td><code>[N, 1433]</code></td>
+    <td class="desc">Per-dimension gate from structure neighbors — determines how much of each <code>base_prompt</code> dimension to keep</td>
+  </tr>
+  <tr>
+    <td><code>learned_prompt</code></td>
+    <td><code>gamma ⊙ base_prompt</code></td>
+    <td><code>[N, 1433]</code></td>
+    <td class="desc">Element-wise gated prompt — structure information modulates feature-graph prompt</td>
+  </tr>
+</table>
+
+<h3>4.4 <code>norm_if</code> — What It Controls</h3>
+<table>
+  <tr><th><code>norm_if</code></th><th><code>beta</code></th><th><code>gamma_1</code></th><th>Additive term <code>beta</code></th><th>Output normalization</th><th>Use case</th></tr>
+  <tr>
+    <td><code>True</code></td><td><code>False</code></td><td><code>Linear(1433, 1433)</code></td><td>No</td><td>None (preserves natural magnitude)</td><td class="desc">Cora, Citeseer (paper default)</td>
+  </tr>
+  <tr>
+    <td><code>False</code></td><td><code>True</code></td><td><code>Linear(1433, 1433)</code></td><td>Yes: <code>beta = LReLU(Linear(neighbor))</code></td><td><code>F.normalize(·)</code> — L2 unit norm</td><td class="desc">A-photo, A-computer</td>
+  </tr>
+</table>
+
+
+<!-- ================================================================================== -->
+<h2 id="s5">5. <code>x_prompt</code> Generator (Simpler Variant)</h2>
+
+<pre><code>class x_prompt(nn.Module):
+    def __init__(self, nfeat=1433, ...):
+        self.gc1 = nn.Sequential(nn.Linear(1433, 1433))
+        # Total params: 1433² = 2,053,489
+
+    def forward(self, x, adj, adj_a, att=False):
+        return F.relu(self.gc1(x))     # [N, 1433] @ [1433, 1433]^T → ReLU → [N, 1433]
+        # NOTE: adj and adj_a are IGNORED. No graph structure is used.</code></pre>
+
+<table>
+  <tr><th>Step</th><th>Operation</th><th>Shape</th></tr>
+  <tr class="dim-row"><td>1</td><td><code>Linear(1433, 1433)(x)</code></td><td><code>[2708, 1433] @ [1433, 1433]^T = [2708, 1433]</code></td></tr>
+  <tr class="dim-row"><td>2</td><td><code>ReLU(·)</code></td><td><code>[2708, 1433]</code></td></tr>
+</table>
+
+<p>This is a <strong>feature-only residual transform</strong>: <code>x → (x + ReLU(Linear(x))) / 2</code>. No graph structure (KNN or topology) is used in prompt generation. The adversarial PGD still perturbs the adjacency during training, but the prompt generator cannot see it.</p>
+
+
+<!-- ================================================================================== -->
+<h2 id="s6">6. CLUB / Information Bottleneck</h2>
+<p class="section-desc">CLUB (Contrastive Log-ratio Upper Bound) estimates mutual information I(P; H) between prompt P and noisy representation H. Used when <code>IB=True</code>.</p>
+
+<h3>6.1 Architecture</h3>
+<pre><code>class CLUB(nn.Module):
+    def __init__(self, dim_P=1433, dim_H=7, hclub=64, hlayer=1):
+        # Both mu_net and logvar_net: Linear(1433→64) → ReLU → Linear(64→7)
+        self.mu_net     = Sequential(Linear(1433,64), ReLU(), Linear(64,7))
+        self.logvar_net = Sequential(Linear(1433,64), ReLU(), Linear(64,7))
+    # Total params: 2 × (1433×64 + 64 + 64×7 + 7) = 184,462</code></pre>
+
+<h3>6.2 Forward — MI Upper Bound</h3>
+<table>
+  <tr><th>Step</th><th>Operation</th><th>Shape</th><th>Note</th></tr>
+  <tr class="dim-row"><td>1</td><td><code>mu = mu_net(P)</code></td><td><code>[N, 7]</code></td><td class="desc">P = x_prompt [N, 1433]</td></tr>
+  <tr class="dim-row"><td>2</td><td><code>logvar = logvar_net(P)</code></td><td><code>[N, 7]</code></td><td></td></tr>
+  <tr class="dim-row"><td>3</td><td><code>positive = −½ Σ((H−μ)² / exp(logvar))</code></td><td><code>[N]</code></td><td class="desc">Log-likelihood of H under Gaussian(μ, exp(logvar))</td></tr>
+  <tr class="dim-row"><td>4</td><td><code>H_shuffle = H[randperm(N)]</code></td><td><code>[N, 7]</code></td><td class="desc">Break dependency P↔H by shuffling</td></tr>
+  <tr class="dim-row"><td>5</td><td><code>negative = −½ Σ((H_shuf−μ)² / exp(logvar))</code></td><td><code>[N]</code></td><td></td></tr>
+  <tr class="dim-row"><td>6</td><td><code>I_ub = mean(positive - negative)</code></td><td>scalar</td><td class="desc">MI upper bound: I(P;H) ≤ E[log p(h|p)] − E[log p(h'|p)]</td></tr>
+</table>
+
+<h3>6.3 Learning Loss (for CLUB optimizer)</h3>
+<pre><code>club_loss = 0.5 * Σ( (μ − H)² / exp(logvar) + logvar ).mean()
+# Minimizes negative log-likelihood of H given P, improving the MI estimator</code></pre>
+
+<h3>6.4 Training Dynamics</h3>
+<p>CLUB has its own optimizer (Adam, lr=1e-3). Each training iteration:</p>
+<pre><code># 1. Compute IB loss (MI upper bound)
+loss_ib = club_module(x_prompt, H_noisy)       # scalar
+
+# 2. Joint loss, update prompt generator
+loss_train = loss_kl + 0.05 * loss_ib
+optimizer.zero_grad(); loss_train.backward(); optimizer.step()
+
+# 3. Update CLUB estimator (5 inner iterations)
+for _ in range(5):
+    club_loss = club_module.learning_loss(x_prompt.detach(), H_noisy.detach())
+    optimizer_club.zero_grad(); club_loss.backward(); optimizer_club.step()</code></pre>
+
+<p>The IB loss <em>encourages</em> the prompt to carry minimal information about the noisy representation — i.e., the prompt should focus on the clean signal, not the perturbation.</p>
+
+
+<!-- ================================================================================== -->
+<h2 id="s7">7. Reference: SimPGCN (WSDM '21)</h2>
+<p class="section-desc">Node Similarity Preserving Graph Convolutional Networks — the paper AttrPrompt's Prompt Learning Module is based on.</p>
+
+<h3>7.1 Core Idea</h3>
+<p>GCN destroys original feature similarity through Laplacian smoothing. SimPGCN preserves it by (a) adaptively mixing the structure graph with a KNN feature graph, and (b) explicitly regressing pairwise feature similarity in a self-supervised loss.</p>
+
+<h3>7.2 Per-Layer Computation</h3>
+
+<table>
+  <tr><th>Step</th><th>Equation</th><th>Shape</th></tr>
+  <tr class="dim-row"><td>1</td><td><code>s<sup>(l)</sup> = sigmoid(H<sup>(l−1)</sup> · W<sub>s</sub> + b<sub>s</sub>)</code></td><td><code>[N, d] @ [d, 1] = [N, 1]</code></td></tr>
+  <tr class="dim-row"><td>2</td><td><code>P<sup>(l)</sup> = s<sup>(l)</sup> ∗ Ã<sub>norm</sub> + (1−s<sup>(l)</sup>) ∗ A<sub>f,norm</sub></code></td><td><code>[N, N]</code></td></tr>
+  <tr class="dim-row"><td>3</td><td><code>K<sup>(l)</sup> = H<sup>(l−1)</sup> · W<sub>K</sub> + b<sub>K</sub></code></td><td><code>[N, d] @ [d, 1] = [N, 1]</code></td></tr>
+  <tr class="dim-row"><td>4</td><td><code>P̃<sup>(l)</sup> = P<sup>(l)</sup> + γ · diag(K<sub>1</sub>, …, K<sub>N</sub>)</code></td><td><code>[N, N]</code></td></tr>
+  <tr class="dim-row"><td>5</td><td><code>H<sup>(l)</sup> = σ(P̃<sup>(l)</sup> · H<sup>(l−1)</sup> · W<sup>(l)</sup>)</code></td><td><code>[N, N] @ [N, d] @ [d, d'] = [N, d']</code></td></tr>
+</table>
+
+<h3>7.3 Self-Supervised Loss</h3>
+<pre><code>S_ij = cosine(x_i, x_j)                                          # [1] scalar
+L_self = Σ_{(i,j)∈T} ‖ f_w( H_i^(1) − H_j^(1) ) − S_ij ‖²      # MSE regression
+
+# f_w: Linear(d→1), H^(1): hidden reps from 1st SimPGCN layer
+# T: 5 most similar + 5 most dissimilar node pairs per node
+L_total = L_class + λ · L_self</code></pre>
+
+<h3>7.4 Comparison: SimPGCN vs AttrPrompt DynamicPrompt</h3>
+
+<table>
+  <tr><th>Aspect</th><th>SimPGCN</th><th>AttrPrompt DynamicPrompt</th></tr>
+  <tr>
+    <td>How graphs interact</td>
+    <td><strong>Linear interpolation</strong> of two normalized adjacency matrices:<br><code>P = s·Ã + (1−s)·A_f</code>, then convolution</td>
+    <td><strong>Element-wise gating</strong>: KNN graph generates a prompt, structure graph modulates it via gate:<br><code>prompt = γ ⊙ GCN(X, A_f)</code> where <code>γ = f(A·X)</code></td>
+  </tr>
+  <tr>
+    <td>Per-node adaptivity</td>
+    <td><code>s_i ∈ (0,1)</code> — one scalar per node that controls structure vs. feature graph mixing ratio</td>
+    <td><code>γ_i ∈ (0.8, ∞)^{1433}</code> — one scalar <em>per feature dimension</em> per node, controlling which dimensions of the KNN prompt to amplify/attenuate</td>
+  </tr>
+  <tr>
+    <td>Self-loops</td>
+    <td>Explicit <code>K_i</code> per node, learnable, added via diag</td>
+    <td>Implicit via <code>Ã_norm = D^{-½}(A+I)D^{-½}</code> in the adj itself. No explicit learnable self-loop term.</td>
+  </tr>
+  <tr>
+    <td>SSL</td>
+    <td>Explicit MSE regression on pairwise cosine similarity. Forces hidden reps to preserve original feature-space distances.</td>
+    <td>None. IB (when enabled) penalizes <em>mutual information</em> between prompt and noisy teacher output — a different objective entirely.</td>
+  </tr>
+  <tr>
+    <td>Parameter count (Cora)</td>
+    <td><code>d·d' + 2·(d+1)</code> per layer ≈ <strong>~185K</strong> (2-layer, d=128)</td>
+    <td><code>1433² + 1433²</code> = <strong>~4.1M</strong> (generator only)</td>
+  </tr>
+</table>
+
+<div class="ref">
+  <div class="ref-label">Key Structural Difference</div>
+  SimPGCN mixes two <em>graphs</em> (adjacency matrices) and does one convolution. AttrPrompt uses one graph to generate a <em>feature-space perturbation</em> (prompt) and the other graph to gate it. These are fundamentally different operations — the former is in the spectral/graph domain, the latter is in the feature domain.
+</div>
+
+
+<!-- ================================================================================== -->
+<h2 id="s8">8. Reference: TopologyAttack (IJCAI '19)</h2>
+<p class="section-desc">Topology Attack and Defense for Graph Neural Networks: An Optimization Perspective — the paper AttrPrompt's Adversarial Training is based on.</p>
+
+<h3>8.1 PGD Topology Attack (Algorithm 2)</h3>
+
+<table>
+  <tr><th>Step</th><th>Operation</th><th>Shape/Domain</th><th>Note</th></tr>
+  <tr class="dim-row"><td>1</td><td>Perturbation variable <code>s ∈ {0,1}<sup>n</sup></code></td><td><code>n = N(N−1)/2</code></td><td class="desc">Binary: each edge either exists or not</td></tr>
+  <tr class="dim-row"><td>2</td><td>Convex relaxation: <code>s ∈ [0,1]<sup>n</sup></code></td><td><code>[n]</code></td><td class="desc">Relax binary → continuous for gradient descent</td></tr>
+  <tr class="dim-row"><td>3</td><td>Constraint: <code>S = {s | 1<sup>T</sup>s ≤ ε, s ∈ [0,1]<sup>n</sup>}</code></td><td>simplex</td><td class="desc">ε = max #edges to perturb (e.g. 5% of existing edges)</td></tr>
+  <tr class="dim-row"><td>4</td><td>PGD: <code>s<sup>(t)</sup> = Proj<sub>S</sub>[s<sup>(t-1)</sup> − η ∇f(s)]</code></td><td><code>[n]</code></td><td class="desc">Project onto simplex (bisection over dual variable)</td></tr>
+  <tr class="dim-row"><td>5</td><td>After PGD: random sample K binary vectors from <code>s</code></td><td></td><td class="desc">Pick the one with best attack loss, respecting 1<sup>T</sup>s ≤ ε</td></tr>
+  <tr class="dim-row"><td>6</td><td>Attack loss: <code>f = −CE</code> or <code>f = max(Z_y − max_{c≠y} Z_c, −κ)</code></td><td>scalar</td><td class="desc">CE-type or CW-type loss on target nodes</td></tr>
+</table>
+
+<h3>8.2 Robust Training (Algorithm 4)</h3>
+<pre><code># Alternating min-max optimization
+for t = 1..T:
+    # Inner: PGD to find worst-case topology s given model W^(t-1)
+    s^(t) = PGD( s^(t-1), W^(t-1) )      # maximize CE loss on training nodes
+
+    # Outer: Update model weights to be robust against s^(t)
+    W^(t) = W^(t-1) + β · ∇_W CE( s^(t), W^(t-1) )   # gradient ASCENT on CE
+
+# The model W is TRAINED to be robust against worst-case edge perturbations.</code></pre>
+
+<h3>8.3 Comparison: TopologyAttack vs AttrPrompt PGD</h3>
+
+<table>
+  <tr><th>Aspect</th><th>TopologyAttack</th><th>AttrPrompt</th></tr>
+  <tr>
+    <td>Perturbation variable</td>
+    <td><code>s ∈ {0,1}<sup>n</sup></code> — binary edge indicators<br>Relaxed to <code>[0,1]<sup>n</sup></code> for optimization</td>
+    <td><code>δ ∈ [−ε, ε]<sup>N×N</sup></code> — continuous additive perturbation<br>on the <em>normalized</em> adjacency values</td>
+  </tr>
+  <tr>
+    <td>Constraint</td>
+    <td>Simplex: <code>1<sup>T</sup>s ≤ budget</code> + <code>s ∈ [0,1]</code><br>Projection via bisection on dual variable</td>
+    <td>Box: <code>δ ∈ [−0.1, 0.1]</code><br>Simple clamp</td>
+  </tr>
+  <tr>
+    <td>Binary recovery</td>
+    <td>Random sampling from probabilistic s → binary s*<br>(Algorithm 1: K=20 trials)</td>
+    <td>None — stays in continuous space</td>
+  </tr>
+  <tr>
+    <td>Attack objective</td>
+    <td><code>max_s CE(ypred, ytrue)</code> or CW loss<br>Maximize classification error</td>
+    <td><code>max_δ KL(student || teacher)</code><br>Maximize divergence from clean teacher</td>
+  </tr>
+  <tr>
+    <td>What is trained</td>
+    <td><strong>Model weights W</strong> — <code>min_W max_s</code><br>The GNN itself learns to be robust</td>
+    <td><strong>Prompt generator only</strong> — <code>min_prompt max_δ</code><br>GNN teacher is frozen; robustness comes from prompt compensation</td>
+  </tr>
+  <tr>
+    <td>ε semantics</td>
+    <td>Number of edges (e.g., 5% of |E| ≈ 264 edges)</td>
+    <td>Magnitude in normalized adjacency space (±0.1 on D^{-½}AD^{-½} values ~0.05–0.5)</td>
+  </tr>
+  <tr>
+    <td>Test-time</td>
+    <td>Model is inherently robust; no PGD at test time</td>
+    <td>Prompt is applied; no PGD at test time</td>
+  </tr>
+</table>
+
+<div class="ref">
+  <div class="ref-label">Key Structural Difference</div>
+  TopologyAttack's robust training updates <strong>model weights</strong> to resist edge perturbations — it's model-level adversarial training. AttrPrompt freezes the model and trains a <strong>prompt</strong> to compensate for perturbations — it's input-level adversarial training. The perturbation space also differs: TopologyAttack uses binary edge addition/deletion with a cardinality budget; AttrPrompt uses continuous perturbation of normalized adjacency values with a box constraint.
+</div>
+
+
+<!-- ================================================================================== -->
+<h2 id="s9">9. Complete Dimension Trace</h2>
+<p class="section-desc">End-to-end tensor dimensions through the entire AttrPrompt pipeline (DynamicPrompt, IB=True, Cora).</p>
+
+<table>
+  <tr><th>Phase</th><th>Operation</th><th>Key Tensors &amp; Shapes</th></tr>
+
+  <tr class="sep"><td colspan="3"><strong>Data Loading</strong></td></tr>
+  <tr class="dim-row"><td>Data</td><td>Raw features</td><td><code>X_raw: sp.csr[2708, 1433]</code></td></tr>
+  <tr class="dim-row"><td>Data</td><td>Row-normalize</td><td><code>X: dense[2708, 1433]</code> — each row sums to ~1</td></tr>
+  <tr class="dim-row"><td>Data</td><td>Labels</td><td><code>y: LongTensor[2708]</code></td></tr>
+  <tr class="dim-row"><td>Data</td><td>Clean adj (remove self-loop → normalize)</td><td><code>A: dense[2708, 2708]</code> — D^{-½}(A+I)D^{-½}</td></tr>
+  <tr class="dim-row"><td>Data</td><td>KNN graph (k=10, cosine)</td><td><code>A_f: dense[2708, 2708]</code> — same normalization</td></tr>
+  <tr class="dim-row"><td>Data</td><td>Perturbed adj ×5</td><td><code>A_ptb: dense[2708, 2708]</code></td></tr>
+
+  <tr class="sep"><td colspan="3"><strong>Phase 1 — GCN Teacher</strong></td></tr>
+  <tr class="dim-row"><td>GCN</td><td>gc1: X @ W1</td><td><code>[2708,1433] @ [1433,16] → [2708,16]</code></td></tr>
+  <tr class="dim-row"><td>GCN</td><td>gc1: A @ support</td><td><code>[2708,2708] @ [2708,16] → [2708,16]</code></td></tr>
+  <tr class="dim-row"><td>GCN</td><td>ReLU → Dropout(0.5)</td><td><code>[2708,16]</code></td></tr>
+  <tr class="dim-row"><td>GCN</td><td>gc2: h @ W2</td><td><code>[2708,16] @ [16,7] → [2708,7]</code></td></tr>
+  <tr class="dim-row"><td>GCN</td><td>gc2: A @ support</td><td><code>[2708,2708] @ [2708,7] → [2708,7]</code></td></tr>
+  <tr class="dim-row"><td>GCN</td><td>log_softmax</td><td><code>output: [2708,7]</code></td></tr>
+  <tr class="dim-row"><td>GCN</td><td>Loss: NLL on idx_train</td><td><code>CE([35,7], [35]) → scalar</code></td></tr>
+
+  <tr class="sep"><td colspan="3"><strong>Phase 2 — DynamicPrompt Generator (forward)</strong></td></tr>
+  <tr class="dim-row"><td>Gen</td><td>prompt_g: X @ W_p</td><td><code>[2708,1433] @ [1433,1433] → [2708,1433]</code></td></tr>
+  <tr class="dim-row"><td>Gen</td><td>prompt_g: A_f @ support</td><td><code>[2708,2708] @ [2708,1433] → [2708,1433]</code></td></tr>
+  <tr class="dim-row"><td>Gen</td><td>ReLU → base_prompt</td><td><code>[2708,1433]</code></td></tr>
+  <tr class="dim-row"><td>Gen</td><td>neighbor: A @ X</td><td><code>[2708,2708] @ [2708,1433] → [2708,1433]</code></td></tr>
+  <tr class="dim-row"><td>Gen</td><td>gamma: neighbor @ W_γ^T</td><td><code>[2708,1433] @ [1433,1433] → [2708,1433]</code></td></tr>
+  <tr class="dim-row"><td>Gen</td><td>LReLU(0.2) + 1</td><td><code>gamma: [2708,1433] ∈ (0.8, ∞)</code></td></tr>
+  <tr class="dim-row"><td>Gen</td><td>prompt = gamma ⊙ base_prompt</td><td><code>[2708,1433]</code></td></tr>
+
+  <tr class="sep"><td colspan="3"><strong>Phase 2 — PGD Adversarial Training (train=True, 1 iter)</strong></td></tr>
+  <tr class="dim-row"><td>PGD</td><td>adj_raw = (A > 0).float()</td><td><code>[2708,2708]</code> — binary</td></tr>
+  <tr class="dim-row"><td>PGD</td><td>δ = zeros_like(A)</td><td><code>[2708,2708]</code> — requires_grad</td></tr>
+  <tr class="dim-row"><td>PGD</td><td>A_pert = clamp(adj_raw + δ, 0, 1)</td><td><code>[2708,2708]</code> — continuous ∈ [0,1]</td></tr>
+  <tr class="dim-row"><td>PGD</td><td>A_pert_norm = D^{-½} A_pert D^{-½}</td><td><code>[2708,2708]</code></td></tr>
+  <tr class="dim-row"><td>PGD</td><td>prompt = gen(X, A_f, A_pert_norm)</td><td><code>[2708,1433]</code></td></tr>
+  <tr class="dim-row"><td>PGD</td><td>X_in = (X + prompt) / 2</td><td><code>[2708,1433]</code></td></tr>
+  <tr class="dim-row"><td>PGD</td><td>out_student = teacher(X_in, A_pert_norm)</td><td><code>[2708,7]</code> — log_softmax</td></tr>
+  <tr class="dim-row"><td>PGD</td><td>out_teacher = teacher(X, A)</td><td><code>[2708,7]</code> — log_softmax</td></tr>
+  <tr class="dim-row"><td>PGD</td><td>loss_adv = KL(student || teacher)</td><td>scalar</td></tr>
+  <tr class="dim-row"><td>PGD</td><td>δ.grad ← ∂loss_adv/∂δ</td><td><code>[2708,2708]</code></td></tr>
+  <tr class="dim-row"><td>PGD</td><td>δ += 0.02 · sign(grad)</td><td><code>[2708,2708]</code> — PGD step</td></tr>
+  <tr class="dim-row"><td>PGD</td><td>δ = clamp(δ, −0.1, 0.1)</td><td><code>[2708,2708]</code></td></tr>
+
+  <tr class="sep"><td colspan="3"><strong>Phase 2 — Final Forward + IB (after PGD)</strong></td></tr>
+  <tr class="dim-row"><td>Final</td><td>A_adv = norm(clamp(adj_raw+δ, 0, 1))</td><td><code>[2708,2708]</code></td></tr>
+  <tr class="dim-row"><td>Final</td><td>prompt = gen(X, A_f, A_adv)</td><td><code>[2708,1433]</code></td></tr>
+  <tr class="dim-row"><td>Final</td><td>X_in = (X + prompt) / 2</td><td><code>[2708,1433]</code></td></tr>
+  <tr class="dim-row"><td>Final</td><td>out = teacher(X_in, A_adv)</td><td><code>[2708,7]</code> — student, log_softmax</td></tr>
+  <tr class="dim-row"><td>Final</td><td>out_t = teacher(X, A)</td><td><code>([2708,7], [2708,7])</code> — teacher (log_softmax, logits)</td></tr>
+  <tr class="dim-row"><td>Final</td><td>H_noisy = teacher(X, A_adv)</td><td><code>[2708,7]</code> — log_softmax</td></tr>
+  <tr class="dim-row"><td>Final</td><td>H_noisy = (H − μ)/σ</td><td><code>[2708,7]</code> — standardized</td></tr>
+
+  <tr class="sep"><td colspan="3"><strong>Phase 2 — Loss Computation</strong></td></tr>
+  <tr class="dim-row"><td>Loss</td><td>loss_kl = KL(out, out_t[0])</td><td>scalar — batchmean over 2708 nodes</td></tr>
+  <tr class="dim-row"><td>Loss</td><td>loss_ib = CLUB(prompt, H_noisy)</td><td>scalar — MI upper bound (see §6)</td></tr>
+  <tr class="dim-row"><td>Loss</td><td>loss = loss_kl + 0.05 · loss_ib</td><td>scalar</td></tr>
+  <tr class="dim-row"><td>Loss</td><td>optimizer.step() on generator params</td><td>— W_prompt[1433,1433], W_γ[1433,1433]</td></tr>
+
+  <tr class="sep"><td colspan="3"><strong>Phase 2 — Inference</strong></td></tr>
+  <tr class="dim-row"><td>Infer</td><td>prompt = gen(X, A_f, A_test)</td><td><code>[2708,1433]</code></td></tr>
+  <tr class="dim-row"><td>Infer</td><td>X_in = (X + prompt) / 2</td><td><code>[2708,1433]</code></td></tr>
+  <tr class="dim-row"><td>Infer</td><td>out = teacher(X_in, A_test)</td><td><code>[2708,7]</code> — log_softmax</td></tr>
+</table>
+
+
+<!-- ================================================================================== -->
+<h2 id="s10">10. Experiment Results (for reference)</h2>
+
+<table>
+  <tr><th>Method</th><th>Trainable Params</th><th>Clean</th><th>M-0.25</th><th>Δ</th></tr>
+  <tr class="dim-row"><td>GCN Teacher (no prompt)</td><td>23K</td><td>68.91 ± 1.49</td><td>68.03 ± 1.50</td><td>−0.9</td></tr>
+  <tr class="dim-row"><td>AttrPrompt x</td><td>23K + 2.1M</td><td>68.81 ± 2.20</td><td>65.47 ± 3.33</td><td>−3.3</td></tr>
+  <tr class="dim-row"><td>AttrPrompt dynamic + IB</td><td>23K + 4.1M + 184K</td><td>38.30 ± 8.08</td><td>35.22 ± 8.11</td><td>−3.1</td></tr>
+</table>
+
+</body>
+</html>
