@@ -31,6 +31,23 @@ GPU_ID="${GPU_ID:-0}"
 PTB_RATES=("0.00" "0.05" "0.10" "0.15" "0.20" "0.25")
 SEEDS=(1 2 3 4 5)
 LOG_DIR="logs/citeseer_svd1433_to_cora_rprompt_original"
+
+DATA_ROOT="data_attack_fewshot/Cora/shot_5/1"
+for required_file in \
+    "$DATA_ROOT/Meta_Self/raw/Cora_features.npz" \
+    "$DATA_ROOT/Meta_Self/raw/Cora_labels.npy" \
+    "$DATA_ROOT/index/train_idx.pt" \
+    "$DATA_ROOT/index/val_idx.pt" \
+    "$DATA_ROOT/index/test_idx.pt"; do
+    [[ -f "$required_file" ]] || { echo "Required data file not found: $required_file" >&2; exit 2; }
+done
+for ptb in "${PTB_RATES[@]}"; do
+    for suffix in .pt _idx_train.npy _idx_val.npy _idx_test.npy; do
+        required_file="$DATA_ROOT/Meta_Self/raw/Meta_Self_Cora_${ptb}${suffix}"
+        [[ -f "$required_file" ]] || { echo "Required pollution file not found: $required_file" >&2; exit 2; }
+    done
+done
+echo "Data preflight passed: all 6 canonical pollution levels are complete."
 mkdir -p "$LOG_DIR"
 
 COMMON_ARGS=(
