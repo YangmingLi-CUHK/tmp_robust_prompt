@@ -9,6 +9,7 @@ from prompt_graph.pretrain import GraphPrePrompt, NodePrePrompt
 from prompt_graph.utils import Gprompt_tuning_loss
 import numpy as np
 from types import SimpleNamespace
+from pathlib import Path
 
 
 class BaseTask:
@@ -64,6 +65,7 @@ class BaseTask:
         cosine_constraint=True,
         prompt_lr=0.01,
         prompt_variant='ours',
+        pretrain_dataset_name=None,
     ):
         self.pre_train_model_path = pre_train_model_path
         self.pre_train_type = self.return_pre_train_type(pre_train_model_path)
@@ -72,6 +74,7 @@ class BaseTask:
         self.hid_dim = hid_dim
         self.num_layer = num_layer
         self.dataset_name = dataset_name
+        self.pretrain_dataset_name = pretrain_dataset_name
         self.shot_num = shot_num
         self.run_split = run_split
         self.gnn_type = gnn_type
@@ -401,10 +404,46 @@ class BaseTask:
         if self.pre_train_model_path != 'None' and self.prompt_type != 'MultiGprompt':
             if self.gnn_type not in self.pre_train_model_path:
                 raise ValueError(f"the Downstream gnn '{self.gnn_type}' does not match the pre-train model")
-            if self.dataset_name not in self.pre_train_model_path:
-                raise ValueError(f"the Downstream dataset '{self.dataset_name}' does not match the pre-train dataset")
+            checkpoint_name = Path(self.pre_train_model_path).name
+            if self.pretrain_dataset_name is None:
+                if self.dataset_name not in self.pre_train_model_path:
+                    raise ValueError(
+                        f"the Downstream dataset '{self.dataset_name}' does not match "
+                        "the pre-train dataset"
+                    )
+            else:
+                checkpoint_dataset_name = checkpoint_name.split('.', 1)[0]
+                if checkpoint_dataset_name != self.pretrain_dataset_name:
+                    raise ValueError(
+                        f"Checkpoint dataset '{checkpoint_dataset_name}' does not match "
+                        f"--pretrain_dataset_name '{self.pretrain_dataset_name}'."
+                    )
+                if self.pretrain_dataset_name != self.dataset_name:
+                    expected_svd_tag = f".preprocess_svd_{self.input_dim}."
+                    if expected_svd_tag not in checkpoint_name:
+                        raise ValueError(
+                            f"Cross-dataset checkpoint must contain '{expected_svd_tag}' "
+                            f"to match {self.dataset_name} input_dim={self.input_dim}."
+                        )
+                    print(
+                        "WARNING: cross-dataset transfer "
+                        f"{self.pretrain_dataset_name}->{self.dataset_name}; checkpoint loading "
+                        "verifies tensor dimensions only and does not align feature semantics."
+                    )
 
-            self.gnn.load_state_dict(torch.load(self.pre_train_model_path, map_location='cpu'))
+            state_dict = torch.load(
+                self.pre_train_model_path,
+                map_location='cpu',
+                weights_only=True,
+            )
+            try:
+                self.gnn.load_state_dict(state_dict)
+            except RuntimeError as exc:
+                raise RuntimeError(
+                    f"Checkpoint '{checkpoint_name}' is shape-incompatible with "
+                    f"{self.dataset_name} (input_dim={self.input_dim}, "
+                    f"hidden_dim={self.hid_dim}, layers={self.num_layer})."
+                ) from exc
             self.gnn.to(self.device)
             print("Successfully loaded pre-trained weights!")
 

@@ -12,10 +12,11 @@ import time
 from.base import PreTrain
 
 class GraphCL(PreTrain):
-    def __init__(self, *args, hid_dim = 16, seed = 0, **kwargs):    # hid_dim=16
+    def __init__(self, *args, hid_dim=16, seed=0, svd_out_dim=100, **kwargs):    # hid_dim=16
         super().__init__(*args, **kwargs)
         self.hid_dim = hid_dim # 这里如果不self的话用的是pretrain里默认的hid_dim
         self.seed = seed
+        self.svd_out_dim = svd_out_dim
         self.load_graph_data()
         self.initialize_gnn(self.input_dim, hid_dim)  
         self.projection_head = torch.nn.Sequential(torch.nn.Linear(self.hid_dim, self.hid_dim),
@@ -23,7 +24,12 @@ class GraphCL(PreTrain):
                                                    torch.nn.Linear(self.hid_dim, self.hid_dim)).to(self.device)
     def load_graph_data(self):
         if self.dataset_name in ['PubMed', 'Citeseer', 'Cora', 'Cora_ml','Computers', 'Photo', 'Reddit', 'WikiCS', 'Flickr', 'Wisconsin','ogbn-arxiv']:
-            self.graph_list, self.input_dim = NodePretrain(dataname = self.dataset_name, preprocess_method = self.preprocess_method, num_parts = 200)
+            self.graph_list, self.input_dim = NodePretrain(
+                dataname=self.dataset_name,
+                preprocess_method=self.preprocess_method,
+                num_parts=200,
+                svd_out_dim=self.svd_out_dim,
+            )
             # self.graph_list, self.input_dim = NodePretrain(dataname = self.dataset_name, num_parts=200, split_method='Cluster')
         else:
             raise ValueError(f"Dataset '{self.dataset_name}' not supported. Only Cora/Citeseer/PubMed node datasets are available after 2026-06-16 cleanup.")
@@ -46,10 +52,10 @@ class GraphCL(PreTrain):
         view_list_1 = []
         view_list_2 = []
         for g in graph_list:
-            view_g = graph_views(data=g, aug=aug1, aug_ratio=aug_ratio)
+            view_g = graph_views(data=g.clone(), aug=aug1, aug_ratio=aug_ratio)
             view_g = Data(x=view_g.x, edge_index=view_g.edge_index)
             view_list_1.append(view_g)
-            view_g = graph_views(data=g, aug=aug2, aug_ratio=aug_ratio)
+            view_g = graph_views(data=g.clone(), aug=aug2, aug_ratio=aug_ratio)
             view_g = Data(x=view_g.x, edge_index=view_g.edge_index)
             view_list_2.append(view_g)
 
@@ -108,7 +114,13 @@ class GraphCL(PreTrain):
         self.to(self.device)
         if self.dataset_name in ['COLLAB', 'IMDB-BINARY', 'REDDIT-BINARY', 'ogbg-ppa', 'DD']:
             batch_size = 512
-        loader1, loader2 = self.get_loader(self.graph_list, batch_size, aug1=aug1, aug2=aug2)
+        loader1, loader2 = self.get_loader(
+            self.graph_list,
+            batch_size,
+            aug1=aug1,
+            aug2=aug2,
+            aug_ratio=aug_ratio,
+        )
         print('start training {} | {} | {}...'.format(self.dataset_name, 'GraphCL', self.gnn_type))
 
 
@@ -136,9 +148,14 @@ class GraphCL(PreTrain):
         # torch.save(self.gnn.state_dict(),
         #                    "./pre_trained_model_adaptive/{}.{}.{}.{}.pth".format(self.dataset_name, 'GraphCL', self.gnn_type, str(self.hid_dim) + 'hidden_dim'))
         
-        file_suffix = "{}.{}.{}.{}_hidden_dim.aug1_{}.aug2_{}.lr_{}.ratio_{}.seed_{}.pth".format(
-                    self.dataset_name, 'GraphCL', self.gnn_type, str(self.hid_dim), aug1, aug2, str(lr), str(aug_ratio), str(self.seed)
-                )
+        preprocess_tag = ''
+        if str(self.preprocess_method).lower() == 'svd':
+            preprocess_tag = f".preprocess_svd_{self.input_dim}"
+        file_suffix = (
+            f"{self.dataset_name}.GraphCL.{self.gnn_type}.{self.hid_dim}_hidden_dim"
+            f"{preprocess_tag}.aug1_{aug1}.aug2_{aug2}.lr_{lr}."
+            f"ratio_{aug_ratio}.seed_{self.seed}.pth"
+        )
         
         torch.save(self.gnn.state_dict(), "./pre_trained_model_raw/" + file_suffix)
         print("+++model saved ! " + file_suffix)

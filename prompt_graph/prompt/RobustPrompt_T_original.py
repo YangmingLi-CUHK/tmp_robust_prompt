@@ -142,6 +142,11 @@ class RobustPrompt_T(torch.nn.Module):
 
         # 单张图要简单很多 要记录的东西比较少
         g = graph
+        if g.x.dim() != 2 or g.x.size(1) != self.in_channels:
+            raise ValueError(
+                "RobustPrompt_T_original input mismatch: "
+                f"expected [num_nodes, {self.in_channels}], got {tuple(g.x.shape)}."
+            )
         # 首先用0.初始化并拼接所有的pt长度
         g_mutiftpt_record = torch.zeros(g.num_nodes, len(self.pt_keys) * self.in_channels)
         g_mutiftpt_record = g_mutiftpt_record.to(device)

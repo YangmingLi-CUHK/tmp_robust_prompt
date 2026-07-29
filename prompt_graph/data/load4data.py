@@ -2,7 +2,7 @@ import torch
 import os
 import numpy as np
 from torch_geometric.transforms import NormalizeFeatures
-from torch_geometric.utils import to_undirected
+from torch_geometric.utils import add_remaining_self_loops, remove_self_loops, to_undirected
 from torch_geometric.loader.cluster import ClusterData
 from torch_geometric.data import Data
 from easydict import EasyDict
@@ -25,13 +25,114 @@ def load4cora_pretrain(dataname='Cora'):
     path = project_path('data_attack_fewshot', dataname, 'shot_5', '1')
     dataset = AttackDataset_specified(
         root=path, name='Attack-' + dataname,
-        attackmethod='Meta_Self', ptb_rate='0.0',
+        attackmethod='Meta_Self', ptb_rate='0.00',
         transform=NormalizeFeatures()
     )
     data = dataset[0]
     input_dim = dataset.num_features
     out_dim = dataset.num_classes
     return data, input_dim, out_dim
+
+
+def load4citeseer_pretrain():
+    """Load the paper/Nettack Citeseer LCC and normalize its BoW features."""
+    from deeprobust.graph.data import Dataset as DeepRobustDataset
+    from scipy.sparse.csgraph import connected_components
+
+    dataset_root = project_path('data', 'deeprobust')
+    os.makedirs(dataset_root, exist_ok=True)
+    numpy_random_state = np.random.get_state()
+    try:
+        dataset = DeepRobustDataset(
+            root=dataset_root,
+            name='citeseer',
+            setting='nettack',
+            seed=15,
+        )
+    finally:
+        np.random.set_state(numpy_random_state)
+
+    num_components = connected_components(
+        dataset.adj,
+        directed=False,
+        return_labels=False,
+    )
+    if num_components != 1:
+        raise RuntimeError(
+            f"DeepRobust/Nettack Citeseer is not connected: {num_components} components."
+        )
+
+    adjacency = dataset.adj.tocoo()
+    features = dataset.features
+    if hasattr(features, 'toarray'):
+        features = features.toarray()
+
+    data = Data(
+        x=torch.as_tensor(np.asarray(features), dtype=torch.float32),
+        edge_index=torch.as_tensor(
+            np.vstack((adjacency.row, adjacency.col)),
+            dtype=torch.long,
+        ),
+        y=torch.as_tensor(dataset.labels, dtype=torch.long),
+    )
+    edge_index = to_undirected(data.edge_index, num_nodes=data.num_nodes)
+    edge_index, _ = remove_self_loops(edge_index)
+    data.edge_index = edge_index
+    data = NormalizeFeatures()(data)
+
+    num_classes = int(torch.unique(data.y).numel())
+    class_counts = tuple(torch.bincount(data.y, minlength=num_classes).tolist())
+
+    actual_stats = (
+        data.num_nodes,
+        data.edge_index.size(1) // 2,
+        data.num_features,
+        num_classes,
+    )
+    expected_stats = (2110, 3668, 3703, 6)
+    expected_class_counts = (115, 463, 388, 304, 532, 308)
+    if actual_stats != expected_stats:
+        raise RuntimeError(
+            "Unexpected Citeseer LCC statistics: "
+            f"nodes={actual_stats[0]}, undirected_edges={actual_stats[1]}, "
+            f"features={actual_stats[2]}, classes={actual_stats[3]}; "
+            f"expected {expected_stats}."
+        )
+    if class_counts != expected_class_counts:
+        raise RuntimeError(
+            f"Unexpected Citeseer class counts: {class_counts}; "
+            f"expected {expected_class_counts}."
+        )
+
+    feature_row_sums = data.x.sum(dim=1)
+    if not torch.allclose(
+        feature_row_sums,
+        torch.ones_like(feature_row_sums),
+        atol=1e-6,
+        rtol=0,
+    ):
+        raise RuntimeError(
+            "Citeseer features are not row-normalized or contain zero-feature nodes."
+        )
+
+    data.edge_index, _ = add_remaining_self_loops(
+        data.edge_index,
+        num_nodes=data.num_nodes,
+    )
+    expected_runtime_edges = 2 * expected_stats[1] + expected_stats[0]
+    if data.edge_index.size(1) != expected_runtime_edges:
+        raise RuntimeError(
+            "Unexpected Citeseer runtime edge count after adding self-loops: "
+            f"{data.edge_index.size(1)}; expected {expected_runtime_edges}."
+        )
+
+    print(
+        "Pretrain graph: DeepRobust/Nettack Citeseer LCC | "
+        f"nodes={actual_stats[0]} | paper_edges={actual_stats[1]} | "
+        f"runtime_edges={data.edge_index.size(1)} | "
+        f"features={actual_stats[2]} | classes={actual_stats[3]}"
+    )
+    return data, data.num_features, num_classes
 
 
 def load4cora_downstream_clean(dataname='Cora', shot_num=5, run_split=1):
@@ -44,7 +145,7 @@ def load4cora_downstream_clean(dataname='Cora', shot_num=5, run_split=1):
     path = project_path('data_attack_fewshot', dataname, 'shot_{}'.format(shot_num), str(run_split))
     dataset = AttackDataset_specified(
         root=path, name='Attack-' + dataname,
-        attackmethod='Meta_Self', ptb_rate='0.0',
+        attackmethod='Meta_Self', ptb_rate='0.00',
         transform=NormalizeFeatures()
     )
     data = dataset[0]
@@ -319,17 +420,73 @@ def load4node_attack_specified_shot_index(data_dir_name, dataname, attack_method
 # NodePretrain（GraphCL 入口）
 # =============================================================================
 
-def NodePretrain(dataname='Cora', num_parts=200, preprocess_method='None', split_method='Cluster'):
-    """预训练数据准备：加载统一数据源的清洁 Cora → METIS 分簇 → 200 个子图。"""
-    data, input_dim, _ = load4cora_pretrain(dataname)
+def NodePretrain(
+    dataname='Cora',
+    num_parts=200,
+    preprocess_method='None',
+    split_method='Cluster',
+    svd_out_dim=100,
+):
+    """预训练数据准备：加载清洁图，再通过 METIS 划分为子图。"""
+    if dataname == 'Citeseer':
+        data, input_dim, _ = load4citeseer_pretrain()
+    else:
+        data, input_dim, _ = load4cora_pretrain(dataname)
+
+    preprocess_method = str(preprocess_method).lower()
+    if preprocess_method not in {'none', 'svd'}:
+        raise ValueError(
+            f"Unsupported preprocess_method {preprocess_method!r}; expected 'none' or 'svd'."
+        )
 
     if preprocess_method == 'svd':
-        from torch_geometric.transforms import SVDFeatureReduction
-        import pickle as pk
-        feature_reduce = SVDFeatureReduction(out_channels=100)
-        data = feature_reduce(data)
-        pk.dump(data, open('./data/{}_feature_reduced.data'.format(dataname), 'bw'))
-        data = pk.load(open('./data/{}_feature_reduced.data'.format(dataname), 'br'))
+        svd_out_dim = int(svd_out_dim)
+        max_svd_dim = min(data.num_nodes, data.num_features)
+        if not 1 <= svd_out_dim <= max_svd_dim:
+            raise ValueError(
+                f"svd_out_dim must be in [1, {max_svd_dim}] for {dataname}, "
+                f"got {svd_out_dim}."
+            )
+
+        original_input_dim = data.num_features
+        cache_path = None
+        if dataname == 'Citeseer':
+            cache_path = project_path(
+                'data',
+                'deeprobust',
+                f'citeseer_nettack_lcc_l1_svd_{svd_out_dim}.pt',
+            )
+
+        if cache_path is not None and os.path.isfile(cache_path):
+            reduced_x = torch.load(cache_path, map_location='cpu', weights_only=True)
+            cache_action = 'loaded'
+        else:
+            from torch_geometric.transforms import SVDFeatureReduction
+
+            reduced_data = SVDFeatureReduction(out_channels=svd_out_dim)(data)
+            reduced_x = reduced_data.x.detach().cpu()
+            cache_action = 'computed'
+
+        expected_shape = (data.num_nodes, svd_out_dim)
+        if not isinstance(reduced_x, torch.Tensor) or tuple(reduced_x.shape) != expected_shape:
+            raise RuntimeError(
+                f"Invalid cached SVD features for {dataname}: expected "
+                f"{expected_shape}, got {getattr(reduced_x, 'shape', None)}."
+            )
+        if not torch.isfinite(reduced_x).all():
+            raise RuntimeError(f"SVD features for {dataname} contain non-finite values.")
+        if cache_action == 'computed' and cache_path is not None:
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            temporary_cache_path = f"{cache_path}.tmp_{os.getpid()}.pt"
+            torch.save(reduced_x, temporary_cache_path)
+            os.replace(temporary_cache_path, cache_path)
+
+        data.x = reduced_x
+        input_dim = data.num_features
+        print(
+            f"SVD features {cache_action}: {dataname} "
+            f"{original_input_dim}->{input_dim}"
+        )
 
     if split_method == 'Cluster':
         x = data.x.detach()

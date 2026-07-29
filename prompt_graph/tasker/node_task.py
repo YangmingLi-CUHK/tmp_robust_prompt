@@ -203,7 +203,7 @@ class NodeTask(BaseTask):
                         root=path,
                         name='Attack-' + self.dataset_name,
                         attackmethod=atk_type,
-                        ptb_rate='0.0',
+                        ptb_rate='0.00',
                   )
             else:
                   from data_pyg.data_pyg import get_dataset

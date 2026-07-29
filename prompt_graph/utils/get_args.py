@@ -5,6 +5,9 @@ def get_args():
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
     parser.add_argument('--task', type=str)
     parser.add_argument('--dataset_name', type=str, default='Cora', help='Choose the dataset of pretrainor downstream task')
+    parser.add_argument('--pretrain_dataset_name', type=str, default=None,
+                        help='Source dataset of a downstream pre-trained checkpoint. '
+                             'Defaults to --dataset_name; set explicitly for cross-dataset transfer.')
     parser.add_argument('--device', type=int, default=0,
                         help='Which gpu to use if any (default: 0)')
     parser.add_argument('--gnn_type', type=str, default="GCN",
@@ -45,6 +48,8 @@ def get_args():
 
     # add ssh
     parser.add_argument('--preprocess_method', type=str, default='None', help='Choose preprocess method svd')
+    parser.add_argument('--svd_out_dim', type=int, default=100,
+                        help='Output feature dimension when --preprocess_method svd is used.')
     parser.add_argument('--attack_downstream', action='store_true', default=False, help='Attack Downstream Task')
     parser.add_argument('--specified', action='store_true', default=False,
                         help='Attack specified split, Used for some distribution-based attacks')

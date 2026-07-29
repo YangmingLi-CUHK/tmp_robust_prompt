@@ -52,7 +52,7 @@ if device != 'cpu':
 # 2026-06-19 修复：改为从 data_attack_fewshot 统一数据源加载 clean 底图
 # 原代码从 data_pyg/Attack_data 加载，该路径缺少 ptb=0.0 的 raw 文件 → FileNotFoundError
 path       = project_path('data_attack_fewshot', args.dataset, 'shot_{}'.format(args.shot_num), str(args.run_split))
-dataset    = AttackDataset_specified(root = path, name = 'Attack-' + args.dataset,  attackmethod = "Meta_Self", ptb_rate='0.0')
+dataset    = AttackDataset_specified(root = path, name = 'Attack-' + args.dataset,  attackmethod = "Meta_Self", ptb_rate='0.00')
 
 
 data = dataset[0]  # Get the first graph object.

@@ -10,7 +10,7 @@ for seed in args.seed:
     mkdir('./pre_trained_model_raw/')
 
     if args.task == 'GraphCL':
-        pt = GraphCL(dataset_name = args.dataset_name, gnn_type = args.gnn_type, hid_dim = args.hid_dim, gln = args.num_layer, num_epoch=args.epochs, preprocess_method = args.preprocess_method, device=args.device, seed=seed)
+        pt = GraphCL(dataset_name = args.dataset_name, gnn_type = args.gnn_type, hid_dim = args.hid_dim, gln = args.num_layer, num_epoch=args.epochs, preprocess_method = args.preprocess_method, svd_out_dim=args.svd_out_dim, device=args.device, seed=seed)
         
         # 核心改动：从 args 动态读取超参数，如果没有则使用默认回退值
         aug1 = getattr(args, 'aug1', 'dropN')
@@ -19,8 +19,7 @@ for seed in args.seed:
         aug_ratio = getattr(args, 'aug_ratio', None)
 
         pt.pretrain(aug1=aug1, aug2=aug2, lr=lr, aug_ratio=aug_ratio)
-
-        # Cora 256
+        continue
         
     if args.task == 'Edgepred_Gprompt':
         pt = Edgepred_Gprompt(dataset_name = args.dataset_name, gnn_type = args.gnn_type, hid_dim = args.hid_dim, gln = args.num_layer, num_epoch=args.epochs, device=args.device)

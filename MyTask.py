@@ -34,6 +34,7 @@ if args.task == 'NodeTask':
         for split_num in args.run_split:
             tasker = NodeTask(
                 pre_train_model_path=args.pre_train_model_path,
+                pretrain_dataset_name=args.pretrain_dataset_name,
                 hid_dim=args.hid_dim,
                 dataset_name=args.dataset_name,
                 num_layer=args.num_layer,
@@ -108,15 +109,11 @@ if args.task == 'NodeTask':
     for split_num, split_acc_dict in all_split_acc_dict.items():
         if len(all_split_acc_list[split_num]) == 1:
             print("There's only one result, it's recommended to try several seeds.")
-        else:
-            # 对所有seed的结果排序，去掉最低和最高的值再求平均
-            all_split_acc_list[split_num].sort(reverse=True)
-            all_split_acc_list[split_num] = all_split_acc_list[split_num][:-1]
         for seed, acc in split_acc_dict.items():
             print('split: {} | seed {} : {}'.format(split_num, seed, acc))
 
         split_final_acc, split_final_acc_std = np.mean(all_split_acc_list[split_num]), np.std(all_split_acc_list[split_num])
-        print(f"# Split {split_num} Muti Seed Acc without min value: {split_final_acc:.4f}±{split_final_acc_std:.4f}")
+        print(f"# Split {split_num} Muti Seed Acc (all seeds): {split_final_acc:.4f}±{split_final_acc_std:.4f}")
     print('########################################################################################')
 
 
