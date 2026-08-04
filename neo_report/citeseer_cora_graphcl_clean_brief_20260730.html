@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>本周工作脉络与Citeseer→Cora GraphCL评估</title>
+  <style>
+    :root{
+      --bg:#f7f7f4;
+      --paper:#ffffff;
+      --ink:#171719;
+      --muted:#646469;
+      --rule:#d9d8d2;
+      --soft:#efeee9;
+      --blue:#255d85;
+      --green:#2d6a4f;
+      --amber:#8a5a12;
+      --serif:Charter,"Iowan Old Style","Noto Serif CJK SC","Songti SC",Georgia,serif;
+      --sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+      --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    }
+    @media(prefers-color-scheme:dark){
+      :root{
+        --bg:#101114;
+        --paper:#17181c;
+        --ink:#f1f1f3;
+        --muted:#aaaab2;
+        --rule:#34353b;
+        --soft:#222329;
+        --blue:#83b8dc;
+        --green:#8bc9a8;
+        --amber:#e5bf73;
+      }
+    }
+    *{box-sizing:border-box}
+    html{background:var(--bg);color:var(--ink)}
+    body{margin:0;font:16px/1.5 var(--serif);text-rendering:optimizeLegibility}
+    main{max-width:1120px;margin:0 auto;padding:42px 28px 56px}
+    .report-header{border-bottom:2px solid var(--ink);padding-bottom:20px}
+    .eyebrow,.scope,h1,h2,h3,.metric-value,.metric-label,th,.lane-label,.node-title,.node-dim,.week-no,.week-status{
+      font-family:var(--sans);
+    }
+    .eyebrow{font-size:.73rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);font-weight:750}
+    h1{font-size:clamp(2rem,5vw,3.45rem);line-height:1.03;letter-spacing:-.038em;margin:.18em 0 .22em}
+    .week-context{margin:0 0 42px;padding:0 0 34px;border-bottom:1px solid var(--rule)}
+    .week-context h1{max-width:780px}
+    .week-timeline{list-style:none;margin:25px 0 0;padding:0;border-top:1px solid var(--rule)}
+    .week-item{display:grid;grid-template-columns:52px minmax(0,1fr) 170px;gap:18px;align-items:start;padding:17px 0;border-bottom:1px solid var(--rule)}
+    .week-no{font-size:.72rem;line-height:1.5;color:var(--blue);font-weight:780;letter-spacing:.06em}
+    .week-copy h2{font-size:1rem;margin:0 0 5px}
+    .week-copy p{margin:0;max-width:78ch;font-size:.9rem}
+    .week-copy p+p{margin-top:5px;color:var(--muted)}
+    .week-status{font-size:.72rem;line-height:1.45;color:var(--muted);border-left:2px solid var(--rule);padding-left:12px}
+    .week-status strong{display:block;color:var(--ink);font-size:.76rem;margin-bottom:3px}
+    .report-title{font-size:clamp(2rem,5vw,3.45rem);line-height:1.03;letter-spacing:-.038em;margin:.18em 0 .22em}
+    .subtitle{font-size:1.05rem;color:var(--muted);margin:0;max-width:70ch}
+    .scope{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px;font-size:.75rem}
+    .scope span{border:1px solid var(--rule);padding:3px 8px;background:var(--paper)}
+    section{margin-top:34px}
+    h2{font-size:1.3rem;line-height:1.2;margin:0 0 15px;letter-spacing:-.01em}
+    .section-no{color:var(--blue);font-size:.72em;margin-right:8px}
+    .method-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--rule);background:var(--paper)}
+    .method{padding:18px 20px}
+    .method+.method{border-left:1px solid var(--rule)}
+    h3{font-size:.84rem;letter-spacing:.04em;text-transform:uppercase;color:var(--blue);margin:0 0 10px}
+    .method dl{display:grid;grid-template-columns:112px 1fr;gap:7px 12px;margin:0}
+    .method dt{font-family:var(--sans);font-size:.76rem;color:var(--muted)}
+    .method dd{margin:0;font-size:.92rem}
+    code{font:.88em/1.4 var(--mono);background:var(--soft);padding:.08em .27em;overflow-wrap:anywhere}
+    .pipeline{border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+    .lane{display:grid;grid-template-columns:112px repeat(6,minmax(0,1fr));align-items:stretch}
+    .lane+.lane{border-top:1px solid var(--rule)}
+    .lane-label{display:flex;align-items:center;padding:13px 12px;font-size:.73rem;font-weight:750;letter-spacing:.04em;color:var(--muted);background:var(--soft)}
+    .node{position:relative;padding:12px 19px 12px 13px;background:var(--paper);min-width:0}
+    .node:not(:last-child)::after{
+      content:"→";
+      position:absolute;
+      right:-8px;
+      top:50%;
+      transform:translateY(-50%);
+      z-index:2;
+      width:16px;
+      text-align:center;
+      font:700 .92rem var(--sans);
+      color:var(--muted);
+    }
+    .node-title{font-size:.76rem;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .node-dim{font-size:.72rem;color:var(--blue);margin-top:3px;font-variant-numeric:tabular-nums}
+    .node-note{font-size:.72rem;color:var(--muted);margin-top:3px}
+    .pipeline-note{font-size:.77rem;color:var(--muted);margin:9px 0 0}
+    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--rule);border-left:1px solid var(--rule);margin-bottom:20px}
+    .metric{padding:14px 15px;background:var(--paper);border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+    .metric-value{font-size:1.35rem;font-weight:760;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+    .metric-label{font-size:.7rem;line-height:1.35;color:var(--muted);margin-top:4px}
+    .table-wrap{overflow-x:auto;border:1px solid var(--rule)}
+    table{border-collapse:collapse;width:100%;min-width:720px;background:var(--paper);font-size:.88rem}
+    th,td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+    th{font-size:.7rem;letter-spacing:.035em;color:var(--muted);background:var(--soft)}
+    tbody tr:last-child td{border-bottom:0}
+    td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .best td{background:color-mix(in srgb,var(--green) 9%,var(--paper))}
+    .filename{font:11px/1.45 var(--mono);overflow-wrap:anywhere;max-width:420px}
+    footer{border-top:1px solid var(--rule);margin-top:28px;padding-top:12px;color:var(--muted);font-size:.7rem;font-family:var(--sans)}
+    @media(max-width:850px){
+      .lane{grid-template-columns:92px repeat(6,minmax(132px,1fr));overflow-x:auto}
+      .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media(max-width:620px){
+      main{padding:30px 16px 44px}
+      h1{font-size:1.85rem}
+      .week-context{margin-bottom:34px;padding-bottom:28px}
+      .week-item{grid-template-columns:38px minmax(0,1fr);gap:12px}
+      .week-status{grid-column:2;border-left:0;padding-left:0}
+      .report-title{font-size:1.85rem}
+      .metric{padding:12px 10px}
+      .metric-value{font-size:1.12rem}
+      .method-grid{grid-template-columns:1fr}
+      .method+.method{border-left:0;border-top:1px solid var(--rule)}
+      .method dl{grid-template-columns:90px 1fr}
+      .lane{display:block}
+      .lane-label{padding:9px 12px}
+      .node{padding:10px 12px 18px}
+      .node:not(:last-child)::after{content:"↓";right:auto;left:50%;top:auto;bottom:-7px;transform:translateX(-50%)}
+      .node-title{white-space:normal}
+    }
+    @media print{
+      :root{--bg:#fff;--paper:#fff;--ink:#000;--muted:#444;--rule:#bbb;--soft:#f2f2f2}
+      main{max-width:none;padding:0}
+      body{font-size:10pt}
+      section{break-inside:avoid}
+      .week-item{break-inside:avoid}
+      .lane{grid-template-columns:90px repeat(6,minmax(0,1fr))}
+    }
+  </style>
+</head>
+<body>
+<main>
+  <section class="week-context" aria-labelledby="week-title">
+    <div class="eyebrow">Meeting-context·2026-07-30</div>
+    <h1 id="week-title">本周工作脉络</h1>
+    <p class="subtitle">从鲁棒性解释、预训练协议审计，到跨数据集维数对齐；下方为当前实验结果。</p>
+
+    <ol class="week-timeline">
+      <li class="week-item">
+        <div class="week-no">01</div>
+        <div class="week-copy">
+          <h2>AttributePrompt鲁棒性解释</h2>
+          <p>检查其在污染图上几乎不降的原因：先在clean图上监督训练2层GCN教师，Prompt阶段冻结整套GCN参数（含输出层）。</p>
+          <p>污染adj仍进入Prompt与冻结GCN的forward；因此这不是“缓存embedding后绕开污染图”，而是固定teacher设定下的稳定性，机制讨论空间有限。</p>
+        </div>
+        <div class="week-status"><strong>代码复核</strong>冻结参数；不冻结节点embedding</div>
+      </li>
+      <li class="week-item">
+        <div class="week-no">02</div>
+        <div class="week-copy">
+          <h2>GPromptShield预训练协议</h2>
+          <p>提出“污染图预训练是否更贴近downstream”的假设，并回查论文与原版代码。</p>
+          <p>论文明确采用clean-graph pretraining并冻结GNN；攻击发生在downstream prompt-tuning阶段。该问题结案。</p>
+        </div>
+        <div class="week-status"><strong>协议结案</strong>clean预训练；attacked下游</div>
+      </li>
+      <li class="week-item">
+        <div class="week-no">03</div>
+        <div class="week-copy">
+          <h2>迁移源与维数对齐</h2>
+          <p>将pretrain-source由Cora改为Citeseer后，输入维数由1433变为3703；据此比较对齐方案，并审计Prompt插入位置。</p>
+          <p>确认RobustPrompt-T在GCN前对input-feature加Prompt：Cora为1433维，不是256维GCL embedding。本轮采用Citeseer3703→SVD1433，进入下方实验。</p>
+        </div>
+        <div class="week-status"><strong>当前实验</strong>SVD3703→1433→Cora</div>
+      </li>
+    </ol>
+  </section>
+
+  <header class="report-header">
+    <div class="eyebrow">Experiment-brief·2026-07-30</div>
+    <h2 class="report-title">Citeseer→Cora·GraphCL</h2>
+    <p class="subtitle">135个Citeseer-SVD1433 checkpoint在Cora-clean上的frozen-encoder·linear-probe。</p>
+    <div class="scope">
+      <span>Pretrain:Citeseer</span>
+      <span>Downstream:Cora</span>
+      <span>Scope:clean(ptb=0.00)</span>
+      <span>5-shot:35labels</span>
+    </div>
+  </header>
+
+  <section>
+    <h2><span class="section-no">01</span>方法简述</h2>
+    <div class="method-grid">
+      <article class="method">
+        <h3>GraphCL预训练</h3>
+        <dl>
+          <dt>Encoder</dt><dd>GCN(2层)；hidden=256</dd>
+          <dt>Unit</dt><dd>200个METIS分区；子图级对比</dd>
+          <dt>Views</dt><dd>每分区2个view；训练前生成1次，200epochs复用</dd>
+          <dt>Augment</dt><dd>dropN／permE／maskN；ratio∈{0.1,0.2,0.3}</dd>
+          <dt>Objective</dt><dd>单向view1→view2余弦对比；temperature=0.1</dd>
+          <dt>Projection</dt><dd>MLP:256→256→256</dd>
+          <dt>Training</dt><dd>200epochs；batch=10；lr=0.001</dd>
+          <dt>Output</dt><dd>仅保存最终epoch的GCN-encoder</dd>
+        </dl>
+      </article>
+      <article class="method">
+        <h3>Clean评估</h3>
+        <dl>
+          <dt>Graph</dt><dd>Cora-clean；2708nodes；13264条stored-edge</dd>
+          <dt>Encoder</dt><dd>冻结Citeseer预训练GCN</dd>
+          <dt>Embedding</dt><dd>全图节点embedding；256维</dd>
+          <dt>Normalize</dt><dd>全2708节点逐维z-score</dd>
+          <dt>Head</dt><dd>多项LogisticRegression:256→7</dd>
+          <dt>Split</dt><dd>train／val／test=35／265／2408</dd>
+          <dt>Metric</dt><dd>节点等权accuracy</dd>
+        </dl>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="section-no">02</span>Data pipeline及维数变化</h2>
+    <div class="pipeline" role="img" aria-label="Citeseer预训练与Cora下游维数链">
+      <div class="lane">
+        <div class="lane-label">PRETRAIN<br>Citeseer</div>
+        <div class="node">
+          <div class="node-title">L1-BoW</div>
+          <div class="node-dim">2110×3703</div>
+          <div class="node-note">行归一化</div>
+        </div>
+        <div class="node">
+          <div class="node-title">SVD</div>
+          <div class="node-dim">2110×1433</div>
+          <div class="node-note">GCN前执行</div>
+        </div>
+        <div class="node">
+          <div class="node-title">METIS</div>
+          <div class="node-dim">200partitions</div>
+          <div class="node-note">生成2×200views</div>
+        </div>
+        <div class="node">
+          <div class="node-title">GCN</div>
+          <div class="node-dim">1433→256→256</div>
+          <div class="node-note">节点embedding</div>
+        </div>
+        <div class="node">
+          <div class="node-title">MeanPool</div>
+          <div class="node-dim">B×256</div>
+          <div class="node-note">分区embedding</div>
+        </div>
+        <div class="node">
+          <div class="node-title">Projection＋loss</div>
+          <div class="node-dim">256→256→256</div>
+          <div class="node-note">discard head；save GCN</div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">DOWNSTREAM<br>Cora-clean</div>
+        <div class="node">
+          <div class="node-title">L1-BoW</div>
+          <div class="node-dim">2708×1433</div>
+          <div class="node-note">行归一化；不做SVD</div>
+        </div>
+        <div class="node">
+          <div class="node-title">FrozenGCN</div>
+          <div class="node-dim">1433→256→256</div>
+          <div class="node-note">加载Citeseer encoder</div>
+        </div>
+        <div class="node">
+          <div class="node-title">NodeEmbedding</div>
+          <div class="node-dim">2708×256</div>
+          <div class="node-note">batch=None</div>
+        </div>
+        <div class="node">
+          <div class="node-title">Z-score</div>
+          <div class="node-dim">2708×256</div>
+          <div class="node-note">全图统计</div>
+        </div>
+        <div class="node">
+          <div class="node-title">LogisticHead</div>
+          <div class="node-dim">256→7</div>
+          <div class="node-note">35标签拟合</div>
+        </div>
+        <div class="node">
+          <div class="node-title">Accuracy</div>
+          <div class="node-dim">2408个test节点</div>
+          <div class="node-note">仅clean</div>
+        </div>
+      </div>
+    </div>
+    <p class="pipeline-note">SVD发生于Citeseer的L1归一化后、METIS切分前；Cora下游使用原词表坐标下的L1归一化BoW，不做SVD。</p>
+  </section>
+
+  <section>
+    <h2><span class="section-no">03</span>结果</h2>
+    <div class="metrics">
+      <div class="metric"><div class="metric-value">135／135</div><div class="metric-label">checkpoint成功评估</div></div>
+      <div class="metric"><div class="metric-value">0.2977±0.0370</div><div class="metric-label">按val均值选组后的test</div></div>
+      <div class="metric"><div class="metric-value">0.3205±0.0221</div><div class="metric-label">按test均值选组；exploratory</div></div>
+      <div class="metric"><div class="metric-value">0.3040</div><div class="metric-label">test-majority-baseline</div></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>结果项</th><th class="num">Val</th><th class="num">Test</th><th>配置／说明</th></tr>
+        </thead>
+        <tbody>
+          <tr class="best"><td>按val均值最佳组</td><td class="num">0.3102±0.0396</td><td class="num">0.2977±0.0370</td><td>dropN／dropN；ratio=0.1</td></tr>
+          <tr><td>按test均值最佳组</td><td class="num">0.2959±0.0277</td><td class="num">0.3205±0.0221</td><td>maskN／dropN；ratio=0.3</td></tr>
+          <tr><td>dropN／permE组</td><td class="num">0.3042±0.0527</td><td class="num">0.3158±0.0399</td><td>ratio=0.3</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="pipeline-note">全部结果均为5个seed的简单mean±population-std，不删除最小值；test选组仅作exploratory-summary；本轮日志不含污染图评估。</p>
+  </section>
+
+  <footer>
+    Source:attached-evaluation-log·code-snapshot:d18602cb6fb9ca87793b203dd2425f6d7956c149
+  </footer>
+</main>
+</body>
+</html>

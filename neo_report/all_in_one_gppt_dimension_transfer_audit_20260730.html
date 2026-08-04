@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>All-in-One与GPPT：预训练及跨数据集维数范式</title>
+  <style>
+    :root{
+      --bg:#f6f6f2;
+      --paper:#fff;
+      --ink:#171719;
+      --muted:#68686d;
+      --rule:#d7d6d0;
+      --soft:#efeee9;
+      --blue:#245b80;
+      --green:#2b684d;
+      --amber:#895b16;
+      --red:#8a3d35;
+      --serif:Charter,"Iowan Old Style","Noto Serif CJK SC","Songti SC",Georgia,serif;
+      --sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+      --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    }
+    @media(prefers-color-scheme:dark){
+      :root{
+        --bg:#101114;
+        --paper:#17181c;
+        --ink:#f1f1f3;
+        --muted:#aaaab2;
+        --rule:#35363d;
+        --soft:#222329;
+        --blue:#84b9dc;
+        --green:#8bc9a8;
+        --amber:#e5bf73;
+        --red:#e49a90;
+      }
+    }
+    *{box-sizing:border-box}
+    html{background:var(--bg);color:var(--ink);scroll-behavior:smooth}
+    body{margin:0;font:16px/1.56 var(--serif);text-rendering:optimizeLegibility}
+    main{max-width:1120px;margin:0 auto;padding:44px 28px 62px}
+    a{color:var(--blue);text-decoration-thickness:1px;text-underline-offset:2px}
+    code{font:.88em/1.45 var(--mono);background:var(--soft);padding:.08em .28em;overflow-wrap:anywhere}
+    .eyebrow,h1,h2,h3,th,.tag,.verdict-title,.lane-label,.step-title,.step-dim,.flag,.source-id{
+      font-family:var(--sans);
+    }
+    .report-header{border-bottom:2px solid var(--ink);padding-bottom:22px}
+    .eyebrow{font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);font-weight:760}
+    h1{font-size:clamp(2.1rem,5vw,3.6rem);line-height:1.02;letter-spacing:-.04em;margin:.18em 0 .22em;max-width:920px}
+    .subtitle{font-size:1.04rem;color:var(--muted);margin:0;max-width:76ch}
+    .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}
+    .tag{font-size:.72rem;border:1px solid var(--rule);padding:3px 8px;background:var(--paper)}
+    section{margin-top:38px}
+    h2{font-size:1.3rem;line-height:1.2;margin:0 0 15px;letter-spacing:-.012em}
+    h3{font-size:.82rem;letter-spacing:.055em;text-transform:uppercase;color:var(--blue);margin:0 0 9px}
+    .section-no{font-size:.72em;color:var(--blue);margin-right:8px}
+    .verdicts{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--rule);background:var(--paper)}
+    .verdict{padding:20px 22px}
+    .verdict+.verdict{border-left:1px solid var(--rule)}
+    .verdict-title{font-size:.78rem;font-weight:780;letter-spacing:.04em;color:var(--blue);margin-bottom:7px}
+    .verdict-main{font-size:1.08rem;line-height:1.42;margin:0}
+    .verdict-note{font-size:.83rem;color:var(--muted);margin:8px 0 0}
+    .current{margin-top:14px;border-left:4px solid var(--amber);padding:13px 16px;background:var(--paper)}
+    .current strong{font-family:var(--sans);font-size:.78rem;letter-spacing:.035em;color:var(--amber)}
+    .current p{margin:4px 0 0;font-size:.91rem}
+    .table-wrap{overflow-x:auto;border:1px solid var(--rule);background:var(--paper)}
+    table{border-collapse:collapse;width:100%;min-width:860px;font-size:.86rem}
+    th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+    th{font-size:.69rem;letter-spacing:.04em;color:var(--muted);background:var(--soft)}
+    tbody tr:last-child td{border-bottom:0}
+    td:first-child{font-family:var(--sans);font-weight:720;white-space:nowrap}
+    .pipeline{border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);background:var(--paper)}
+    .lane{display:grid;grid-template-columns:122px repeat(5,minmax(0,1fr))}
+    .lane+.lane{border-top:1px solid var(--rule)}
+    .lane-label{display:flex;align-items:center;padding:13px 12px;background:var(--soft);font-size:.72rem;font-weight:760;letter-spacing:.04em;color:var(--muted)}
+    .step{position:relative;min-width:0;padding:13px 19px 13px 13px}
+    .step:not(:last-child)::after{
+      content:"→";
+      position:absolute;
+      right:-8px;
+      top:50%;
+      transform:translateY(-50%);
+      z-index:2;
+      width:16px;
+      text-align:center;
+      font:700 .92rem var(--sans);
+      color:var(--muted);
+    }
+    .step-title{font-size:.75rem;font-weight:760}
+    .step-dim{font-size:.72rem;color:var(--blue);margin-top:3px;font-variant-numeric:tabular-nums}
+    .step-note{font-size:.71rem;color:var(--muted);margin-top:3px}
+    .pipeline-caption{font-size:.78rem;color:var(--muted);margin:9px 0 0}
+    .evidence-grid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--rule);border-left:1px solid var(--rule);margin-top:18px}
+    .evidence{padding:16px 18px;background:var(--paper);border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+    .evidence p{font-size:.85rem;margin:0}
+    .evidence p+p{margin-top:7px}
+    .evidence .where{font-family:var(--mono);font-size:.71rem;color:var(--muted);overflow-wrap:anywhere}
+    .status-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+    .status-list li{display:grid;grid-template-columns:118px minmax(0,1fr);gap:16px;padding:13px 0;border-bottom:1px solid var(--rule)}
+    .flag{font-size:.71rem;font-weight:780;letter-spacing:.045em}
+    .flag.confirmed{color:var(--green)}
+    .flag.limit{color:var(--amber)}
+    .flag.error{color:var(--red)}
+    .status-copy{font-size:.88rem}
+    .implications{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid var(--rule);background:var(--paper)}
+    .implication{padding:17px 18px}
+    .implication+.implication{border-left:1px solid var(--rule)}
+    .implication p{font-size:.86rem;margin:0}
+    .implication strong{font-family:var(--sans);font-size:.76rem;color:var(--blue);display:block;margin-bottom:6px}
+    .source-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+    .source-list li{display:grid;grid-template-columns:160px minmax(0,1fr);gap:18px;padding:12px 0;border-bottom:1px solid var(--rule)}
+    .source-id{font-size:.7rem;line-height:1.45;color:var(--muted);font-weight:720;letter-spacing:.035em}
+    .source-copy{font-size:.82rem;overflow-wrap:anywhere}
+    .source-copy small{display:block;color:var(--muted);margin-top:3px;font-family:var(--mono);font-size:.69rem}
+    footer{margin-top:30px;padding-top:12px;border-top:1px solid var(--rule);font:11px/1.5 var(--sans);color:var(--muted)}
+    @media(max-width:860px){
+      .lane{grid-template-columns:105px repeat(5,minmax(145px,1fr));overflow-x:auto}
+      .implications{grid-template-columns:1fr}
+      .implication+.implication{border-left:0;border-top:1px solid var(--rule)}
+    }
+    @media(max-width:650px){
+      main{padding:31px 16px 46px}
+      h1{font-size:2rem}
+      .verdicts,.evidence-grid{grid-template-columns:1fr}
+      .verdict+.verdict{border-left:0;border-top:1px solid var(--rule)}
+      .lane{display:block}
+      .lane-label{padding:9px 12px}
+      .step{padding:11px 12px 20px}
+      .step:not(:last-child)::after{content:"↓";right:auto;left:50%;top:auto;bottom:-7px;transform:translateX(-50%)}
+      .status-list li,.source-list li{grid-template-columns:1fr;gap:5px}
+    }
+    @media print{
+      :root{--bg:#fff;--paper:#fff;--ink:#000;--muted:#444;--rule:#bbb;--soft:#f1f1f1}
+      main{max-width:none;padding:0}
+      body{font-size:10pt}
+      section{break-inside:avoid}
+      .lane{grid-template-columns:90px repeat(5,minmax(0,1fr))}
+      a{color:#000;text-decoration:none}
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="report-header">
+    <div class="eyebrow">Evidence audit·2026-07-30</div>
+    <h1>All-in-One与GPPT：预训练及跨数据集维数范式</h1>
+    <p class="subtitle">基于两篇论文、All-in-One匿名投稿原始代码、官方后续<code>ProG/ori</code>分支及GPPT作者代码的交叉核验。</p>
+    <div class="tags">
+      <span class="tag">Question:input dimensionality</span>
+      <span class="tag">Question:cross-dataset transfer</span>
+      <span class="tag">Evidence:paper×code</span>
+      <span class="tag">Scope:no new experiment</span>
+    </div>
+  </header>
+
+  <section aria-labelledby="conclusion">
+    <h2 id="conclusion"><span class="section-no">01</span>最短结论</h2>
+    <div class="verdicts">
+      <article class="verdict">
+        <div class="verdict-title">ALL-IN-ONE</div>
+        <p class="verdict-main"><strong>显式跨数据集迁移。</strong>源域和目标域分别做SVD，统一为100维，再复用<code>100→100</code>的GNN权重。</p>
+        <p class="verdict-note">这是维数／形状对齐；不同数据集的SVD独立计算，并非共享语义基底。</p>
+      </article>
+      <article class="verdict">
+        <div class="verdict-title">GPPT</div>
+        <p class="verdict-main"><strong>未处理跨数据集迁移。</strong>每个数据集用原生维数<code>D</code>进入GNN，再映射到128维；预训练和节点分类使用同一数据集。</p>
+        <p class="verdict-note">其“generalize”指边预测→节点分类的任务／目标迁移，不是Citeseer→Cora。</p>
+      </article>
+    </div>
+    <div class="current">
+      <strong>对当前实验的直接判定</strong>
+      <p><code>Citeseer:3703→SVD1433</code>后接<code>Cora:raw1433-BoW</code>只实现同宽；预训练第一层第<code>k</code>列对应Citeseer第<code>k</code>个奇异方向，下游却接收Cora第<code>k</code>个词项。它既不是All-in-One的“两侧SVD”，也不是GPPT的“同数据集预训练”。</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="matrix">
+    <h2 id="matrix"><span class="section-no">02</span>范式矩阵</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>方法</th>
+            <th>预训练输入</th>
+            <th>隐藏维数</th>
+            <th>Prompt位置</th>
+            <th>迁移范围</th>
+            <th>不同原始维数如何处理</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>All-in-One</td>
+            <td><code>X<sub>d</sub>→SVD100</code></td>
+            <td>100；2层GNN</td>
+            <td>GNN前；token与节点输入特征同维</td>
+            <td>同域跨任务；Amazon／PubMed→Cora跨域</td>
+            <td>每个域分别压到100维，因而权重形状可加载</td>
+          </tr>
+          <tr>
+            <td>GPPT</td>
+            <td><code>X<sub>d</sub>∈R<sup>N×D<sub>d</sub></sup></code>；不降维</td>
+            <td>128；2层GraphSAGE</td>
+            <td>GNN后；task token与structure token均在128维表示空间</td>
+            <td>同一图内：masked-edge→node-classification</td>
+            <td>不处理；每个数据集各训一套<code>D<sub>d</sub>→128</code>第一层</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="aio">
+    <h2 id="aio"><span class="section-no">03</span>All-in-One：两侧独立SVD到100维</h2>
+    <div class="pipeline" role="img" aria-label="All-in-One跨域预训练和迁移维数链">
+      <div class="lane">
+        <div class="lane-label">SOURCE<br>Amazon</div>
+        <div class="step">
+          <div class="step-title">原始特征</div>
+          <div class="step-dim">N×767</div>
+          <div class="step-note">dataset-native</div>
+        </div>
+        <div class="step">
+          <div class="step-title">独立SVD</div>
+          <div class="step-dim">N×100</div>
+          <div class="step-note">U<sub>A</sub>Σ<sub>A</sub></div>
+        </div>
+        <div class="step">
+          <div class="step-title">预训练GNN</div>
+          <div class="step-dim">100→100→100</div>
+          <div class="step-note">GraphCL／SimGRACE</div>
+        </div>
+        <div class="step">
+          <div class="step-title">源域任务</div>
+          <div class="step-dim">Prompt／head</div>
+          <div class="step-note">得到source state</div>
+        </div>
+        <div class="step">
+          <div class="step-title">迁移权重</div>
+          <div class="step-dim">shape=100</div>
+          <div class="step-note">load state</div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">TARGET<br>Cora</div>
+        <div class="step">
+          <div class="step-title">原始特征</div>
+          <div class="step-dim">2708×1433</div>
+          <div class="step-note">BoW</div>
+        </div>
+        <div class="step">
+          <div class="step-title">独立SVD</div>
+          <div class="step-dim">2708×100</div>
+          <div class="step-note">U<sub>C</sub>Σ<sub>C</sub></div>
+        </div>
+        <div class="step">
+          <div class="step-title">复用GNN</div>
+          <div class="step-dim">100→100→100</div>
+          <div class="step-note">同形可加载</div>
+        </div>
+        <div class="step">
+          <div class="step-title">Target prompt</div>
+          <div class="step-dim">token_dim=100</div>
+          <div class="step-note">GNN前插入</div>
+        </div>
+        <div class="step">
+          <div class="step-title">下游任务</div>
+          <div class="step-dim">node／edge／graph</div>
+          <div class="step-note">Cora</div>
+        </div>
+      </div>
+    </div>
+    <p class="pipeline-caption">PubMed源域同理：<code>500→SVD100</code>。PyG实现对每个<code>data.x</code>单独计算<code>U,S,V</code>，输出<code>U[:, :100]Σ[:100]</code>；没有跨域共享或对齐<code>V</code>。</p>
+
+    <div class="evidence-grid">
+      <article class="evidence">
+        <h3>论文证据</h3>
+        <p>§4.1.3明确写2层GNN、hidden=100，并为跨图迁移将初始特征用SVD降到100维。</p>
+        <p>§4.3.2明确写Amazon／PubMed为source、Cora为target，并因输入维数不同而将all domains统一到100维。</p>
+        <p class="where">All_in_One.pdf·PDF第7页；Table4位于PDF第8页</p>
+      </article>
+      <article class="evidence">
+        <h3>Prompt维数</h3>
+        <p>论文将prompt token定义为<code>p<sub>i</sub>∈R<sup>1×d</sup></code>，与输入节点特征同维；代码以<code>token_dim=input_dim=100</code>构造Prompt并在GNN前拼接。</p>
+        <p class="where">All_in_One.pdf·PDF第4页；raw/NoMeta/prompt.py:12-18,32-33；raw/MPG/Models.py:140-179</p>
+      </article>
+      <article class="evidence">
+        <h3>原始代码证据</h3>
+        <p>预训练入口从<code>data.x.shape[1]</code>取输入维数并令<code>hid_dim=input_dim</code>；随包CiteSeer权重的第一层矩阵为<code>100×100</code>。</p>
+        <p class="where">raw/pre_train.py:70-95；raw/NoMeta/pre_trained_gnn/CiteSeer.GraphCL.TransformerConv.pth</p>
+      </article>
+      <article class="evidence">
+        <h3>实现边界</h3>
+        <p>匿名原始包没有SVD执行代码，也没有Table4跨域runner。后续<code>ProG/ori</code>虽加入<code>SVDFeatureReduction(100)</code>，实际计算／保存行仍被注释，运行时直接读预生成文件。</p>
+        <p class="where">raw全包无SVD调用；ProG/ori/data_preprocess.py:465-472</p>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="gppt">
+    <h2 id="gppt"><span class="section-no">04</span>GPPT：同图内的任务迁移</h2>
+    <div class="pipeline" role="img" aria-label="GPPT预训练和下游维数链">
+      <div class="lane">
+        <div class="lane-label">PRETRAIN<br>dataset d</div>
+        <div class="step">
+          <div class="step-title">原始特征</div>
+          <div class="step-dim">N×D<sub>d</sub></div>
+          <div class="step-note">无SVD／adapter</div>
+        </div>
+        <div class="step">
+          <div class="step-title">GraphSAGE</div>
+          <div class="step-dim">D<sub>d</sub>→128→128</div>
+          <div class="step-note">2层</div>
+        </div>
+        <div class="step">
+          <div class="step-title">Masked edge</div>
+          <div class="step-dim">h<sub>i</sub>,h<sub>j</sub>∈R<sup>128</sup></div>
+          <div class="step-note">pairwise score</div>
+        </div>
+        <div class="step">
+          <div class="step-title">Pretext head</div>
+          <div class="step-dim">pair→link</div>
+          <div class="step-note">paper:trainable head</div>
+        </div>
+        <div class="step">
+          <div class="step-title">Checkpoint</div>
+          <div class="step-dim">{dataset}_model_128.pt</div>
+          <div class="step-note">dataset-specific</div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">DOWNSTREAM<br>same d</div>
+        <div class="step">
+          <div class="step-title">同一原始特征</div>
+          <div class="step-dim">N×D<sub>d</sub></div>
+          <div class="step-note">同一个args.dataset</div>
+        </div>
+        <div class="step">
+          <div class="step-title">加载GraphSAGE</div>
+          <div class="step-dim">D<sub>d</sub>→128→128</div>
+          <div class="step-note">第一层自然匹配</div>
+        </div>
+        <div class="step">
+          <div class="step-title">Structure token</div>
+          <div class="step-dim">e<sub>v</sub>∈R<sup>128</sup></div>
+          <div class="step-note">节点＋邻域表示</div>
+        </div>
+        <div class="step">
+          <div class="step-title">Task token</div>
+          <div class="step-dim">e<sub>c</sub>∈R<sup>128</sup></div>
+          <div class="step-note">class prototype</div>
+        </div>
+        <div class="step">
+          <div class="step-title">Pair answer</div>
+          <div class="step-dim">[e<sub>c</sub>,e<sub>v</sub>]→label</div>
+          <div class="step-note">pair input=256</div>
+        </div>
+      </div>
+    </div>
+    <p class="pipeline-caption">论文统一的是pretext与downstream的pairwise objective；它没有统一不同数据集的原始feature space。标准GPPT继续优化GNN、pretext head和token；<code>GPPT(fix)</code>才是冻结模型的评估变体。</p>
+
+    <div class="evidence-grid">
+      <article class="evidence">
+        <h3>论文证据</h3>
+        <p>masked graph定义为单个<code>G<sub>pre</sub>=(X,A<sub>pre</sub>)</code>；下游仍对该图节点构造token pair。task token与structure token均为<code>R<sup>d</sup></code>，实验统一设2层、hidden=128。</p>
+        <p class="where">Kaixiong Zhou博士论文·Chapter7·PDF第118-125、128页（印刷页102-109、112）</p>
+      </article>
+      <article class="evidence">
+        <h3>代码证据</h3>
+        <p><code>in_feats=features.shape[1]</code>；预训练按<code>args.dataset</code>命名权重；下游用同一个<code>args.dataset</code>加载，并以当前数据集原始维数建立第一层。</p>
+        <p class="where">GPPT/utils.py:25-40；train_sampling_unsupervised.py:100-141,216-223；GPPT.py:48-80,156-164</p>
+      </article>
+      <article class="evidence">
+        <h3>不存在的环节</h3>
+        <p>论文和作者代码均未找到SVD、PCA、padding、共享词表、text encoder、输入adapter或source-dataset／target-dataset双参数。</p>
+        <p class="where">GPPT官方代码commit:4f919ab66c5c2edebcc0356cf6399074c24a99a4</p>
+      </article>
+      <article class="evidence">
+        <h3>迁移含义</h3>
+        <p>Cora的第一层是<code>1433→128</code>，Citeseer是<code>3703→128</code>；虽然两边输出都为128，但第一层参数形状不同，不能直接跨数据集加载整套encoder。</p>
+        <p class="where">这是由论文结构＋作者代码构造方式直接推出的张量约束</p>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="integrity">
+    <h2 id="integrity"><span class="section-no">05</span>代码完整性审计</h2>
+    <ul class="status-list">
+      <li>
+        <div class="flag confirmed">CONFIRMED</div>
+        <div class="status-copy">All-in-One论文的跨域维数协议非常明确：所有域均降到100维；逐域独立计算由PyG逐图变换方式及“无共享投影”代码审计支持。原始权重和Prompt代码服从100维张量合同。</div>
+      </li>
+      <li>
+        <div class="flag limit">INCOMPLETE</div>
+        <div class="status-copy">All-in-One匿名原始包没有SVD预处理或Amazon／PubMed→Cora runner；后续<code>ProG/ori</code>也不是Table4的一键复现。因此“范式”由论文确认，“逐行跨域复现”不能由公开代码闭环。</div>
+      </li>
+      <li>
+        <div class="flag confirmed">CONFIRMED</div>
+        <div class="status-copy">GPPT的官方代码将预训练权重和下游加载都绑定到同一<code>args.dataset</code>；不存在维数统一模块。</div>
+      </li>
+      <li>
+        <div class="flag error">HARD ERROR</div>
+        <div class="status-copy">GPPT当前<code>main</code>快照并非可靠的数值gold standard：预训练入口的<code>SAGE</code>实参与类签名错位；下游把128维cluster router喂入拼接后的256维向量。该路径按现状存在静态维数／调用错误。</div>
+      </li>
+      <li>
+        <div class="flag limit">PAPER≠CODE</div>
+        <div class="status-copy">GPPT论文复用可训练pretext projection head；代码预训练实际使用参数无关的点积＋BCE，且只保存GNN，再新建下游线性模块。代码可证明同数据集范式，不能完整证明论文head复用实现。</div>
+      </li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="implication">
+    <h2 id="implication"><span class="section-no">06</span>对Citeseer→Cora实验的含义</h2>
+    <div class="implications">
+      <article class="implication">
+        <strong>若复刻All-in-One</strong>
+        <p>Citeseer和Cora都应执行同一种SVD降维，并取<code>K&lt;1433</code>；论文取<code>K=100</code>。随后预训练、下游GNN第一层及input-level prompt全部改为100维。</p>
+      </article>
+      <article class="implication">
+        <strong>为何不能取K=1433</strong>
+        <p>PyG的<code>SVDFeatureReduction</code>只在<code>D&gt;K</code>时变换。Cora原始维数恰为1433，故<code>K=1433</code>会保留raw BoW，不会得到Cora的SVD坐标。</p>
+      </article>
+      <article class="implication">
+        <strong>证据能支持到哪里</strong>
+        <p>All-in-One支持“独立低秩坐标也可尝试权重迁移”；不支持“独立SVD已对齐语义”。GPPT不能为跨数据集迁移背书。</p>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="sources">
+    <h2 id="sources"><span class="section-no">07</span>材料与版本</h2>
+    <ul class="source-list">
+      <li>
+        <div class="source-id">ALL-IN-ONE<br>PAPER</div>
+        <div class="source-copy"><a href="../reference/All_in_One.pdf">reference/All_in_One.pdf</a>；<a href="https://arxiv.org/abs/2307.01504">arXiv</a>；KDD'23版本。<small>SHA256:C36D1188BBCEDD1898DFE05CC21F897CB0ADAEA2317F046856886A93766E9AA9</small></div>
+      </li>
+      <li>
+        <div class="source-id">ALL-IN-ONE<br>RAW CODE</div>
+        <div class="source-copy"><a href="../reference/code_sources/All_in_One_raw_mpg/">reference/code_sources/All_in_One_raw_mpg/</a>；论文匿名投稿页的15文件原始包，页面revision=<code>de0ccb85</code>。<small>ZIP SHA256:7D9F89BCD4B884190226B0DAC13F274C8AE5CBFDE9A6E7B9A895E3A801B38F36</small></div>
+      </li>
+      <li>
+        <div class="source-id">ALL-IN-ONE<br>POST-RELEASE</div>
+        <div class="source-copy"><a href="../reference/code_sources/All_in_One_ProG_ori_code/">reference/code_sources/All_in_One_ProG_ori_code/</a>；作者官方<code>ProG/ori</code>后续重构。<small>commit:0fa942226f5e0a2b0f0c9271b59d563c2e9c7c38</small></div>
+      </li>
+      <li>
+        <div class="source-id">GPPT<br>AUTHOR TEXT</div>
+        <div class="source-copy"><a href="../reference/GPPT_KDD2022_author_dissertation_chapter7.pdf">GPPT Chapter7摘录</a>；<a href="../reference/GPPT_author_dissertation_Kaixiong_Zhou_2023.pdf">博士论文全文</a>；<a href="https://doi.org/10.1145/3534678.3539249">ACM正式入口</a>。共同作者Kaixiong Zhou博士论文的Chapter7为GPPT完整方法章。<small>Rice University·2023·Chapter7:PDF pages112-133；摘录SHA256:BCC786B1CD6758DE1C1D42EE7E8C2CE4E10F351DAC5F6DF74DBA4B1DAF581672</small></div>
+      </li>
+      <li>
+        <div class="source-id">GPPT<br>OFFICIAL CODE</div>
+        <div class="source-copy"><a href="../reference/code_sources/GPPT_official/">reference/code_sources/GPPT_official/</a>；<a href="https://github.com/MingChen-Sun/GPPT">作者仓库</a>的<code>main</code>快照。<small>commit:4f919ab66c5c2edebcc0356cf6399074c24a99a4；ZIP SHA256:65A7CBF6A10039CB2558925F8E6E47D928A0D9EC9D0283EC041A8DAFCFBB8126</small></div>
+      </li>
+      <li>
+        <div class="source-id">SOURCE<br>MANIFEST</div>
+        <div class="source-copy"><a href="../reference/code_sources/SOURCES.md">reference/code_sources/SOURCES.md</a>；下载地址、版本、commit、SHA256及公开材料边界。</div>
+      </li>
+    </ul>
+  </section>
+
+  <footer>
+    判定等级：论文明确陈述／代码逐行可见＝confirmed；由张量形状必然推出＝direct inference；公开包缺失的跨域runner不作补猜。报告未改动实验代码与数据。
+  </footer>
+</main>
+</body>
+</html>

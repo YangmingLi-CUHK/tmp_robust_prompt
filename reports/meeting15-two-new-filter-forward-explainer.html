@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RobustPrompt-T-NSP：两个新增 Filter 的前向过程与维度审计</title>
+  <style>
+    :root {
+      --bg: #f5f4ef;
+      --paper: #fffefa;
+      --ink: #1f2725;
+      --muted: #65706c;
+      --line: #d9ddd7;
+      --green: #236b57;
+      --green-soft: #e7f1ed;
+      --blue: #285f8f;
+      --blue-soft: #e8f0f7;
+      --amber: #9a6415;
+      --amber-soft: #fff2d9;
+      --red: #9a3d36;
+      --red-soft: #f9e9e6;
+      --code: #17201e;
+      --shadow: 0 14px 38px rgba(31, 39, 37, .08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151a18;
+        --paper: #1d2421;
+        --ink: #eef3ef;
+        --muted: #aab6af;
+        --line: #38423d;
+        --green: #70c3a5;
+        --green-soft: #203a31;
+        --blue: #86b9e7;
+        --blue-soft: #203344;
+        --amber: #efbf6a;
+        --amber-soft: #3e321e;
+        --red: #efa49d;
+        --red-soft: #412826;
+        --code: #f0f5f2;
+        --shadow: 0 18px 42px rgba(0, 0, 0, .22);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.68;
+    }
+    main { width: min(1180px, calc(100% - 32px)); margin: 32px auto 80px; }
+    header.hero {
+      padding: 42px clamp(24px, 5vw, 64px);
+      border: 1px solid var(--line);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+    .eyebrow { color: var(--green); font-weight: 800; letter-spacing: .08em; font-size: .78rem; text-transform: uppercase; }
+    h1 { margin: 8px 0 12px; max-width: 980px; font-size: clamp(2rem, 5vw, 4rem); line-height: 1.08; letter-spacing: -.045em; }
+    .lead { max-width: 850px; margin: 0; color: var(--muted); font-size: 1.08rem; }
+    .verdict {
+      margin-top: 26px;
+      padding: 18px 20px;
+      border-left: 4px solid var(--green);
+      background: var(--green-soft);
+      font-weight: 650;
+    }
+    nav.jump { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 24px; }
+    nav.jump a, .toggle button {
+      border: 1px solid var(--line);
+      color: var(--ink);
+      background: transparent;
+      padding: 8px 12px;
+      text-decoration: none;
+      font: inherit;
+      font-size: .86rem;
+      cursor: pointer;
+    }
+    nav.jump a:hover, .toggle button:hover, .toggle button.active { border-color: var(--green); background: var(--green-soft); }
+    section { margin-top: 36px; }
+    .section-head { display: flex; gap: 20px; align-items: end; justify-content: space-between; margin-bottom: 15px; }
+    h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2.15rem); letter-spacing: -.025em; }
+    h3 { margin: 0 0 8px; font-size: 1.12rem; }
+    p { margin: 0 0 12px; }
+    .sub { color: var(--muted); max-width: 720px; }
+    .toggle { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--line); background: var(--paper); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .panel { border: 1px solid var(--line); background: var(--paper); padding: 22px; }
+    .panel.nsp { border-top: 5px solid var(--blue); }
+    .panel.fc { border-top: 5px solid var(--green); }
+    .tag { display: inline-block; padding: 3px 8px; font-size: .74rem; font-weight: 800; letter-spacing: .03em; }
+    .tag.blue { color: var(--blue); background: var(--blue-soft); }
+    .tag.green { color: var(--green); background: var(--green-soft); }
+    .tag.amber { color: var(--amber); background: var(--amber-soft); }
+    .tag.red { color: var(--red); background: var(--red-soft); }
+    code, .shape, .formula { color: var(--code); font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace; }
+    .shape { display: inline-block; padding: 1px 6px; background: var(--blue-soft); color: var(--blue); font-weight: 750; white-space: nowrap; }
+    .formula { padding: 11px 13px; background: color-mix(in srgb, var(--paper) 70%, var(--blue-soft)); border: 1px solid var(--line); overflow-x: auto; }
+    .flow { margin: 18px 0 0; padding: 0; list-style: none; counter-reset: step; }
+    .flow li { position: relative; padding: 0 0 18px 46px; counter-increment: step; }
+    .flow li::before {
+      content: counter(step);
+      position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%;
+      display: grid; place-items: center; color: var(--paper); background: var(--blue); font-weight: 900; font-size: .78rem;
+    }
+    .fc .flow li::before { background: var(--green); }
+    .flow li:not(:last-child)::after { content: ""; position: absolute; left: 13px; top: 30px; bottom: 3px; width: 1px; background: var(--line); }
+    .flow strong { display: block; margin-bottom: 3px; }
+    .flow small { display: block; color: var(--muted); font-size: .85rem; }
+    table { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--line); font-size: .91rem; }
+    th, td { padding: 12px 13px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-size: .75rem; letter-spacing: .055em; text-transform: uppercase; background: color-mix(in srgb, var(--paper) 80%, var(--green-soft)); }
+    tr:last-child td { border-bottom: 0; }
+    .hot { color: var(--red); font-weight: 800; }
+    .good { color: var(--green); font-weight: 800; }
+    .callout { padding: 16px 18px; border: 1px solid var(--line); background: var(--paper); }
+    .callout.warn { border-left: 4px solid var(--amber); background: var(--amber-soft); }
+    .callout.risk { border-left: 4px solid var(--red); background: var(--red-soft); }
+    .callout.ok { border-left: 4px solid var(--green); background: var(--green-soft); }
+    .audit-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .audit-item { border: 1px solid var(--line); background: var(--paper); padding: 16px; }
+    .audit-item p { color: var(--muted); font-size: .9rem; margin: 6px 0 0; }
+    .svg-wrap { border: 1px solid var(--line); background: var(--paper); padding: 12px; overflow-x: auto; }
+    svg { width: 100%; min-width: 850px; height: auto; color: var(--ink); }
+    .svg-node rect { fill: var(--paper); stroke: var(--line); stroke-width: 1.5; }
+    .svg-node.hotpath rect { stroke: var(--green); stroke-width: 2.5; }
+    .svg-node.new rect { fill: var(--blue-soft); stroke: var(--blue); }
+    .svg-node text { fill: var(--ink); font: 600 14px ui-sans-serif, system-ui; }
+    .svg-small { fill: var(--muted); font: 12px ui-sans-serif, system-ui; }
+    .arrow { stroke: var(--muted); stroke-width: 1.7; fill: none; marker-end: url(#arrow); }
+    details { border-top: 1px solid var(--line); padding: 11px 0 0; margin-top: 12px; }
+    summary { cursor: pointer; color: var(--green); font-weight: 750; }
+    ul.clean { margin: 8px 0 0; padding-left: 20px; }
+    ul.clean li { margin: 6px 0; }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: .82rem; margin-top: 10px; }
+    .dot { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border-radius: 50%; }
+    .dot.blue { background: var(--blue); }.dot.green { background: var(--green); }.dot.gray { background: var(--muted); }
+    footer { margin-top: 38px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .83rem; }
+    @media (max-width: 850px) {
+      main { width: min(100% - 20px, 1180px); margin-top: 10px; }
+      header.hero { padding: 28px 20px; }
+      .grid-2, .grid-3, .audit-list { grid-template-columns: 1fr; }
+      .section-head { align-items: start; flex-direction: column; }
+      th, td { padding: 10px 8px; }
+      .table-scroll { overflow-x: auto; }
+      table { min-width: 760px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <div class="eyebrow">Meeting 15 · Code-grounded explainer · 2026-08-03</div>
+    <h1>两个新增 Filter 的真实前向过程</h1>
+    <p class="lead">逐行对应当前 <code>RobustPrompt-T-NSP</code> 主链路，解释 NSP 与 FocusedCleaner-LP 从原始图输入、异常边/节点判定，到 defense prompt 和分类输出的完整维度变化。</p>
+    <div class="verdict">
+      先纠正一个关键名词：主算法新增的是两个 <strong>defense tip / 异常节点路由分支</strong>。NSP 是无可学习参数的结构编码 <code>A<sup>k</sup>X</code>；只有 FocusedCleaner-LP 含真正的两层 MLP encoder。它们本身都不直接删除主图边，而是决定哪些节点接收对应 prompt。
+    </div>
+    <nav class="jump">
+      <a href="#map">主调用链</a><a href="#compare">5 个 Tips 对比</a><a href="#nsp">NSP 前向</a><a href="#fc">FocusedCleaner 前向</a><a href="#fusion">进入主模型</a><a href="#audit">实现审计结论</a>
+    </nav>
+  </header>
+
+  <section id="map">
+    <div class="section-head">
+      <div><h2>主调用链：两个新分支处在什么位置</h2><p class="sub">蓝色是新增检测分支，绿色是影响最终分类的热路径。虚构的“两个 encoder 先删边”并不存在。</p></div>
+      <div class="toggle" aria-label="维度显示切换"><button class="active" data-mode="symbol">符号维度</button><button data-mode="cora">Cora clean</button></div>
+    </div>
+    <div class="svg-wrap">
+      <svg viewBox="0 0 1120 360" role="img" aria-labelledby="flow-title">
+        <title id="flow-title">RobustPrompt-T-NSP 训练热路径</title>
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <g class="svg-node hotpath"><rect x="25" y="138" width="145" height="72" rx="8"/><text x="97" y="168" text-anchor="middle">原始图</text><text class="svg-small" x="97" y="190" text-anchor="middle">X [N,F], EI [2,E]</text></g>
+        <g class="svg-node"><rect x="215" y="25" width="145" height="56" rx="8"/><text x="287" y="58" text-anchor="middle">sim / degree / OOD</text></g>
+        <g class="svg-node new"><rect x="215" y="115" width="145" height="56" rx="8"/><text x="287" y="148" text-anchor="middle">NSP: AᵏX + cos</text></g>
+        <g class="svg-node new"><rect x="215" y="205" width="145" height="56" rx="8"/><text x="287" y="238" text-anchor="middle">FC: MLP + inner product</text></g>
+        <g class="svg-node hotpath"><rect x="405" y="115" width="150" height="112" rx="8"/><text x="480" y="149" text-anchor="middle">异常节点集合</text><text class="svg-small" x="480" y="173" text-anchor="middle">D → 20 → D</text><text class="svg-small" x="480" y="195" text-anchor="middle">生成各 tip prompt</text></g>
+        <g class="svg-node hotpath"><rect x="600" y="128" width="145" height="84" rx="8"/><text x="672" y="160" text-anchor="middle">多 Prompt 融合</text><text class="svg-small" x="672" y="183" text-anchor="middle">X′ = X + P [N,F]</text></g>
+        <g class="svg-node hotpath"><rect x="790" y="128" width="125" height="84" rx="8"/><text x="852" y="158" text-anchor="middle">GNN₁</text><text class="svg-small" x="852" y="183" text-anchor="middle">[N,F]→[N,Hg]</text></g>
+        <g class="svg-node hotpath"><rect x="960" y="72" width="135" height="76" rx="8"/><text x="1027" y="103" text-anchor="middle">τ_tune</text><text class="svg-small" x="1027" y="125" text-anchor="middle">训练期真正剪边</text></g>
+        <g class="svg-node hotpath"><rect x="960" y="208" width="135" height="76" rx="8"/><text x="1027" y="238" text-anchor="middle">GNN₂ + Head</text><text class="svg-small" x="1027" y="261" text-anchor="middle">[N,Hg]→[N,C]</text></g>
+        <path class="arrow" d="M170 174 L205 174 L205 53 L215 53"/><path class="arrow" d="M170 174 L215 143"/><path class="arrow" d="M170 174 L205 174 L205 233 L215 233"/>
+        <path class="arrow" d="M360 53 L385 53 L385 145 L405 145"/><path class="arrow" d="M360 143 L405 166"/><path class="arrow" d="M360 233 L405 198"/>
+        <path class="arrow" d="M555 171 L600 171"/><path class="arrow" d="M745 171 L790 171"/><path class="arrow" d="M915 152 L947 124 L960 119"/><path class="arrow" d="M1027 148 L1027 208"/>
+        <text class="svg-small" x="632" y="247">测试：跳过 τ_tune，完整 edge_index 进入一次 GNN</text>
+      </svg>
+    </div>
+    <div class="legend"><span><i class="dot blue"></i>新增 detector/tip</span><span><i class="dot green"></i>分类热路径</span><span><i class="dot gray"></i>原论文已有 tip</span></div>
+    <div class="callout warn" style="margin-top:14px"><strong>与 <code>filter_module</code> 区分：</strong> <code>task.py</code> 虽然还构造一个统一 filter API，但 <code>RobustPrompt-T-NSP</code> 的训练和推理都没有调用它；它只在最终异常检测报告里单独跑一次。五 filter 主实验真正影响 accuracy 的是五个 defense tips。</div>
+  </section>
+
+  <section id="compare">
+    <div class="section-head"><div><h2>原 3 个 Tips 与新增 2 个 Tips</h2><p class="sub">五者的共同输出不是“新图”，而是“应当接收哪类 defense prompt 的节点集合”。</p></div></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Tip</th><th>检测信号</th><th>中间维度</th><th>异常节点规则</th><th>检测器可训练？</th><th>直接删主图边？</th></tr></thead>
+      <tbody>
+        <tr><td><code>sim_pt</code></td><td>原始特征边 cosine 的节点平均</td><td><span class="shape" data-symbol="[E] → [N]" data-cora="[13,264] → [2,708]">[E] → [N]</span></td><td>节点平均相似度 ≤ 阈值</td><td>否</td><td>否</td></tr>
+        <tr><td><code>degree_pt</code></td><td>节点度数</td><td><span class="shape" data-symbol="[N]" data-cora="[2,708]">[N]</span></td><td>degree ≤ 阈值</td><td>否</td><td>否</td></tr>
+        <tr><td><code>out_detect_pt</code></td><td>原始特征端点 cosine</td><td><span class="shape" data-symbol="[E,F]×2 → [E]" data-cora="[13,264,1,433]×2 → [13,264]">[E,F]×2 → [E]</span></td><td>低 cosine 边的两端点并集</td><td>否</td><td>否</td></tr>
+        <tr><td><code>nsp_pt</code> <span class="tag blue">新增</span></td><td><strong>k-hop 邻域表示</strong>端点 cosine</td><td><span class="shape" data-symbol="[N,N]·[N,F] → [N,F] → [E]" data-cora="[2,708²]·[2,708,1,433] → [2,708,1,433] → [13,264]">[N,N]·[N,F] → [N,F] → [E]</span></td><td>低 cosine 边的两端点并集</td><td>否，<code>AᵏX</code> 无参数</td><td>否</td></tr>
+        <tr><td><code>focusedcleaner_pt</code> <span class="tag green">新增</span></td><td>MLP 重构出的 link probability</td><td><span class="shape" data-symbol="[N,F] → [N,H] → [E]" data-cora="[2,708,1,433] → [2,708,1,433] → [13,264]">[N,F] → [N,H] → [E]</span></td><td><strong>节点 incident 边平均概率</strong>低于阈值</td><td>是，首轮局部训练一次</td><td>否</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout warn" style="margin-top:14px"><strong>版本边界：</strong>上表描述的是当前增强版 <code>RobustPrompt-T-NSP</code> 热路径。忠实原版 <code>RobustPrompt_T_original.py</code> 中的 <code>out_detect_pt</code> 仍是 <code>pass</code>；本项目增强版才补全 raw-feature cosine OOD 检测。</div>
+  </section>
+
+  <section id="nsp">
+    <div class="section-head"><div><h2>新增分支一：NSP 的完整前向</h2><p class="sub">入口：<code>nsp_suspicious_nodes(x, edge_index, num_nodes, threshold, order)</code>。默认 <code>order=2</code>。</p></div><span class="tag blue">无参数结构编码</span></div>
+    <div class="grid-2">
+      <article class="panel nsp">
+        <h3>从图到异常边</h3>
+        <ol class="flow">
+          <li><strong>输入原始属性与 PyG 边表</strong><span class="shape" data-symbol="X [N,F], edge_index [2,E]" data-cora="X [2,708,1,433], edge_index [2,13,264]">X [N,F], edge_index [2,E]</span><small>使用原始 BoW 特征，不使用预训练 GNN embedding，也不使用已加 prompt 的特征。</small></li>
+          <li><strong>构造对称稠密邻接矩阵</strong><span class="shape" data-symbol="A [N,N]" data-cora="A [2,708,2,708]">A [N,N]</span><small><code>A[src,dst]=A[dst,src]=1</code>；重复边被压成 1。</small></li>
+          <li><strong>k 阶传播并在幂之后清对角</strong><div class="formula">Aₖ = A<sup>k</sup>; diag(Aₖ)=0; &nbsp; H<sub>nbr</sub> = AₖX</div><span class="shape" data-symbol="Aₖ [N,N] · X [N,F] → Hnbr [N,F]" data-cora="A² [2,708,2,708] · X [2,708,1,433] → Hnbr [2,708,1,433]">Aₖ [N,N] · X [N,F] → Hnbr [N,F]</span><small>是长度 k walk count 加权求和；没有度归一化、线性层、ReLU 或 GCN 参数。</small></li>
+          <li><strong>逐条观测边计算端点 cosine</strong><div class="formula">sₑ = cos(H<sub>nbr,u</sub>, H<sub>nbr,v</sub>), &nbsp; aₑ = 1 − sₑ</div><span class="shape" data-symbol="[E,F] × [E,F] → sim [E], anomaly_score [E]" data-cora="[13,264,1,433] × 2 → sim [13,264], score [13,264]">[E,F] × [E,F] → sim [E], anomaly_score [E]</span></li>
+          <li><strong>阈值化并把异常边映射为节点</strong><div class="formula">edge_anomalyₑ = (sₑ ≤ θ<sub>NSP</sub>); &nbsp; V<sub>NSP</sub> = unique(src ∪ dst)</div><span class="shape" data-symbol="mask [E] → flagged [2,Ea] → nodes [Knsp]" data-cora="mask [13,264] → flagged [2,Ea] → nodes [Knsp]">mask [E] → flagged [2,Ea] → nodes [Knsp]</span></li>
+        </ol>
+      </article>
+      <article class="panel nsp">
+        <h3>从异常节点到 NSP prompt</h3>
+        <p>默认 <code>p_plus=True</code>，检测器输出的节点再经过与其他 tips 相同的 token-bank prompt 生成器：</p>
+        <div class="formula">X[V<sub>NSP</sub>] → Linear(F,20) → softmax → α [K<sub>NSP</sub>,20]<br>α · TokenBank<sub>NSP</sub> [20,F] → P<sub>NSP</sub> [K<sub>NSP</sub>,F]</div>
+        <div class="table-scroll"><table>
+          <thead><tr><th>张量</th><th>符号维度</th><th>Cora</th></tr></thead>
+          <tbody>
+            <tr><td>异常节点属性</td><td><code>[K<sub>NSP</sub>, F]</code></td><td><code>[K<sub>NSP</sub>, 1433]</code></td></tr>
+            <tr><td>selector logits / weights</td><td><code>[K<sub>NSP</sub>, 20]</code></td><td>相同</td></tr>
+            <tr><td>NSP token bank</td><td><code>[20, F]</code></td><td><code>[20, 1433]</code></td></tr>
+            <tr><td>个性化 NSP prompt</td><td><code>[K<sub>NSP</sub>, F]</code></td><td><code>[K<sub>NSP</sub>, 1433]</code></td></tr>
+          </tbody>
+        </table></div>
+        <details open><summary>NSP 如何定义“异常”</summary><ul class="clean"><li>相似度越低越异常；用于 AUC 的连续分数是 <code>1 - cosine</code>。</li><li>离散异常边 mask 用 <code>cosine ≤ θ</code>。</li><li>任意一条异常边都会把两个端点都放进 <code>V_NSP</code>，属于 OR / 并集规则。</li><li>NSP 每次 <code>add_muti_pt</code> 都重新计算，但其检测阶段没有可学习参数。</li></ul></details>
+        <div class="callout warn"><strong>自环细节：</strong>当前数据运行时包含自环。<code>dense_adj</code> 没有先移除它们；代码是在算完 <code>A<sup>k</sup></code> 后才清零其对角。令无自环邻接为 B，则默认 order=2 实际使用 A=I+B，且 <code>offdiag(A²)=2B+offdiag(B²)</code>：它同时包含加权的一跳与二跳信息，并非纯二跳。</div>
+      </article>
+    </div>
+  </section>
+
+  <section id="fc">
+    <div class="section-head"><div><h2>新增分支二：FocusedCleaner-LP 的完整前向</h2><p class="sub">这是唯一真正包含神经 encoder 的新增分支：node-wise 两层 MLP encoder + inner-product link decoder。</p></div><span class="tag green">可训练 Link Encoder</span></div>
+    <div class="grid-2">
+      <article class="panel fc">
+        <h3>阶段 A：构造链接预测训练集</h3>
+        <ol class="flow">
+          <li><strong>输入与可选 PCA 增广</strong><span class="shape" data-symbol="X [N,F] → X̃ [N,D], D=F+p" data-cora="X [2,708,1,433] → X̃ [2,708,1,433], p=0">X [N,F] → X̃ [N,D], D=F+p</span><small>主 tip 固定使用 <code>pca_dim=0</code>，所以 D=F。PCA 路径若启用，是把 [N,p] 拼回原特征，不是降到 p 维。</small></li>
+          <li><strong>正样本：观测边去自环、无向去重</strong><span class="shape" data-symbol="edge_index [2,E] → pos_pairs [M+,2]" data-cora="[2,13,264] → [5,278,2]">edge_index [2,E] → pos_pairs [M+,2]</span><small>Metattack 新增边也在观测图中，因此会作为正样本 1 参与训练。</small></li>
+          <li><strong>负样本：随机非边</strong><span class="shape" data-symbol="neg_pairs [M−,2], M−=ceil(r·M+)" data-cora="neg_pairs [5,278,2], r=1">neg_pairs [M−,2], M−=ceil(r·M+)</span><small>排除自环、全部观测边和重复 pair；默认正负比 1:1。</small></li>
+          <li><strong>合并训练 pair 与标签</strong><span class="shape" data-symbol="pairs [B,2], y [B], B=M+ + M−" data-cora="pairs [10,556,2], y [10,556]">pairs [B,2], y [B], B=M+ + M−</span></li>
+        </ol>
+      </article>
+      <article class="panel fc">
+        <h3>阶段 B：MLP encoder 与 inner-product decoder</h3>
+        <div class="formula">U = ReLU(X̃W₁ᵀ + b₁) &nbsp;&nbsp; [N,D] → [N,H]<br>Z = UW₂ᵀ + b₂ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [N,H] → [N,H]<br>logit(u,v) = Σⱼ Z<sub>u,j</sub>Z<sub>v,j</sub> &nbsp; [B,H] ⊙ [B,H] → [B]</div>
+        <div class="table-scroll"><table>
+          <thead><tr><th>层</th><th>权重</th><th>输入 → 输出</th></tr></thead>
+          <tbody>
+            <tr><td><code>linear1</code></td><td><code>[H,D]</code> + <code>[H]</code></td><td><span class="shape" data-symbol="[N,D] → [N,H]" data-cora="[2,708,1,433] → [2,708,1,433]">[N,D] → [N,H]</span></td></tr>
+            <tr><td>ReLU</td><td>无</td><td><span class="shape" data-symbol="[N,H] → [N,H]" data-cora="[2,708,1,433] → [2,708,1,433]">[N,H] → [N,H]</span></td></tr>
+            <tr><td><code>linear2</code></td><td><code>[H,H]</code> + <code>[H]</code></td><td><span class="shape" data-symbol="[N,H] → Z [N,H]" data-cora="[2,708,1,433] → Z [2,708,1,433]">[N,H] → Z [N,H]</span></td></tr>
+            <tr><td>inner product</td><td>无</td><td><span class="shape" data-symbol="Z[pairs] [B,2,H] → logits [B]" data-cora="[10,556,2,1,433] → [10,556]">Z[pairs] [B,2,H] → logits [B]</span></td></tr>
+          </tbody>
+        </table></div>
+        <p style="margin-top:12px">主 tip 只传入 <code>threshold</code>，其余使用默认值：<code>H=D=F</code>、50 epochs、Adam lr=0.1、BCEWithLogits。Cora 中是 <strong>1433→1433→1433</strong>，共 <strong>4,109,844</strong> 个局部 detector 参数。</p>
+      </article>
+    </div>
+    <div class="grid-2" style="margin-top:18px">
+      <article class="panel fc">
+        <h3>阶段 C：训练、自动选阈值、全边打分</h3>
+        <ol class="flow">
+          <li><strong>全 batch 训练 50 epoch</strong><div class="formula">BCEWithLogits(logits [B], labels [B], pos_weight)</div><small><code>X.detach()</code>；这个 MLP 有自己的 Adam，不属于主 prompt/GNN optimizer。</small></li>
+          <li><strong>在同一训练 pairs 上选择 ROC-GMean 阈值</strong><div class="formula">τ<sub>FC</sub> = argmax<sub>t</sub> √(TPR(t) · (1−FPR(t)))</div><small>没有单独验证集；正类是观测边，负类是采样非边。</small></li>
+          <li><strong>对全部 PyG edge entries 重新评分</strong><div class="formula">pₑ = sigmoid(Zᵤ·Zᵥ); &nbsp; edge_scoreₑ = 1−pₑ</div><span class="shape" data-symbol="pred_pairs [E,2] → p_edge [E]" data-cora="pred_pairs [13,264,2] → p_edge [13,264]">pred_pairs [E,2] → p_edge [E]</span></li>
+          <li><strong>离散边判定</strong><div class="formula">edge_keep = (pₑ ≥ τ<sub>FC</sub>); &nbsp; edge_anomaly = (pₑ &lt; τ<sub>FC</sub>)</div></li>
+        </ol>
+      </article>
+      <article class="panel fc">
+        <h3>阶段 D：从边分数到异常节点</h3>
+        <p>实现并不是“任何低概率边的两个端点全部标异常”。它先对节点所有 incident edge 的异常分数求平均：</p>
+        <div class="formula">qᵥ = mean<sub>e incident to v</sub>(1−pₑ)<br>node_keepᵥ = (qᵥ ≤ 1−τ<sub>FC</sub>)<br>node_anomalyᵥ = (qᵥ &gt; 1−τ<sub>FC</sub>) ⇔ mean(pₑ) &lt; τ<sub>FC</sub></div>
+        <p><span class="shape" data-symbol="edge_score [E] → scatter sum/count → node_score [N] → anomaly nodes [Kfc]" data-cora="edge_score [13,264] → node_score [2,708] → anomaly nodes [Kfc]">edge_score [E] → scatter sum/count → node_score [N] → anomaly nodes [Kfc]</span></p>
+        <p>随后与 NSP 同构：</p>
+        <div class="formula">X[V<sub>FC</sub>] [K<sub>FC</sub>,F] → Linear(F,20) → softmax<br>· TokenBank<sub>FC</sub> [20,F] → P<sub>FC</sub> [K<sub>FC</sub>,F]</div>
+        <div class="callout risk"><strong>阈值语义：</strong>主 tip 默认 <code>threshold_mode="gmean"</code>，因此 <code>--pt_focusedcleaner_threshold 0.5</code> 在正常路径通常只是“启用这个 tip”的非负值，并不成为实际 cutoff。实际 cutoff 是上面的自动 <code>τ_FC</code>；传入 0.5 只在 fallback/ROC 退化时使用。</div>
+      </article>
+    </div>
+  </section>
+
+  <section id="fusion">
+    <div class="section-head"><div><h2>两个分支如何真正影响分类输出</h2><p class="sub">检测结果只改变节点特征上的 prompt；训练期剪边仍由后续 τ_tune 完成。</p></div></div>
+    <div class="grid-3">
+      <div class="panel"><span class="tag blue">1 · 写入 Prompt Record</span><h3 style="margin-top:10px">每个 tip 占一个 F 维槽位</h3><div class="formula">record: [N, T·F] → [N,T,F]</div><p class="sub">T 是当前激活的 prompt 类型数；开全 5 个 detector 时还含 <code>other_pt</code>，所以 T=6。</p></div>
+      <div class="panel"><span class="tag green">2 · 融合</span><h3 style="margin-top:10px">默认对激活 prompts 求均值</h3><div class="formula">P = mean(nonzero tip prompts)<br>P [N,F]</div><p class="sub">若开启 attention，则加 readout token，输入 <code>[N,T+1,F]</code>，MHA 后取第 0 个 token。</p></div>
+      <div class="panel"><span class="tag green">3 · 加到原属性</span><h3 style="margin-top:10px">维度不变</h3><div class="formula">X′ = X + P<br>[N,F] + [N,F] → [N,F]</div><p class="sub">随后才进入冻结的预训练 GNN 与分类头。</p></div>
+    </div>
+    <div class="table-scroll" style="margin-top:18px"><table>
+      <thead><tr><th>训练阶段</th><th>输入</th><th>操作</th><th>输出</th></tr></thead>
+      <tbody>
+        <tr><td>Prompt routing</td><td><span class="shape" data-symbol="X [N,F], EI [2,E]" data-cora="X [2,708,1,433], EI [2,13,264]">X [N,F], EI [2,E]</span></td><td>5 tips 检测 + prompt 融合</td><td><span class="shape" data-symbol="X′ [N,F]" data-cora="X′ [2,708,1,433]">X′ [N,F]</span></td></tr>
+        <tr><td>GNN₁</td><td><span class="shape" data-symbol="[N,F], [2,E]" data-cora="[2,708,1,433], [2,13,264]">[N,F], [2,E]</span></td><td>冻结 backbone 第一次 forward</td><td><span class="shape" data-symbol="H₁ [N,Hg]" data-cora="H₁ [2,708,256]">H₁ [N,Hg]</span></td></tr>
+        <tr><td>τ_tune</td><td><span class="shape" data-symbol="H₁ [N,Hg], EI [2,E]" data-cora="H₁ [2,708,256], EI [2,13,264]">H₁ [N,Hg], EI [2,E]</span></td><td>embedding cosine ≥ <code>pt_threshold</code></td><td><span class="shape" data-symbol="EI′ [2,Eτ]" data-cora="EI′ [2,Eτ]">EI′ [2,Eτ]</span></td></tr>
+        <tr><td>GNN₂ + Head</td><td><span class="shape" data-symbol="X′ [N,F], EI′ [2,Eτ]" data-cora="X′ [2,708,1,433], EI′ [2,Eτ]">X′ [N,F], EI′ [2,Eτ]</span></td><td>第二次 backbone forward + Linear head</td><td><span class="shape" data-symbol="logits [N,C]" data-cora="logits [2,708,7]">logits [N,C]</span></td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout ok" style="margin-top:14px"><strong>推理路径：</strong><code>add_muti_pt → GNN → head</code>，使用完整原始 <code>edge_index</code>，不运行 τ_tune 剪枝。FocusedCleaner 的检测 mask 复用首次训练缓存；NSP 重新计算。</div>
+  </section>
+
+  <section id="audit">
+    <div class="section-head"><div><h2>实现审计：读结果时必须知道的 8 点</h2><p class="sub">这些不是概念推断，而是当前代码实际行为与注释/参数表面的差异。</p></div></div>
+    <div class="audit-list">
+      <div class="audit-item"><span class="tag red">名词</span><h3>只有 FC 有可学习 encoder</h3><p>主链路没有实例化参考文件里的 <code>NSPGCN.forward</code>；NSP 仅复用 <code>AᵏX</code> 邻域表示与 cosine 检测。</p></div>
+      <div class="audit-item"><span class="tag red">FC cutoff</span><h3><code>pt_focusedcleaner_threshold</code> 通常不是阈值</h3><p>默认 GMean 自动选 cutoff；该参数在主 tip 中主要通过“负值移除 / 非负值启用”控制开关。</p></div>
+      <div class="audit-item"><span class="tag amber">FC node rule</span><h3>不是异常边端点 OR</h3><p>FC 对每个节点 incident edge 分数求平均后才判异常；高 degree 节点的一条坏边可能被其他好边稀释。</p></div>
+      <div class="audit-item"><span class="tag amber">缓存</span><h3>FC 检测器只训练一次并被丢弃</h3><p>首次 <code>add_muti_pt</code> 局部训练 MLP，之后只缓存 detached masks/scores；MLP 参数不进主 optimizer 或 state_dict。</p></div>
+      <div class="audit-item"><span class="tag amber">CLI</span><h3><code>filter_lp_*</code> 不控制主 FC tip</h3><p>主 tip 直接 new filter 且只传 threshold，因此 hidden/epoch/lr/PCA 等 CLI 参数只影响单独的 <code>filter_module</code> 路径。</p></div>
+      <div class="audit-item"><span class="tag amber">自环</span><h3>两条分支都受运行时自环影响</h3><p>NSP 在 A 中保留自环后再算 Aᵏ；FC 训练 positives 排除自环，但全边评分与节点均值包含自环，且自环 logit 为 ‖zᵢ‖²。</p></div>
+      <div class="audit-item"><span class="tag amber">Mask polarity</span><h3>NSP 两套 API 的 mask 含义相反</h3><p><code>nsp_suspicious_nodes</code> 的 True=异常；统一 <code>NSPFilter.forward</code> 的 <code>edge_mask</code> True=保留。主 tip 使用前者。</p></div>
+      <div class="audit-item"><span class="tag amber">Factory</span><h3>factory 注册 NSP，但 CLI choices 漏了它</h3><p><code>filter_factory.py</code> 支持 <code>nsp</code>，然而当前 <code>--filter_mode</code> 的 argparse choices 没有 <code>nsp</code>；这不影响直接的 <code>nsp_pt</code>。</p></div>
+    </div>
+  </section>
+
+  <section id="sources">
+    <div class="section-head"><div><h2>代码定位</h2><p class="sub">建议从以下位置按顺序阅读。</p></div></div>
+    <div class="grid-2">
+      <div class="panel"><h3>核心实现</h3><ul class="clean"><li><code>prompt_graph/filters/nsp_filter.py:42-109</code> — AᵏX、edge cosine、异常端点。</li><li><code>prompt_graph/filters/focusedcleaner_lp_filter.py:9-139</code> — MLP、训练、阈值、输出。</li><li><code>prompt_graph/filters/focusedcleaner_lp_filter.py:141-279</code> — PCA、采样、节点聚合、fallback。</li></ul></div>
+      <div class="panel"><h3>主算法集成</h3><ul class="clean"><li><code>prompt_graph/prompt/RobustPrompt_T_NSP.py:161-401</code> — 五 tips 检测、prompt 生成与融合。</li><li><code>prompt_graph/prompt/RobustPrompt_T_NSP.py:403-482</code> — Tune、τ_tune、loss。</li><li><code>prompt_graph/tasker/task.py:355-379</code> — 五 tips 注册与负阈值关闭。</li><li><code>prompt_graph/evaluation/RobustPromptTranductiveEva.py:70-74</code> — 推理不剪边。</li></ul></div>
+    </div>
+  </section>
+
+  <footer>
+    <strong>符号：</strong>N=节点数，F=原始属性维，E=PyG <code>edge_index</code> 列数，H=FocusedCleaner encoder 隐维，H<sub>g</sub>=冻结 GNN 输出维，C=类别数，T=激活 prompt 类型数。Cora clean 示例按当前运行时数据链：N=2708，F=1433，5278 条无向非自环边双向存储并加 2708 个自环，所以 E=13264。攻击图的 E 与正 pair 数会随扰动变化。
+  </footer>
+</main>
+<script>
+  const modeButtons = document.querySelectorAll('[data-mode]');
+  const shaped = document.querySelectorAll('[data-symbol][data-cora]');
+  function setMode(mode) {
+    shaped.forEach(el => { el.textContent = el.dataset[mode]; });
+    modeButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+  }
+  modeButtons.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
+</script>
+</body>
+</html>

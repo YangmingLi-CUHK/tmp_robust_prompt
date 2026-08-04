@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>GPF官方数据结构与Embedding范式</title>
+  <style>
+    :root{
+      --bg:#f7f7f4;--paper:#fff;--ink:#171719;--muted:#626269;--rule:#d8d7d1;
+      --soft:#efeee9;--blue:#245d84;--green:#2e6a4f;--amber:#8a5a12;
+      --serif:Charter,"Iowan Old Style","Noto Serif CJK SC","Songti SC",Georgia,serif;
+      --sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+      --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    }
+    @media(prefers-color-scheme:dark){:root{
+      --bg:#101114;--paper:#17181c;--ink:#f1f1f3;--muted:#aaaab2;--rule:#34353b;
+      --soft:#222329;--blue:#83b8dc;--green:#8bc9a8;--amber:#e5bf73;
+    }}
+    *{box-sizing:border-box}
+    html{background:var(--bg);color:var(--ink)}
+    body{margin:0;font:16px/1.52 var(--serif);text-rendering:optimizeLegibility}
+    main{max-width:1120px;margin:0 auto;padding:42px 28px 54px}
+    h1,h2,h3,.eyebrow,.tag,.shape,.label,th,.verdict{font-family:var(--sans)}
+    header{border-bottom:2px solid var(--ink);padding-bottom:20px}
+    .eyebrow{font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);font-weight:760}
+    h1{font-size:clamp(2rem,5vw,3.35rem);line-height:1.04;letter-spacing:-.038em;margin:.18em 0 .2em}
+    .subtitle{font-size:1.03rem;color:var(--muted);max-width:76ch;margin:0}
+    .tldr{margin:23px 0 0;padding:15px 18px;border-left:4px solid var(--blue);background:var(--paper);font-size:1.03rem}
+    .tldr strong{font-family:var(--sans)}
+    section{margin-top:34px}
+    h2{font-size:1.3rem;line-height:1.25;letter-spacing:-.012em;margin:0 0 14px}
+    h3{font-size:.82rem;letter-spacing:.045em;text-transform:uppercase;color:var(--blue);margin:0 0 10px}
+    p{margin:.55em 0}
+    code{font:.88em/1.4 var(--mono);background:var(--soft);padding:.08em .27em;overflow-wrap:anywhere}
+    .definitions{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--rule);background:var(--paper)}
+    .definition{padding:12px 14px;border-right:1px solid var(--rule)}
+    .definition:last-child{border-right:0}
+    .shape{font-weight:760;color:var(--blue);font-size:1.06rem}
+    .label{font-size:.7rem;color:var(--muted);margin-top:3px}
+    .compare{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--rule);background:var(--paper)}
+    .domain{padding:20px 21px;min-width:0}
+    .domain+.domain{border-left:1px solid var(--rule)}
+    .domain-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:13px}
+    .domain-title h3{margin:0;font-size:.92rem}
+    .tag{font-size:.68rem;border:1px solid var(--rule);padding:2px 7px;color:var(--muted);white-space:nowrap}
+    dl{display:grid;grid-template-columns:118px 1fr;gap:7px 12px;margin:0}
+    dt{font:700 .74rem/1.45 var(--sans);color:var(--muted)}
+    dd{margin:0;font-size:.9rem}
+    .pipeline{margin-top:17px;border-top:1px solid var(--rule)}
+    .step{display:grid;grid-template-columns:34px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid var(--rule)}
+    .step-no{font:760 .69rem/1.5 var(--sans);color:var(--blue)}
+    .step-title{font:740 .78rem/1.45 var(--sans)}
+    .step-code{font:.78rem/1.5 var(--mono);color:var(--blue);margin-top:2px;overflow-wrap:anywhere}
+    .step-note{font-size:.79rem;color:var(--muted);margin-top:2px}
+    .equation{margin-top:15px;padding:12px 14px;background:var(--soft);font:.79rem/1.7 var(--mono);overflow-x:auto;white-space:nowrap}
+    .why-grid{display:grid;grid-template-columns:1.2fr .8fr;border-top:1px solid var(--rule);border-left:1px solid var(--rule)}
+    .why,.boundary{padding:18px 20px;background:var(--paper);border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+    .why ol{margin:.4em 0 0;padding-left:1.2em}
+    .why li{margin:.45em 0}
+    .boundary{background:color-mix(in srgb,var(--amber) 5%,var(--paper))}
+    .boundary strong{font-family:var(--sans)}
+    .table-wrap{overflow-x:auto;border:1px solid var(--rule)}
+    table{border-collapse:collapse;width:100%;min-width:780px;background:var(--paper);font-size:.86rem}
+    th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+    th{font-size:.7rem;letter-spacing:.035em;color:var(--muted);background:var(--soft)}
+    tbody tr:last-child td{border-bottom:0}
+    .verdict{margin-top:26px;padding:17px 20px;border:2px solid var(--green);background:color-mix(in srgb,var(--green) 5%,var(--paper));font-weight:720}
+    .sources{font-size:.73rem;color:var(--muted)}
+    .sources a{color:inherit;text-decoration-color:var(--rule);text-underline-offset:2px}
+    footer{border-top:1px solid var(--rule);margin-top:28px;padding-top:11px;color:var(--muted);font: .7rem/1.5 var(--sans)}
+    @media(max-width:820px){
+      .definitions{grid-template-columns:repeat(3,1fr)}
+      .definition{border-bottom:1px solid var(--rule)}
+      .definition:nth-child(3){border-right:0}
+      .definition:nth-child(n+4){border-bottom:0}
+      .compare,.why-grid{grid-template-columns:1fr}
+      .domain+.domain{border-left:0;border-top:1px solid var(--rule)}
+    }
+    @media(max-width:560px){
+      main{padding:28px 16px 42px}
+      h1{font-size:1.9rem}
+      .definitions{grid-template-columns:repeat(2,1fr)}
+      .definition:nth-child(2n){border-right:0}
+      .definition:nth-child(3){border-right:1px solid var(--rule)}
+      .definition:nth-child(n+3){border-bottom:1px solid var(--rule)}
+      .definition:nth-child(n+5){border-bottom:0}
+      dl{grid-template-columns:94px 1fr}
+    }
+    @media print{
+      :root{--bg:#fff;--paper:#fff;--ink:#000;--muted:#444;--rule:#bbb;--soft:#f2f2f2;--blue:#174d70;--green:#1f5d3f}
+      main{max-width:none;padding:0}
+      body{font-size:9.6pt}
+      header{padding-bottom:12px}
+      section{margin-top:20px;break-inside:avoid}
+      .domain{padding:14px}
+      .step{padding:7px 0}
+      .verdict{break-inside:avoid}
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Official-paper＋official-code · 2026-08-03</div>
+    <h1>GPF的数据结构与Embedding范式</h1>
+    <p class="subtitle">范围：官方Chemistry/Biology实现。目的：说明原始图长什么样、维数何时变为300、prompt加在哪里，以及同领域跨数据集迁移为什么成立。</p>
+    <p class="tldr"><strong>核心结论：</strong>GPF没有把任意高维特征“统一降到300维”。官方实验先限定同领域共享的离散字段与词表，再复用checkpoint中的同一套input embedding得到300维连续表示，最后在该300维空间加prompt。</p>
+  </header>
+
+  <section aria-labelledby="notation">
+    <h2 id="notation">变量定义</h2>
+    <div class="definitions">
+      <div class="definition"><div class="shape">N</div><div class="label">单张图的节点数</div></div>
+      <div class="definition"><div class="shape">M</div><div class="label">有向edge record数</div></div>
+      <div class="definition"><div class="shape">B</div><div class="label">batch中的图数</div></div>
+      <div class="definition"><div class="shape">d=300</div><div class="label">节点/边embedding宽度</div></div>
+      <div class="definition"><div class="shape">k</div><div class="label">GPF-plus basis数</div></div>
+      <div class="definition"><div class="shape">T</div><div class="label">目标预测任务数</div></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="pipelines">
+    <h2 id="pipelines">两类官方数据的完整维数链</h2>
+    <div class="compare">
+      <article class="domain">
+        <div class="domain-title"><h3>Chemistry · 分子图</h3><span class="tag">同schema跨分子数据集</span></div>
+        <dl>
+          <dt>一个图</dt><dd>一个分子；节点是原子，边是化学键。</dd>
+          <dt>节点张量</dt><dd><code>x∈Z^(N×2)</code>，两列依次为atomic-number ID与chirality ID。</dd>
+          <dt>边张量</dt><dd><code>edge_index∈Z^(2×M)</code>；<code>edge_attr∈Z^(M×2)</code>，两列为bond-type ID与bond-direction ID。</dd>
+          <dt>标签</dt><dd>每个分子对应目标数据集的多任务标签<code>y∈R^T</code>；例如BBBP的<code>T=1</code>，Tox21的<code>T=12</code>。</dd>
+        </dl>
+
+        <div class="pipeline" aria-label="Chemistry维数变化">
+          <div class="step"><div class="step-no">01</div><div><div class="step-title">原始离散字段</div><div class="step-code">x:[N,2] · edge_attr:[M,2]</div><div class="step-note">字段宽度在ZINC、ChEMBL和各MoleculeNet目标中保持一致。</div></div></div>
+          <div class="step"><div class="step-no">02</div><div><div class="step-title">checkpoint内Embedding</div><div class="step-code">atom ID→[N,300] · chirality ID→[N,300] · 相加→H⁰[N,300]</div><div class="step-note">不是SVD，也不是Linear(2,300)；两个lookup结果相加，不拼接。</div></div></div>
+          <div class="step"><div class="step-no">03</div><div><div class="step-title">Prompt插入</div><div class="step-code">GPF:p[1,300] · GPF-plus:α[N,k]P[k,300]→Pnode[N,300]</div><div class="step-note">prompt加在连续表示H⁰上，维数始终为300。</div></div></div>
+          <div class="step"><div class="step-no">04</div><div><div class="step-title">5层GIN与任务头</div><div class="step-code">[N,300]→5×GIN→[N,300]→pool→[B,300]→head→[B,T]</div><div class="step-note">目标head新建；预训练source head不参与下游预测。</div></div></div>
+        </div>
+        <div class="equation">H⁰=Eatom(x[:,0])+Echiral(x[:,1]) ∈ R^(N×300)</div>
+      </article>
+
+      <article class="domain">
+        <div class="domain-title"><h3>Biology · 蛋白质ego-network</h3><span class="tag">同schema跨species</span></div>
+        <dl>
+          <dt>一个图</dt><dd>以一个中心蛋白为中心提取的ego-network；同时保存<code>center_node_idx</code>。</dd>
+          <dt>节点张量</dt><dd><code>x=ones(N,1)</code>。节点没有丰富原始属性，唯一一列是dummy ID。</dd>
+          <dt>边张量</dt><dd><code>edge_index∈Z^(2×M)</code>；<code>edge_attr∈R^(M×9)</code>，包含7个网络关系量和2个self-loop/mask指示位。</dd>
+          <dt>标签</dt><dd>预训练阶段预测5000个coarse functions；下游预测40个fine-grained functions。</dd>
+        </dl>
+
+        <div class="pipeline" aria-label="Biology维数变化">
+          <div class="step"><div class="step-no">01</div><div><div class="step-title">原始统一节点标记</div><div class="step-code">x:[N,1]=1 · edge_attr:[M,9]</div><div class="step-note">不同protein graph和species使用同一字段定义。</div></div></div>
+          <div class="step"><div class="step-no">02</div><div><div class="step-title">第一层input encoder</div><div class="step-code">Embedding(2,300)(x)→H⁰[N,300] · Linear(9,300)(edge_attr)→E⁰[M,300]</div><div class="step-note">节点通过lookup，边通过线性映射；二者均进入300维消息传递空间。</div></div></div>
+          <div class="step"><div class="step-no">03</div><div><div class="step-title">Prompt插入</div><div class="step-code">H̃⁰=H⁰+prompt · H̃⁰:[N,300]</div><div class="step-note">只在第一层将dummy ID变成embedding后加入prompt。</div></div></div>
+          <div class="step"><div class="step-no">04</div><div><div class="step-title">5层GIN与任务头</div><div class="step-code">[N,300]→5×GIN→[N,300]→mean-pool[300]⊕center[300]→[B,600]→[B,40]</div><div class="step-note">图表示由全图pooling和中心蛋白表示拼接而成。</div></div></div>
+        </div>
+        <div class="equation">H⁰=Enode(x.long()) ∈ R^(N×300)；Z=[mean(H⁵)∥H⁵center] ∈ R^(B×600)</div>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="why">
+    <h2 id="why">为什么它们可以迁移</h2>
+    <div class="why-grid">
+      <div class="why">
+        <h3>成立条件</h3>
+        <ol>
+          <li><strong>原始字段相同：</strong>化学source/target都使用原子、手性、键类型和键方向；生物source/target都使用dummy node ID与9维edge schema。</li>
+          <li><strong>类别语义相同：</strong>atomic-number ID在ZINC、ChEMBL和MoleculeNet中始终代表同一种原子，不会因数据集变化而换义。</li>
+          <li><strong>Embedding权重相同：</strong>input embedding属于<code>model.gnn</code>并随checkpoint载入；目标数据直接复用source阶段学到的lookup table。</li>
+          <li><strong>Prompt位于共同空间：</strong>目标图先经过同一input encoder得到300维，再学习300维GPF/GPF-plus；节点数<code>N</code>和边数<code>M</code>可以任意变化。</li>
+        </ol>
+      </div>
+      <aside class="boundary">
+        <h3>不能外推的部分</h3>
+        <p><strong>化学300维≠生物300维。</strong>它们由不同字段、不同encoder和不同checkpoint产生；数值宽度相同不代表坐标语义对齐。</p>
+        <p>因此官方实现支持“化学→化学”和“生物→生物”，不支持“化学→生物”。官方材料也没有Cora/Citeseer或异构BoW词表对齐流程。</p>
+      </aside>
+    </div>
+  </section>
+
+  <section aria-labelledby="training">
+    <h2 id="training">训练组织：不是多个目标数据集共同训练一个Prompt</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>领域</th><th>Backbone预训练</th><th>目标适配</th><th>验证/测试</th><th>下游epoch</th></tr></thead>
+        <tbody>
+          <tr><td>Chemistry</td><td>ZINC15无标签分子；前四类策略按论文还接ChEMBL多任务监督阶段。每种预训练策略产生独立checkpoint。</td><td>从BBBP、Tox21、ToxCast、SIDER、ClinTox、MUV、HIV、BACE中一次选择一个；新建该目标的prompt与head。</td><td>默认在同一个目标数据集内做scaffold 80%/10%/10%切分。</td><td><code>100</code></td></tr>
+          <tr><td>Biology</td><td>395K无标签ego-networks自监督；88K有标签ego-networks预测5000个coarse functions。</td><td>新建下游prompt与40-task head；train/validation来自7个species。</td><td>human species作为test；schema和input encoder保持不变。</td><td><code>50</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="verdict">汇报用一句话：GPF的跨数据集能力不是来自一个通用的维数对齐层，而是来自“同领域固定数据schema＋共享类别词表＋checkpoint内共享input embedding”；300维是该共享encoder的输出空间，也是prompt的作用空间。</div>
+
+  <section class="sources" aria-labelledby="sources">
+    <h2 id="sources">官方证据位置</h2>
+    <p>论文：<a href="../reference/GPF_GPF-Plus_Universal_Prompt_Tuning_for_GNNs_NeurIPS2023.pdf">Universal Prompt Tuning for Graph Neural Networks</a>，§3.3、§4.1、Appendix B.1与Table 11。</p>
+    <p>Chemistry：<a href="../reference/code_sources/GPF_official_zjunet/chem/loader.py">loader.py</a>、<a href="../reference/code_sources/GPF_official_zjunet/chem/model.py">model.py</a>、<a href="../reference/code_sources/GPF_official_zjunet/chem/graph_prompt.py">graph_prompt.py</a>。Biology：<a href="../reference/code_sources/GPF_official_zjunet/bio/loader.py">loader.py</a>、<a href="../reference/code_sources/GPF_official_zjunet/bio/model.py">model.py</a>。</p>
+  </section>
+
+  <footer>范围边界：仅陈述GPF官方论文与官方代码可确认的流程；不使用本项目改写代码推断官方设计。</footer>
+</main>
+</body>
+</html>

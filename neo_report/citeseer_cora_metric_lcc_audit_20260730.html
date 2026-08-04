@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Citeseer→Cora评估与LCC审计</title>
+  <style>
+    :root{
+      --bg:#fafaf7;
+      --paper:#ffffff;
+      --ink:#18181b;
+      --muted:#5b5b63;
+      --rule:#deddd6;
+      --soft:#f1f0eb;
+      --accent:#1f5f8b;
+      --danger:#a33232;
+      --danger-bg:#f8eaea;
+      --warn:#946200;
+      --warn-bg:#faf1da;
+      --ok:#276749;
+      --ok-bg:#e9f4ed;
+      --info-bg:#eaf2f7;
+      --serif:Charter,"Iowan Old Style","Source Serif 4","Noto Serif CJK SC","Songti SC",Georgia,serif;
+      --sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+      --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    }
+    @media(prefers-color-scheme:dark){
+      :root{
+        --bg:#101114;
+        --paper:#17181c;
+        --ink:#f0f0f2;
+        --muted:#aaaab3;
+        --rule:#33343a;
+        --soft:#202126;
+        --accent:#7cb7df;
+        --danger:#ef9a9a;
+        --danger-bg:#321f22;
+        --warn:#e7be65;
+        --warn-bg:#302918;
+        --ok:#86c9a5;
+        --ok-bg:#183026;
+        --info-bg:#192b36;
+      }
+    }
+    *{box-sizing:border-box}
+    html{background:var(--bg);color:var(--ink);scroll-behavior:smooth}
+    body{
+      margin:0;
+      font:17px/1.62 var(--serif);
+      text-rendering:optimizeLegibility;
+    }
+    main{max-width:1160px;margin:0 auto;padding:52px 28px 80px}
+    header{border-bottom:2px solid var(--ink);padding-bottom:25px}
+    h1,h2,h3,h4,.eyebrow,.meta,.tag,th,.nav,.kpi-label,.caption,button{
+      font-family:var(--sans);
+    }
+    h1{font-size:clamp(2rem,5vw,3.7rem);line-height:1.06;letter-spacing:-.035em;margin:.18em 0}
+    h2{font-size:1.62rem;line-height:1.25;margin:2.8em 0 .75em;letter-spacing:-.015em}
+    h3{font-size:1.08rem;line-height:1.4;margin:1.8em 0 .55em}
+    h4{font-size:.96rem;margin:1.4em 0 .4em}
+    p{max-width:76ch;margin:.55em 0 1em}
+    a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:3px;overflow-wrap:anywhere}
+    code{font:0.91em/1.45 var(--mono);background:var(--soft);padding:.08em .3em;border-radius:2px;overflow-wrap:anywhere}
+    pre{font:13px/1.55 var(--mono);background:var(--soft);border:1px solid var(--rule);padding:14px 16px;overflow:auto;white-space:pre-wrap}
+    strong{font-weight:700}
+    .eyebrow{font-size:.76rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+    .subtitle{font-size:1.12rem;color:var(--muted);max-width:76ch;margin:.7rem 0}
+    .meta{font-size:.78rem;color:var(--muted);margin-top:1rem}
+    .nav{display:flex;gap:7px 17px;flex-wrap:wrap;margin:18px 0 0;font-size:.82rem}
+    .nav a{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent}
+    .nav a:hover{color:var(--ink);border-color:var(--ink)}
+    .verdict{
+      margin:28px 0 0;
+      padding:18px 20px 17px;
+      border-left:5px solid var(--danger);
+      background:var(--paper);
+    }
+    .verdict p{max-width:none;margin:.25em 0}
+    .verdict .lead{font:700 1.16rem/1.5 var(--sans)}
+    .status-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      border-top:1px solid var(--rule);
+      border-left:1px solid var(--rule);
+      margin:26px 0;
+    }
+    .status-item{padding:15px 16px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);background:var(--paper)}
+    .status-item .value{font:700 1.45rem/1.2 var(--sans);letter-spacing:-.02em}
+    .status-item .label{font:12px/1.45 var(--sans);color:var(--muted);margin-top:5px}
+    .tag{display:inline-block;font-size:.7rem;font-weight:750;letter-spacing:.035em;padding:2px 7px;border:1px solid currentColor;border-radius:999px;vertical-align:.08em;white-space:nowrap}
+    .tag.bad{color:var(--danger)}
+    .tag.warn{color:var(--warn)}
+    .tag.ok{color:var(--ok)}
+    .tag.info{color:var(--accent)}
+    .callout{margin:18px 0;padding:14px 17px;border-left:3px solid var(--accent);background:var(--info-bg)}
+    .callout.bad{border-color:var(--danger);background:var(--danger-bg)}
+    .callout.warn{border-color:var(--warn);background:var(--warn-bg)}
+    .callout.ok{border-color:var(--ok);background:var(--ok-bg)}
+    .callout p:last-child{margin-bottom:0}
+    table{border-collapse:collapse;width:100%;margin:14px 0 24px;font-size:.91rem}
+    th,td{padding:9px 11px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+    th{font-size:.74rem;line-height:1.35;letter-spacing:.03em;color:var(--muted);background:var(--soft)}
+    td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+    tr.em td{background:var(--warn-bg)}
+    tr.hard td{background:var(--danger-bg)}
+    .table-wrap{overflow-x:auto;border:1px solid var(--rule);margin:14px 0 24px}
+    .table-wrap table{margin:0;min-width:700px}
+    .table-wrap th:first-child,.table-wrap td:first-child{padding-left:14px}
+    .flow{
+      display:grid;
+      grid-template-columns:1.2fr auto 1.1fr auto 1.05fr auto 1.1fr;
+      align-items:stretch;
+      gap:9px;
+      margin:20px 0 27px;
+    }
+    .flow .node{border-top:3px solid var(--accent);border-bottom:1px solid var(--rule);padding:12px 10px;background:var(--paper);font:13px/1.48 var(--sans)}
+    .flow .node b{display:block;font-size:.88rem;margin-bottom:3px}
+    .flow .arrow{align-self:center;color:var(--muted);font:700 1.2rem var(--sans)}
+    figure{margin:22px 0 30px}
+    figcaption,.caption{font-size:.76rem;line-height:1.5;color:var(--muted);margin-top:8px}
+    .chart{width:100%;height:auto;border-bottom:1px solid var(--rule);background:var(--paper)}
+    .chart text{font-family:var(--sans);fill:var(--ink)}
+    .chart .muted{fill:var(--muted)}
+    .chart .grid{stroke:var(--rule);stroke-width:1}
+    .chart .bar{fill:var(--accent)}
+    .chart .bar-warn{fill:var(--warn)}
+    .chart .bar-bad{fill:var(--danger)}
+    .chart .bar-ok{fill:var(--ok)}
+    .math{font:15px/1.65 var(--mono);padding:14px 16px;border-left:3px solid var(--ink);background:var(--soft);overflow:auto}
+    ul,ol{padding-left:1.35em}
+    li{margin:.36em 0}
+    details{border-top:1px solid var(--rule);padding:11px 0}
+    details:last-of-type{border-bottom:1px solid var(--rule)}
+    summary{cursor:pointer;font:650 .91rem/1.5 var(--sans);color:var(--ink)}
+    details[open] summary{margin-bottom:8px}
+    .evidence{font-size:.88rem;color:var(--muted)}
+    .evidence p{max-width:none}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+    .decision{border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);padding:17px 0;margin:27px 0}
+    .decision p{max-width:none}
+    .checklist{list-style:none;padding-left:0}
+    .checklist li{position:relative;padding-left:1.55em}
+    .checklist li::before{content:"□";position:absolute;left:0;top:-.03em;font-family:var(--sans)}
+    .footnotes{font-size:.82rem;color:var(--muted);border-top:1px solid var(--rule);margin-top:50px;padding-top:18px}
+    .footnotes p{max-width:none}
+    .screen-only{display:block}
+    .print-only{display:none}
+    button{border:1px solid var(--rule);background:var(--paper);color:var(--ink);padding:7px 10px;cursor:pointer;font-size:.76rem}
+    button:hover{border-color:var(--ink)}
+    @media(max-width:900px){
+      .status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .flow{grid-template-columns:1fr}
+      .flow .arrow{text-align:center;transform:rotate(90deg)}
+      .two-col{grid-template-columns:1fr}
+    }
+    @media(max-width:560px){
+      main{padding:34px 17px 60px}
+      body{font-size:16px}
+      .status-grid{grid-template-columns:1fr}
+      th,td{padding:8px 9px}
+      section > table{display:block;max-width:100%;overflow-x:auto}
+    }
+    @media print{
+      :root{--bg:#fff;--paper:#fff;--ink:#000;--muted:#444;--rule:#bbb;--soft:#f3f3f3}
+      main{max-width:none;padding:0}
+      body{font-size:10.5pt}
+      h2{break-after:avoid}
+      table,figure,.callout,.flow{break-inside:avoid}
+      details{display:block}
+      details > *:not(summary){display:block!important}
+      .screen-only{display:none}
+      .print-only{display:block}
+      a{color:#000;text-decoration:none}
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Meeting15·Evidence audit·2026-07-30</div>
+    <h1>Citeseer→Cora评估与LCC审计</h1>
+    <p class="subtitle">对象：135个Citeseer-SVD1433-GraphCL checkpoint在Cora-clean上的筛选日志；问题：metric究竟是什么、两端图是否为最大连通子图、一般结果是否由评估或数据硬伤造成。</p>
+    <div class="meta">代码快照：<code>d18602cb6fb9ca87793b203dd2425f6d7956c149</code>｜附件SHA256：<code>B6F2D3E3…AADF95ED</code>｜Cora-clean图SHA256：<code>57B4528C…7BD65CE</code></div>
+    <nav class="nav">
+      <a href="#answer">结论</a>
+      <a href="#metric">Metric</a>
+      <a href="#results">135项结果</a>
+      <a href="#lcc">LCC复算</a>
+      <a href="#cause">根因分离</a>
+      <a href="#repair">修复路线</a>
+      <a href="#evidence">证据索引</a>
+    </nav>
+  </header>
+
+  <section id="answer">
+    <div class="verdict">
+      <p class="lead">结论：accuracy没有算错；Citeseer预训练源图是LCC；Cora下游图不是LCC；当前低分是真实信号，但“非LCC”不是低分的充分根因。</p>
+      <p>当前<code>0.3862</code>是clean Cora上的transductive graph linear-probe test accuracy，不是污染鲁棒性。Cora-clean实测有78个连通分量；论文attacked setting要求的Cora-LCC应为2485节点/5069边。与此同时，checkpoint按test accuracy筛选，且Citeseer-SVD坐标被直接当作Cora词袋坐标使用；前者使结果偏乐观，后者才是跨数据集迁移的主要概念限制。</p>
+    </div>
+
+    <div class="status-grid" aria-label="核心结论">
+      <div class="status-item"><div class="value">Accuracy</div><div class="label">当前主metric；不是Macro-F1或鲁棒性汇总指标</div></div>
+      <div class="status-item"><div class="value">1/78</div><div class="label">Citeseer源图/Cora-clean连通分量数</div></div>
+      <div class="status-item"><div class="value">0.3862</div><div class="label">135-way test-oracle最佳单点</div></div>
+      <div class="status-item"><div class="value">0.2992</div><div class="label">135个checkpoint test accuracy均值</div></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>判断</th><th>状态</th><th>审计结论</th><th>对低分方向</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Metric实现</td><td><span class="tag ok">通过</span></td><td><code>clf.score</code>计算test mask上的普通节点accuracy；split无重叠且全覆盖。</td><td>不是低分根因</td></tr>
+          <tr class="hard"><td>Cora attacked协议</td><td><span class="tag bad">确认硬伤</span></td><td>当前6档均基于full Cora-2708；论文明确要求attacked data使用LCC-2485。</td><td>方向未知；必须重跑</td></tr>
+          <tr class="hard"><td>Checkpoint选择</td><td><span class="tag bad">确认硬伤</span></td><td>按test accuracy排序并选best，validation只展示；不可作为无偏test报告。</td><td>只会抬高结果</td></tr>
+          <tr class="em"><td>Citeseer→Cora特征坐标</td><td><span class="tag warn">概念硬伤</span></td><td>Citeseer的<code>UΣ</code>主成分坐标与Cora原始BoW词列无对应；1433只保证shape。</td><td>最能解释clean低分</td></tr>
+          <tr><td>Citeseer-SVD缓存身份</td><td><span class="tag info">待补证</span></td><td>只验shape/finite，未绑定源NPZ哈希；附件没有服务器cache hash或预训练加载日志。</td><td>目前无发生证据</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="decision">
+      <p><strong>当前数据能做什么：</strong>保留为<code>full-Cora＋shape-only transfer</code>探索性结果；不能写成GPromptShield论文LCC攻击协议复现。</p>
+      <p><strong>当前不应做什么：</strong>不能因为Citeseer端已确认LCC，就继续把现有Cora六浓度曲线称为LCC；也不能期待仅裁掉223个节点把clean accuracy从0.386推回0.6。</p>
+    </div>
+  </section>
+
+  <section id="metric">
+    <h2>1.本次到底在评估什么</h2>
+
+    <div class="flow" role="img" aria-label="evaluation调用链">
+      <div class="node"><b>Cora-clean full graph</b><code>x:[2708,1433]</code><br><code>edge_index:[2,13264]</code><br>35/265/2408 split</div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Frozen 2-layer GCN</b><code>1433→256→256</code><br>使用完整<code>edge_index</code><br>不训练backbone</div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Full-graph z-score</b>对2708个embedding<br>逐维计算mean/std<br>transductive统计</div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Multinomial LR</b>35个训练节点拟合<br>265个val节点展示<br>2408个test节点计accuracy</div>
+    </div>
+
+    <div class="math">
+      embedding: Z=GCN(X,E;θ<sub>frozen</sub>)∈R<sup>2708×256</sup><br>
+      standardize: Z′<sub>ij</sub>=(Z<sub>ij</sub>−μ<sub>j,all nodes</sub>)/(σ<sub>j,all nodes</sub>+10<sup>−12</sup>)<br>
+      classifier: ŷ=argmax LogisticRegression(Z′), trained only on 35 labels<br>
+      metric: Accuracy<sub>test</sub>=Σ<sub>i∈test</sub>1[ŷ<sub>i</sub>=y<sub>i</sub>]/2408
+    </div>
+
+    <div class="callout">
+      <p><strong>名称纠正：</strong>这是linear probe，但不是“不用图结构”。<code>eval_pretrain.py:37-38</code>明确把<code>edge_index</code>送入两层GCN；只是不训练GCN、只训练线性分类器。</p>
+    </div>
+
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>项目</th><th>实际设置</th><th>判断</th></tr></thead>
+      <tbody>
+        <tr><td>主metric</td><td>unweighted node accuracy；每个test节点等权</td><td><span class="tag ok">正确实现</span></td></tr>
+        <tr><td>辅助metric</td><td>附件不计算Macro-F1、balanced accuracy、AUROC</td><td>类别坍缩无法仅凭日志诊断</td></tr>
+        <tr><td>图</td><td>clean，<code>ptb=0.0</code></td><td>没有评估鲁棒性</td></tr>
+        <tr><td>标准化</td><td>使用全图2708个embedding的mean/std</td><td>transductive下可接受；inductive下不成立</td></tr>
+        <tr><td>训练标签</td><td>7类×5-shot=35</td><td>类别平衡</td></tr>
+        <tr><td>test分布</td><td><code>[312,191,372,732,379,264,158]</code></td><td>多数类baseline=<code>0.3040</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>后续RobustPrompt-T的metric</h3>
+    <p>六浓度脚本进入<code>RobustPromptTranductiveEva.py</code>后，同样以<code>torchmetrics.Accuracy(task="multiclass")</code>计算test accuracy，同时打印Macro-F1；<code>MyTask.py</code>最终返回并汇总的是5个prompt seed的accuracy mean±population std。因此附件用于“backbone筛选”，后续脚本才用于“prompt鲁棒性”，两者不可混写。</p>
+  </section>
+
+  <section id="results">
+    <h2>2.135项结果意味着什么</h2>
+
+    <figure>
+      <svg class="chart" viewBox="0 0 940 335" role="img" aria-labelledby="barTitle barDesc">
+        <title id="barTitle">Clean Cora linear-probe accuracy对比</title>
+        <desc id="barDesc">从chance baseline到历史Cora同数据集预训练best single的准确率柱状图。</desc>
+        <line class="grid" x1="165" y1="25" x2="165" y2="295"/>
+        <line class="grid" x1="357" y1="25" x2="357" y2="295"/>
+        <line class="grid" x1="549" y1="25" x2="549" y2="295"/>
+        <line class="grid" x1="741" y1="25" x2="741" y2="295"/>
+        <text class="muted" x="165" y="317" text-anchor="middle" font-size="12">0%</text>
+        <text class="muted" x="357" y="317" text-anchor="middle" font-size="12">20%</text>
+        <text class="muted" x="549" y="317" text-anchor="middle" font-size="12">40%</text>
+        <text class="muted" x="741" y="317" text-anchor="middle" font-size="12">60%</text>
+
+        <text x="153" y="52" text-anchor="end" font-size="13">Uniform chance</text>
+        <rect class="bar" x="165" y="35" width="137" height="24"/>
+        <text x="310" y="52" font-size="13">14.29%</text>
+
+        <text x="153" y="94" text-anchor="end" font-size="13">Test majority</text>
+        <rect class="bar-warn" x="165" y="77" width="292" height="24"/>
+        <text x="465" y="94" font-size="13">30.40%</text>
+
+        <text x="153" y="136" text-anchor="end" font-size="13">135 ckpt mean</text>
+        <rect class="bar-bad" x="165" y="119" width="287" height="24"/>
+        <text x="460" y="136" font-size="13">29.92%</text>
+
+        <text x="153" y="178" text-anchor="end" font-size="13">Best group(test)</text>
+        <rect class="bar-bad" x="165" y="161" width="308" height="24"/>
+        <text x="481" y="178" font-size="13">32.05%</text>
+
+        <text x="153" y="220" text-anchor="end" font-size="13">Best single(test)</text>
+        <rect class="bar-bad" x="165" y="203" width="371" height="24"/>
+        <text x="544" y="220" font-size="13">38.62%</text>
+
+        <text x="153" y="262" text-anchor="end" font-size="13">Cora-pretrain group</text>
+        <rect class="bar-ok" x="165" y="245" width="521" height="24"/>
+        <text x="694" y="262" font-size="13">54.24%</text>
+
+        <text x="153" y="292" text-anchor="end" font-size="13">Cora-pretrain single</text>
+        <rect class="bar-ok" x="165" y="275" width="601" height="24"/>
+        <text x="774" y="292" font-size="13">62.62%</text>
+      </svg>
+      <figcaption>历史Cora同数据集数值来自<code>reports/meeting14_prep_重新GCL.html</code>，使用同类clean linear-probe。该对比只说明迁移表示弱，不把历史test-oracle当成无偏科研估计。</figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>统计</th><th class="num">Val</th><th class="num">Test</th><th>解释</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>135个checkpoint均值±std</td><td class="num">0.2826±0.0455</td><td class="num">0.2992±0.0392</td><td>整体不高；test均值低于多数类baseline</td></tr>
+          <tr><td>135个checkpoint中位数</td><td class="num">0.2830</td><td class="num">0.2982</td><td>不是少量失败run拖低均值</td></tr>
+          <tr><td>范围</td><td class="num">0.1396–0.3925</td><td class="num">0.1869–0.3862</td><td>pretrain seed/augmentation波动明显</td></tr>
+          <tr class="em"><td>best single：dropN/permE/0.3/seed4</td><td class="num">0.3925</td><td class="num">0.3862</td><td>本次val和test最高恰好是同一文件</td></tr>
+          <tr><td>该single所在5-seed组</td><td class="num">—</td><td class="num">0.3158±0.0399</td><td>0.3862比组均值高7.04个百分点</td></tr>
+          <tr><td>test选出的best组：maskN/dropN/0.3</td><td class="num">0.2959</td><td class="num">0.3205±0.0221</td><td>按test mean选超参</td></tr>
+          <tr><td>val选出的best组：dropN/dropN/0.1</td><td class="num">0.3102±0.0396</td><td class="num">0.2977±0.0370</td><td>科研报告应先用val mean选组，再报告test</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout bad">
+      <p><strong>选择硬伤：</strong><code>eval_pretrain.py:168</code>按<code>test_acc</code>排序，<code>:195-208</code>按5-seed test mean排组，<code>:215-220</code>直接取test第一名。它使估计偏乐观，不能解释“为什么低”。</p>
+      <p><strong>本轮实际影响：</strong>如果坚持只选一个checkpoint，validation最高者也恰好是同一个seed4文件，所以换成val选择不会改变当前文件；但test已经参与135-way筛选，<code>0.3862</code>仍只能标作探索性上界。</p>
+    </div>
+  </section>
+
+  <section id="lcc">
+    <h2>3.两张图到底是不是LCC</h2>
+
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>图</th><th class="num">节点</th><th class="num">无向非自环边</th><th class="num">连通分量</th><th>结论</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Citeseer预训练源图</td><td class="num">2110</td><td class="num">3668</td><td class="num">1</td><td><span class="tag ok">是LCC</span></td></tr>
+        <tr class="hard"><td>当前Cora-clean/downstream母图</td><td class="num">2708</td><td class="num">5278</td><td class="num">78</td><td><span class="tag bad">不是LCC</span></td></tr>
+        <tr><td>当前Cora图内最大分量</td><td class="num">2485</td><td class="num">5069</td><td class="num">1</td><td><span class="tag ok">与论文Table4一致</span></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>Citeseer：代码级强保证，服务器文件身份尚缺hash</h3>
+    <p><code>load4citeseer_pretrain()</code>调用<code>DeepRobustDataset(setting="nettack")</code>，在SVD前依次断言：单连通分量、2110节点、3668边、3703特征、6类、固定类计数、无零特征行；添加自环后还断言9446条runtime entries。任一不符都会在checkpoint保存前中止。SVD只替换<code>data.x</code>，不改<code>edge_index</code>；随后METIS把这张LCC切成200个GraphCL训练partition。</p>
+    <p>135/135 checkpoint成功且命名完整，是上述断言通过的强间接证据。附件不含预训练加载日志，本地也没有服务器被<code>.gitignore</code>排除的<code>citeseer.npz</code>与SVD cache，因此不能声称已完成服务器逐边/hash级证明。</p>
+
+    <h3>Cora：当前raw的字节级复算</h3>
+    <div class="two-col">
+      <div>
+        <table>
+          <thead><tr><th>字段</th><th class="num">实测</th></tr></thead>
+          <tbody>
+            <tr><td>稀疏矩阵shape</td><td class="num">2708×2708</td></tr>
+            <tr><td>stored entries</td><td class="num">13264</td></tr>
+            <tr><td>自环</td><td class="num">2708</td></tr>
+            <tr><td>非自环有向entries</td><td class="num">10556</td></tr>
+            <tr><td>唯一无向边</td><td class="num">5278</td></tr>
+            <tr><td>连通分量</td><td class="num">78</td></tr>
+            <tr><td>LCC</td><td class="num">2485节点/5069边</td></tr>
+            <tr><td>LCC外</td><td class="num">223节点</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <table>
+          <thead><tr><th>split</th><th class="num">总数</th><th class="num">LCC内</th><th class="num">LCC外</th></tr></thead>
+          <tbody>
+            <tr><td>train</td><td class="num">35</td><td class="num">33</td><td class="num">2</td></tr>
+            <tr><td>val</td><td class="num">265</td><td class="num">241</td><td class="num">24</td></tr>
+            <tr><td>test</td><td class="num">2408</td><td class="num">2211</td><td class="num">197</td></tr>
+          </tbody>
+        </table>
+        <p class="caption">三套split来源节点集合一致：<code>data_fewshot</code>和<code>data_attack_fewshot</code>中的<code>.pt</code>顺序完全一致；raw NPY顺序不同但排序后集合完全一致。无split错位。</p>
+      </div>
+    </div>
+
+    <div class="callout bad">
+      <p><strong>旧文档结论作废：</strong><code>reference/data.md:29-30</code>把“Planetoid Cora的语料版本”误当成“图本身连通”，写成“2708节点就是LCC”。连通性复算与论文Table4同时否定该说法。<code>advanced_report/gpromptshield_pretrain_graph_audit_20260726.html:553-556</code>当时也明确承认没有0.0文件内容，只能依赖注释；当前字节证据优先级更高。</p>
+    </div>
+
+    <h3>近期改名不是原因</h3>
+    <p>Git历史中的旧文件<code>Meta_Self_Cora_0.0.pt</code>与当前<code>Meta_Self_Cora_0.00.pt</code>均为267389字节，SHA256同为<code>57B4528C357B3B8FF5ED44ECCA47F3DE42B84F36C4814961E048C48E67BD65CE</code>，逐字节相同。当前ZIP内部前缀仍是<code>Meta_Self_Cora_0.0</code>。因此不是规范化文件名时误拿污染图，而是长期把full Cora误称为LCC。</p>
+
+    <h3>污染图也沿用full Cora母图</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ptb</th><th class="num">当前分量</th><th class="num">当前LCC节点</th>
+            <th class="num">add</th><th class="num">delete</th><th class="num">总翻转</th>
+            <th class="num">跨clean分量add</th><th class="num">论文LCC预算</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>0.00</td><td class="num">78</td><td class="num">2485</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
+          <tr><td>0.05</td><td class="num">45</td><td class="num">2588</td><td class="num">257</td><td class="num">6</td><td class="num">263</td><td class="num">69</td><td class="num">253</td></tr>
+          <tr><td>0.10</td><td class="num">28</td><td class="num">2629</td><td class="num">488</td><td class="num">39</td><td class="num">527</td><td class="num">124</td><td class="num">506</td></tr>
+          <tr><td>0.15</td><td class="num">18</td><td class="num">2659</td><td class="num">728</td><td class="num">63</td><td class="num">791</td><td class="num">178</td><td class="num">760</td></tr>
+          <tr><td>0.20</td><td class="num">13</td><td class="num">2671</td><td class="num">976</td><td class="num">79</td><td class="num">1055</td><td class="num">231</td><td class="num">1013</td></tr>
+          <tr><td>0.25</td><td class="num">9</td><td class="num">2681</td><td class="num">1212</td><td class="num">107</td><td class="num">1319</td><td class="num">274</td><td class="num">1267</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">当前总翻转精确等于<code>floor(ptb×5278)</code>，说明2026-07预算修复和6档文件命名均正确；硬伤是母图选成full-2708。论文LCC母数应为5069。跨分量add使clean图外的小分量逐步并入主分量，这类攻击动作在单一LCC母图上不存在。</p>
+
+    <div class="callout warn">
+      <p><strong>不能直接裁已有攻击图：</strong>裁clean LCC后train只剩33个，类计数为<code>[5,4,5,5,5,4,5]</code>；而且已有Metattack优化过程使用了full图与full预算。正确修复必须先固定LCC node map和新5-shot split，再从clean LCC重生成全部浓度。</p>
+    </div>
+  </section>
+
+  <section id="cause">
+    <h2>4.为什么“非LCC”不是全部根因</h2>
+
+    <h3>4.1可计算的clean上界</h3>
+    <p>best test accuracy=<code>0.3862</code>对应约930/2408个正确节点。LCC外test节点只有197个。未知逐节点预测时，删去LCC外节点后的同一分类器accuracy必在：</p>
+    <div class="math">
+      lower=(930−197)/2211=0.3315<br>
+      upper=930/2211=0.4206
+    </div>
+    <p>因此，仅改变test组成最多把0.3862推到约0.4206，不可能直接恢复到历史Cora-pretrain的0.6262。LCC错误会改变攻击过程和后续message passing，仍须修复；但不能拿它解释全部clean差距。</p>
+
+    <h3>4.2真正支配解释的是坐标系错配</h3>
+    <div class="math">
+      Citeseer: X<sub>Cite</sub>∈R<sup>2110×3703</sup><br>
+      PyG SVD: X′<sub>Cite</sub>=U<sub>Cite</sub>[:,1:1433]Σ<sub>Cite</sub>[1:1433]∈R<sup>2110×1433</sup><br>
+      pretrain first layer: H<sub>Cite</sub>=A&#770;<sub>Cite</sub>X′<sub>Cite</sub>W<sub>0</sub><br><br>
+      downstream: X<sub>Cora</sub>∈R<sup>2708×1433</sup>（原始BoW词列）<br>
+      current transfer: H<sub>Cora</sub>=A&#770;<sub>Cora</sub>X<sub>Cora</sub>W<sub>0</sub>
+    </div>
+    <p><code>X′Cite[:,j]</code>是Citeseer内部第j个主成分得分，<code>XCora[:,j]</code>是Cora词表第j个词项；两者没有共同坐标语义。第一层权重<code>W0</code>虽然shape可加载，但每一行被解释成了不同变量。这不是常规domain shift，而是basis mismatch。</p>
+
+    <div class="callout warn">
+      <p><strong>审计判断：</strong>该实验可以保留为“shape-compatible stress test”，不能把结果解释成有效的Citeseer知识迁移。脚本第21行已经诚实写明这一边界。当前135项test均值0.2992接近多数类0.3040，与错基底预期一致。</p>
+    </div>
+
+    <h3>4.3根因优先级</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>优先级</th><th>问题</th><th>影响范围</th><th>是否解释低clean</th></tr></thead>
+      <tbody>
+        <tr><td>P0</td><td>SVD shape-only，Citeseer主成分坐标→Cora词坐标</td><td>全部135个checkpoint与后续prompt</td><td><strong>是，主要解释</strong></td></tr>
+        <tr><td>P0</td><td>Cora attacked母图不是论文LCC</td><td>未来6浓度鲁棒曲线与论文可比性</td><td>部分；方向需重跑</td></tr>
+        <tr><td>P1</td><td>test-informed checkpoint selection</td><td>报告可信度</td><td>否；它掩盖低分</td></tr>
+        <tr><td>P1待核验</td><td>服务器SVD cache无source hash绑定</td><td>若cache错误则污染全部预训练</td><td>未知；暂无发生证据</td></tr>
+        <tr><td>通过</td><td>accuracy公式、split集合、Citeseer-LCC统计、6档预算</td><td>数据与评估基本链路</td><td>不是根因</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section id="repair">
+    <h2>5.最小而正确的修复路线</h2>
+
+    <div class="callout ok">
+      <p><strong>原则：</strong>不覆盖现有full-Cora数据与历史结果。新建并行的<code>paper_lcc</code>数据根，先做低成本clean gate，再决定是否重跑六浓度。Citeseer的135个checkpoint暂不重训，除非服务器cache身份检查失败。</p>
+    </div>
+
+    <h3>阶段A：先关闭认知漏洞</h3>
+    <ol>
+      <li>把当前结果固定命名为<code>full-Cora／shape-only／test-oracle exploratory</code>。</li>
+      <li>停止引用<code>reference/data.md:29-30</code>的“2708=LCC”结论；后续文档使用2485/5069。</li>
+      <li>服务器记录<code>citeseer.npz</code>、SVD1433 cache和最早checkpoint的SHA256/mtime；若cache来源无法确认，先旁路备份并重算cache做tensor对比。</li>
+    </ol>
+
+    <h3>阶段B：建立paper-LCC并行数据</h3>
+    <ol>
+      <li>从当前clean Cora确定唯一2485节点LCC，保存旧→新node map；断言5069条无向非自环边、1433特征、7类、1个连通分量。</li>
+      <li>在重编号后的2485节点上重新生成平衡5-shot split；不能继承裁剪后的33-shot。</li>
+      <li>以同一个LCC、同一个split和<code>floor(ptb×5069)</code>预算重生成0.00/0.05/0.10/0.15/0.20/0.25。</li>
+      <li>新数据根与现有cache完全隔离；所有6档断言节点顺序、features、labels和split一致，翻转数与预算一致。</li>
+    </ol>
+
+    <h3>阶段C：两道gate</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Gate</th><th>操作</th><th>继续条件</th><th>失败时结论</th></tr></thead>
+        <tbody>
+          <tr><td>Gate1：clean transfer</td><td>在paper-LCC clean图上重跑135项或至少当前best＋val-best组；补Macro-F1/confusion matrix</td><td>明显高于多数类且seed稳定</td><td>停止六档；shape-only transfer无效</td></tr>
+          <tr><td>Gate2：robustness</td><td>只在通过Gate1的checkpoint上跑6浓度×5 prompt seeds</td><td>报告accuracy mean±std，并附Macro-F1</td><td>可将崩塌归于图/prompt而非弱backbone</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Checkpoint选择的最小修正</h3>
+    <ul>
+      <li>按5个pretrain seed的<strong>validation accuracy mean</strong>选择augmentation/ratio组。</li>
+      <li>test只用于最终组的一次报告；不再用test排列135项。</li>
+      <li>如果本轮仍只取单checkpoint，当前seed4恰好也是validation最高，可继续作探索用；正式结论仍应报告5-seed组统计。</li>
+      <li>保留accuracy作为论文主metric，同时补Macro-F1与confusion matrix，防止多数类坍缩被0.3040 baseline掩盖。</li>
+    </ul>
+
+    <h3>必须加入的preflight</h3>
+    <ul class="checklist">
+      <li>clean graph：<code>N=2485,E=5069,F=1433,C=7,components=1</code></li>
+      <li>train：35个且每类5个；train/val/test互斥</li>
+      <li>6档共享node map、features、labels、split</li>
+      <li>每档symmetric difference精确等于目标预算</li>
+      <li>processed cache路径包含数据协议标识，禁止full/LCC共用</li>
+      <li>日志首部打印数据协议、图统计、split统计、checkpoint选择来源</li>
+    </ul>
+
+    <div class="decision">
+      <p><strong>最终建议：</strong>不要立刻拿当前best跑一整套并宣称论文复现。先用并行paper-LCC完成Gate1；若仍在0.3–0.4附近，诚实终止这条shape-only迁移路线。若只是想看full-Cora探索曲线，当前seed4 checkpoint可以继续，但报告标题和结论必须明确协议边界。</p>
+    </div>
+  </section>
+
+  <section id="evidence">
+    <h2>6.证据索引与可复核边界</h2>
+    <p class="screen-only"><button type="button" id="expandAll">展开全部证据</button> <button type="button" id="collapseAll">收起全部证据</button></p>
+
+    <details>
+      <summary>Evaluation实现与选择规则</summary>
+      <div class="evidence">
+        <p><a href="../eval_pretrain.py"><code>eval_pretrain.py:23-56</code></a>：冻结GCN、全图z-score、multinomial LogisticRegression、<code>clf.score</code>。</p>
+        <p><a href="../eval_pretrain.py"><code>eval_pretrain.py:101-132</code></a>：默认Cora/5-shot/split1/clean；日志2708/13264/35/265/2408。</p>
+        <p><a href="../eval_pretrain.py"><code>eval_pretrain.py:167-220</code></a>：单checkpoint与hyperparameter group均按test accuracy排序。</p>
+        <p><a href="../prompt_graph/evaluation/RobustPromptTranductiveEva.py"><code>RobustPromptTranductiveEva.py:31-155</code></a>：后续prompt评估的Accuracy与Macro-F1。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>数据加载与split</summary>
+      <div class="evidence">
+        <p><a href="../prompt_graph/data/load4data.py"><code>load4data.py:34-132</code></a>：Citeseer-Nettack LCC与全部硬断言。</p>
+        <p><a href="../prompt_graph/data/load4data.py"><code>load4data.py:135-200</code></a>：Cora-clean固定加载<code>Meta_Self_Cora_0.00</code>并覆写few-shot mask，没有LCC操作。</p>
+        <p><a href="../data_attack_fewshot/attackdata_specified.py"><code>attackdata_specified.py:31-80</code></a>：raw/processed路径、自环规范化和mask装载。</p>
+        <p><a href="../pretrain_citeseer_svd1433_graphcl.sh"><code>pretrain_citeseer_svd1433_graphcl.sh:18-44</code></a>：135项网格与shape-only边界声明。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>论文、原版代码与被推翻的旧文档</summary>
+      <div class="evidence">
+        <p><a href="../reference/gpromptshield_text.txt"><code>reference/gpromptshield_text.txt:931-956</code></a>：attacked data只考虑LCC；Citeseer=2110/3668，Cora=2485/5069。</p>
+        <p><a href="../reference/gpromptshield_text.txt"><code>reference/gpromptshield_text.txt:959-975</code></a>：Table5另列普通full Cora=2708节点，说明clean/full与attacked/LCC必须区分。</p>
+        <p><a href="../GPromptShield-master/prompt_graph/data/load4data.py"><code>GPromptShield-master/load4data.py:848-881,945-973</code></a>：原版活动注释宣称预训练使用0.0 LCC，并在其上做METIS。</p>
+        <p><a href="../reference/data.md"><code>reference/data.md:25-30</code></a>：把2708 full图误写成LCC，当前审计正式否定。</p>
+        <p><a href="../advanced_report/gpromptshield_pretrain_graph_audit_20260726.html"><code>advanced_report/gpromptshield_pretrain_graph_audit_20260726.html:553-556</code></a>：旧审计当时明确缺少0.0数据内容，现由字节复算取代。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>独立复算方法</summary>
+      <div class="evidence">
+        <p>直接打开Torch ZIP序列化文件，读取<code>/data/0</code>的little-endian int64 storage，按<code>[2,13264]</code>还原COO indices；去除2708个自环并把双向entries规范化为唯一无向边集合。</p>
+        <p>对2708节点分别使用Union-Find与BFS复算连通分量；两者均得到78个分量、LCC=2485节点/5069边。各污染档与clean集合做add/delete/symmetric-difference。</p>
+        <p>split直接读取Torch ZIP storage与raw NPY；验证唯一性、两两交集、全集覆盖、类别计数和LCC归属。</p>
+        <p>附件使用正则完整解析135/135项；网格为3×3 augmentation pair×3 ratio×5 seed，无FAILED。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>外部实现依据</summary>
+      <div class="evidence">
+        <p><a href="https://deeprobust.readthedocs.io/en/latest/graph/data.html">DeepRobust Dataset文档</a>：<code>setting="nettack"</code>使用largest connected component；<code>setting="gcn"</code>才使用full graph。</p>
+        <p><a href="https://deeprobust.readthedocs.io/en/latest/_modules/deeprobust/graph/data/dataset.html">DeepRobust Dataset源码</a>：<code>require_lcc=True</code>后调用<code>largest_connected_components</code>裁adj/features/labels。</p>
+        <p><a href="https://pytorch-geometric.readthedocs.io/en/latest/_modules/torch_geometric/transforms/svd_feature_reduction.html">PyG SVDFeatureReduction源码</a>：只执行<code>data.x=U[:,:k]@diag(S[:k])</code>，不修改拓扑。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>尚未闭合的服务器证据</summary>
+      <div class="evidence">
+        <p>附件没有<code>Pretrain graph: ...</code>或<code>SVD features computed/loaded</code>行；本地仓库没有被ignore的服务器<code>data/deeprobust/</code>内容。因此报告只做代码级LCC保证，不伪造服务器NPZ/cache哈希。</p>
+        <pre>sha256sum data/deeprobust/citeseer.npz \
+  data/deeprobust/citeseer_nettack_lcc_l1_svd_1433.pt
+
+stat -c '%y %s %n' \
+  data/deeprobust/citeseer_nettack_lcc_l1_svd_1433.pt \
+  pre_trained_model_raw/Citeseer.GraphCL.GCN.256_hidden_dim.preprocess_svd_1433.*.pth</pre>
+        <p>这只能记录身份与时间；若要排除同shape错误cache，需旁路备份旧cache、由当前代码重算一次，并用<code>torch.allclose</code>逐元素比较。不要直接删除唯一副本。</p>
+      </div>
+    </details>
+  </section>
+
+  <footer class="footnotes">
+    <p><strong>审计范围：</strong>附件日志、当前commit、相关loader/evaluator/pretrain脚本、6档Cora raw图、3套split、论文提取文本、原版代码、历史报告及DeepRobust/PyG官方实现。未执行新的GPU训练，未修改核心代码或数据。</p>
+    <p><strong>统计口径：</strong>所有std均为代码当前使用的population std（<code>numpy.std,ddof=0</code>）；未剔除任何seed。Accuracy均按原始小数展示。</p>
+    <p>生成时间：2026-07-30（Asia/Shanghai）</p>
+  </footer>
+</main>
+
+<script>
+  const details = [...document.querySelectorAll('details')];
+  document.getElementById('expandAll')?.addEventListener('click', () => {
+    details.forEach(item => item.open = true);
+  });
+  document.getElementById('collapseAll')?.addEventListener('click', () => {
+    details.forEach(item => item.open = false);
+  });
+</script>
+</body>
+</html>
