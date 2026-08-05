@@ -44,9 +44,12 @@ if args.task == 'NodeTask':
                 shot_num=args.shot_num,
                 run_split=split_num,
                 preprocess_method=args.preprocess_method,
+                svd_out_dim=args.svd_out_dim,
+                downstream_svd_cache=args.downstream_svd_cache,
                 attack_downstream=args.attack_downstream,
                 attack_method=args.attack_method,
                 specified=args.specified,
+                strict_attack_raw=args.strict_attack_raw,
                 adaptive=args.adaptive,
                 adaptive_scenario=args.adaptive_scenario,
                 adaptive_split=args.adaptive_split,
@@ -79,6 +82,7 @@ if args.task == 'NodeTask':
                 cosine_constraint=args.cosine_constraint,
                 prompt_lr=args.prompt_lr,
                 prompt_variant=args.prompt_variant,
+                device=args.device,
             )
 
             test_acc = tasker.run()

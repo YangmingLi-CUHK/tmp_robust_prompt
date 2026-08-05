@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Citeseer-SVD100→Cora-SVD100 clean迁移实验审计</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f4ef;
+      --paper: #fffefa;
+      --ink: #18211c;
+      --muted: #68716b;
+      --line: #d8d9d2;
+      --green: #176b4d;
+      --green-soft: #dcece4;
+      --blue: #315c8a;
+      --blue-soft: #e1e9f2;
+      --amber: #8c5b13;
+      --amber-soft: #f3e8d2;
+      --red: #8b3a3a;
+      --shadow: 0 18px 50px rgba(34, 45, 38, .08);
+      --radius: 18px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111512;
+        --paper: #171d19;
+        --ink: #e8eee9;
+        --muted: #aab4ac;
+        --line: #343d36;
+        --green: #7bc6a5;
+        --green-soft: #203b30;
+        --blue: #91b7df;
+        --blue-soft: #233345;
+        --amber: #e0b269;
+        --amber-soft: #3e3120;
+        --red: #e6a0a0;
+        --shadow: none;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.68;
+    }
+    a { color: var(--blue); text-underline-offset: 3px; }
+    code, .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    main { width: min(1180px, calc(100% - 32px)); margin: 28px auto 64px; }
+    header.hero {
+      padding: clamp(26px, 5vw, 58px);
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    header.hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -90px -120px auto;
+      width: 330px;
+      height: 330px;
+      border: 46px solid var(--green-soft);
+      border-radius: 50%;
+      opacity: .8;
+      pointer-events: none;
+    }
+    .eyebrow {
+      color: var(--green);
+      font-size: .78rem;
+      font-weight: 750;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 10px 0 12px;
+      font-family: ui-serif, Georgia, "Songti SC", serif;
+      font-size: clamp(2rem, 5.5vw, 4.2rem);
+      line-height: 1.08;
+      letter-spacing: -.035em;
+      max-width: 920px;
+    }
+    .subtitle { max-width: 850px; margin: 0; font-size: 1.08rem; color: var(--muted); position: relative; z-index: 1; }
+    .verdict {
+      margin-top: 28px;
+      max-width: 900px;
+      padding: 18px 20px;
+      border-left: 4px solid var(--green);
+      background: var(--green-soft);
+      border-radius: 0 12px 12px 0;
+      font-size: 1.02rem;
+      position: relative;
+      z-index: 1;
+    }
+    .metric-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      margin: 22px 0 0;
+      border: 1px solid var(--line);
+      background: var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .metric { background: var(--paper); padding: 22px; }
+    .metric strong { display: block; font-size: clamp(1.4rem, 3vw, 2.25rem); line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .metric span { display: block; color: var(--muted); font-size: .86rem; margin-top: 7px; }
+    nav.toc { display: flex; gap: 8px; flex-wrap: wrap; margin: 22px 0 0; }
+    nav.toc a { text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px; font-size: .82rem; background: var(--paper); }
+    section { margin-top: 54px; scroll-margin-top: 20px; }
+    .section-head { display: grid; grid-template-columns: 74px 1fr; gap: 16px; align-items: start; margin-bottom: 22px; }
+    .section-no { color: var(--green); font: 700 .82rem/1 ui-monospace, monospace; padding-top: 11px; border-top: 2px solid var(--green); }
+    h2 { margin: 0; font-family: ui-serif, Georgia, "Songti SC", serif; font-size: clamp(1.65rem, 3vw, 2.45rem); line-height: 1.18; }
+    .section-lead { color: var(--muted); margin: 7px 0 0; max-width: 760px; }
+    .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .panel { border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius); padding: 22px; }
+    .panel h3 { margin: 0 0 12px; font-size: 1.05rem; }
+    .panel p:last-child { margin-bottom: 0; }
+    .status-list { display: grid; gap: 10px; }
+    .status-row { display: grid; grid-template-columns: 110px 1fr; gap: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+    .status-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .status-row b { color: var(--green); font-variant-numeric: tabular-nums; }
+    .status-row span { color: var(--muted); }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 20px;
+      align-items: stretch;
+      overflow-x: auto;
+      padding: 6px 2px 14px;
+    }
+    .pipe-node {
+      min-width: 130px;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper);
+      position: relative;
+    }
+    .pipe-node:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -17px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .pipe-node small { color: var(--muted); display: block; }
+    .pipe-node strong { display: block; margin: 3px 0; }
+    .pipe-node.transductive { border-color: var(--amber); background: var(--amber-soft); }
+    .pipeline-label { margin: 0 0 8px; font-weight: 750; color: var(--green); }
+    .chart-wrap { overflow-x: auto; }
+    .comparison { min-width: 620px; display: grid; gap: 14px; }
+    .compare-row { display: grid; grid-template-columns: 190px 1fr 145px; gap: 15px; align-items: center; }
+    .track { height: 25px; background: color-mix(in srgb, var(--line) 70%, transparent); border-radius: 999px; position: relative; overflow: visible; }
+    .fill { height: 100%; border-radius: inherit; background: var(--blue); }
+    .fill.new { background: var(--green); }
+    .fill.baseline { background: var(--muted); }
+    .compare-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 720; }
+    .note { color: var(--muted); font-size: .86rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th { text-align: left; color: var(--muted); font-size: .76rem; letter-spacing: .05em; text-transform: uppercase; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid var(--line); }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tr.best { background: var(--green-soft); }
+    .seed-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr); gap: 18px; }
+    #seedChart { width: 100%; min-height: 330px; display: block; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
+    button {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 7px 12px;
+      cursor: pointer;
+      font: inherit;
+      font-size: .84rem;
+    }
+    button.active { border-color: var(--green); background: var(--green-soft); color: var(--green); font-weight: 700; }
+    .explorer { display: grid; gap: 8px; }
+    .bar-row { display: grid; grid-template-columns: 180px 72px 1fr 180px; gap: 12px; align-items: center; }
+    .bar-label { font: .82rem ui-monospace, monospace; }
+    .bar-ratio { color: var(--muted); font-size: .82rem; }
+    .mini-track { height: 15px; background: color-mix(in srgb, var(--line) 75%, transparent); border-radius: 999px; overflow: hidden; }
+    .mini-fill { height: 100%; border-radius: inherit; background: var(--blue); }
+    .bar-value { text-align: right; font-variant-numeric: tabular-nums; font-size: .84rem; }
+    .claims { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+    .claim-col { background: var(--paper); padding: 24px; }
+    .claim-col h3 { margin-top: 0; }
+    ul.clean { margin: 0; padding-left: 1.2em; }
+    ul.clean li + li { margin-top: 9px; }
+    .claim-col.yes h3 { color: var(--green); }
+    .claim-col.no h3 { color: var(--red); }
+    .decision {
+      display: grid;
+      grid-template-columns: 50px minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+      padding: 17px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .decision:last-child { border-bottom: 0; }
+    .decision-no { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: var(--green-soft); color: var(--green); font-weight: 800; }
+    .decision h3 { margin: 0 0 3px; font-size: 1rem; }
+    .decision p { margin: 0; color: var(--muted); }
+    .tag { white-space: nowrap; font-size: .75rem; padding: 4px 8px; border-radius: 999px; background: var(--blue-soft); color: var(--blue); }
+    details { border-top: 1px solid var(--line); padding: 13px 0; }
+    summary { cursor: pointer; font-weight: 680; }
+    footer { margin-top: 58px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
+    @media (max-width: 900px) {
+      .metric-strip { grid-template-columns: repeat(2, 1fr); }
+      .two-col, .seed-layout, .claims { grid-template-columns: 1fr; }
+      .bar-row { grid-template-columns: 150px 58px 1fr 142px; }
+    }
+    @media (max-width: 620px) {
+      main { width: min(100% - 18px, 1180px); margin-top: 9px; }
+      header.hero { border-radius: 18px; padding: 24px 20px; }
+      .metric-strip { grid-template-columns: 1fr; }
+      .section-head { grid-template-columns: 45px 1fr; }
+      .bar-row { grid-template-columns: 1fr auto; }
+      .mini-track { grid-column: 1 / -1; order: 3; }
+      .bar-value { grid-column: 2; }
+      .decision { grid-template-columns: 42px 1fr; }
+      .decision .tag { grid-column: 2; justify-self: start; }
+    }
+    @media print {
+      :root { color-scheme: light; }
+      body { background: white; }
+      main { width: 100%; margin: 0; }
+      header.hero, .panel { box-shadow: none; }
+      nav.toc, .controls { display: none; }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <div class="eyebrow">clean transfer audit · 2026-08-05</div>
+    <h1>Citeseer-SVD100→Cora-SVD100：clean迁移已跨过可用性门槛</h1>
+    <p class="subtitle">135次GraphCL预训练与Cora frozen linear probe的完整复算、运行溯源和方法学边界。结果明显优于上一轮SVD1433方案，但仍不能证明独立SVD形成了跨数据集语义对齐。</p>
+    <div class="verdict"><strong>结论：</strong>按完整5-seed的validation mean选择，<span class="mono">maskN/dropN,ratio=0.2</span>在clean Cora test上达到<strong>0.499502±0.047767</strong>。因此“clean仍接近majority”的否定条件不成立；下一步应先判别增益来自Citeseer预训练、Cora-SVD100、图传播还是统计坐标接口，再进入污染图与prompt阶段。</div>
+    <nav class="toc" aria-label="报告导航">
+      <a href="#integrity">运行完整性</a><a href="#pipeline">真实链路</a><a href="#results">核心结果</a><a href="#grid">27组探索</a><a href="#meaning">结论边界</a><a href="#next">下一步</a><a href="#evidence">证据索引</a>
+    </nav>
+  </header>
+
+  <div class="metric-strip" aria-label="核心指标">
+    <div class="metric"><strong>135/135</strong><span>成功run；27/27完整5-seed组</span></div>
+    <div class="metric"><strong>0.499502</strong><span>validation选组后的test mean</span></div>
+    <div class="metric"><strong>+20.18pp</strong><span>相对上一轮SVD1433的test差值</span></div>
+    <div class="metric"><strong>+19.55pp</strong><span>相对test-majority 0.3040</span></div>
+  </div>
+
+  <section id="integrity">
+    <div class="section-head"><div class="section-no">01</div><div><h2>先确认：这批实验确实已经完整跑完</h2><p class="section-lead">根目录AGENTS.md中“尚未真实运行”的状态已被最新日志推翻。本报告只更新事实判断，不修改AGENTS.md或CLAUDE.md。</p></div></div>
+    <div class="two-col">
+      <div class="panel">
+        <h3>四层完成证据</h3>
+        <div class="status-list">
+          <div class="status-row"><b>135</b><span>唯一run_key、唯一log path、唯一checkpoint SHA256</span></div>
+          <div class="status-row"><b>135</b><span>日志均出现epoch 200/200、model saved、strict checkpoint valid、result recorded和finished_utc</span></div>
+          <div class="status-row"><b>0</b><span>ERROR、Traceback、NaN/Inf、OOM、early stop和未记录checkpoint隔离痕迹</span></div>
+          <div class="status-row"><b>27×5</b><span>27个有序增强配置组，每组seed=1–5；缺失和重复均为0</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>运行现场</h3>
+        <div class="status-list">
+          <div class="status-row"><b>commit</b><span class="mono">39e7cb5d0653d722a923fc6c6d9e4927ce96b7d0</span></div>
+          <div class="status-row"><b>UTC</b><span>2026-08-04 14:41:14→16:11:51，wall time约90.62分钟</span></div>
+          <div class="status-row"><b>cuda:0</b><span>135次评估全部记录为GPU执行；单run 39–41秒</span></div>
+          <div class="status-row"><b>cache</b><span>Cora-SVD100首次computed、其余134次loaded；Citeseer-SVD100每次loaded</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="note">注意：本地文件的mtime是2026-08-05同步时间，不能代表服务器执行时间；上面的时间来自135份日志内部的started_utc/finished_utc。</p>
+  </section>
+
+  <section id="pipeline">
+    <div class="section-head"><div class="section-no">02</div><div><h2>真实数据链与维数链</h2><p class="section-lead">两端都在L1行归一化后独立拟合exact SVD100。形状一致，右奇异向量、词表坐标和语义基底不共享。</p></div></div>
+    <p class="pipeline-label">Source：Citeseer预训练</p>
+    <div class="pipeline" aria-label="Citeseer预训练链">
+      <div class="pipe-node"><small>DeepRobust/Nettack LCC</small><strong>2110×3703</strong><small>6类；3668条无向边</small></div>
+      <div class="pipe-node"><small>raw BoW</small><strong>L1行归一化</strong><small>每节点特征和为1</small></div>
+      <div class="pipe-node"><small>独立拟合</small><strong>SVD100</strong><small>2110×100；固定cache hash</small></div>
+      <div class="pipe-node"><small>图切分</small><strong>METIS 200</strong><small>增强view pair一次生成</small></div>
+      <div class="pipe-node"><small>GraphCL encoder</small><strong>100→256→256</strong><small>子图mean pooling</small></div>
+      <div class="pipe-node"><small>仅用于预训练loss</small><strong>projection 256→256→256</strong><small>checkpoint不保存projection</small></div>
+    </div>
+    <p class="pipeline-label">Target：Cora frozen linear probe</p>
+    <div class="pipeline" aria-label="Cora下游链">
+      <div class="pipe-node transductive"><small>full clean Cora</small><strong>2708×1433</strong><small>ptb=0.00；7类</small></div>
+      <div class="pipe-node"><small>raw BoW</small><strong>L1行归一化</strong><small>目标词表坐标</small></div>
+      <div class="pipe-node transductive"><small>全2708节点拟合</small><strong>独立SVD100</strong><small>2708×100</small></div>
+      <div class="pipe-node transductive"><small>完整Cora图传播</small><strong>冻结GCN 100→256→256</strong><small>输出2708×256 node embedding</small></div>
+      <div class="pipe-node transductive"><small>使用全节点统计量</small><strong>all-node z-score</strong><small>含未标注val/test节点</small></div>
+      <div class="pipe-node"><small>仅35个train标签拟合</small><strong>LogisticRegression 256→7</strong><small>val=265；test=2408</small></div>
+    </div>
+    <div class="panel" style="margin-top:16px;background:var(--amber-soft);border-color:var(--amber)"><strong>评估类型：</strong>这是无label泄漏证据的<strong>transductive</strong>评估，不是inductive评估。目标SVD、完整图GCN传播和z-score都访问未标注val/test节点或边；LogisticRegression只使用35个train标签。全节点z-score与旧SVD1433报告一致，所以两轮可做protocol-level比较，但后续基线必须沿用同一口径。</div>
+  </section>
+
+  <section id="results">
+    <div class="section-head"><div class="section-no">03</div><div><h2>按validation选组后的核心结果</h2><p class="section-lead">所有mean±std均使用5个pretrain seed的简单均值与population std，不删最小值；downstream始终固定5-shot/split-1。</p></div></div>
+    <div class="panel chart-wrap">
+      <h3>同口径对照</h3>
+      <div class="comparison" role="img" aria-label="新旧实验与majority baseline的test accuracy比较">
+        <div class="compare-row"><span>旧：SVD1433→raw1433</span><div class="track"><div class="fill" style="width:59.54%"></div></div><span class="compare-value">0.2977±0.0370</span></div>
+        <div class="compare-row"><span>test-majority描述性基线</span><div class="track"><div class="fill baseline" style="width:60.80%"></div></div><span class="compare-value">0.3040</span></div>
+        <div class="compare-row"><span>新：independent-SVD100</span><div class="track"><div class="fill new" style="width:99.90%"></div></div><span class="compare-value">0.4995±0.0478</span></div>
+      </div>
+      <p class="note">比例尺上限为0.50。0.3040按旧报告定义为test-majority baseline，它借用了test标签分布，只是描述性/oracle参照，不是由35个平衡训练样本可部署得到的分类器。</p>
+    </div>
+    <div class="seed-layout" style="margin-top:20px">
+      <div class="panel">
+        <h3>最佳组5个pretrain seed</h3>
+        <svg id="seedChart" viewBox="0 0 640 330" role="img" aria-label="最佳组5个seed的validation和test accuracy折线图"></svg>
+      </div>
+      <div class="panel">
+        <h3><span class="mono">maskN/dropN,r=0.2</span></h3>
+        <table>
+          <thead><tr><th>seed</th><th class="num">validation</th><th class="num">test</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td class="num">0.516981</td><td class="num">0.559801</td></tr>
+            <tr><td>2</td><td class="num">0.483019</td><td class="num">0.536960</td></tr>
+            <tr><td>3</td><td class="num">0.407547</td><td class="num">0.450166</td></tr>
+            <tr><td>4</td><td class="num">0.498113</td><td class="num">0.512458</td></tr>
+            <tr><td>5</td><td class="num">0.415094</td><td class="num">0.438123</td></tr>
+          </tbody>
+        </table>
+        <p class="note">test范围0.438123–0.559801，range=0.121678。std只反映pretrain seed变化，不是5个downstream split。</p>
+      </div>
+    </div>
+    <div class="two-col" style="margin-top:20px">
+      <div class="panel"><h3>不是一次选型幸运</h3><p>全部27个组的test mean都高于0.3040，最低组均值仍为0.407060；135个单run的最低test为0.347591，也高于0.3040。新方案的正向信号覆盖整个网格。</p></div>
+      <div class="panel"><h3>但“唯一最佳配置”证据很弱</h3><p>第1名与第2名validation mean只差0.000755，而最佳组validation std为0.044522。额外的paired-seed bootstrap中，该组成为最佳的比例为41.6%；这只是小样本稳定性诊断，不是显著性检验。</p></div>
+    </div>
+  </section>
+
+  <section id="grid">
+    <div class="section-head"><div class="section-no">04</div><div><h2>27组增强配置：validation与test方向一致</h2><p class="section-lead">组均值层面Pearson=0.8793、Spearman=0.8895；本次按test查看的最高组恰好也是validation选择的组，test-oracle gap=0。</p></div></div>
+    <div class="panel">
+      <div class="controls" aria-label="结果探索器控制">
+        <button class="metric-btn" data-metric="val_mean">validation</button>
+        <button class="metric-btn active" data-metric="test_mean">test</button>
+        <button class="ratio-btn active" data-ratio="all">全部ratio</button>
+        <button class="ratio-btn" data-ratio="0.1">ratio=0.1</button>
+        <button class="ratio-btn" data-ratio="0.2">ratio=0.2</button>
+        <button class="ratio-btn" data-ratio="0.3">ratio=0.3</button>
+      </div>
+      <div id="explorer" class="explorer" aria-live="polite"></div>
+    </div>
+    <div class="two-col" style="margin-top:20px">
+      <div class="panel"><h3>描述性主效应</h3><p><strong>aug1：</strong>maskN test=0.470746＞dropN 0.462486＞permE 0.444887。<br><strong>aug2：</strong>dropN 0.469555＞maskN 0.458638＞permE 0.449926。</p></div>
+      <div class="panel"><h3>ratio不是单调选型规则</h3><p>边际test均值：0.1=0.463815，0.2=0.461037，0.3=0.453267；但最佳具体组出现在0.2，说明增强组合×ratio交互不可忽略。</p></div>
+    </div>
+    <div class="panel" style="margin-top:20px">
+      <h3>汇总表的一个无害排序细节</h3>
+      <p><span class="mono">group_summary_incremental.csv</span>先把mean写到6位小数，再按该字符串数值排序，导致两对打印同值的相邻组发生微小名次倒置：<span class="mono">maskN/dropN,r=0.3</span>的未舍入val mean 0.4430192略高于r=0.1的0.4430188；<span class="mono">maskN/maskN,r=0.3</span>的0.4354718略高于<span class="mono">dropN/maskN,r=0.2</span>的0.4354716。最佳组、前三名和最终选择均不受影响。</p>
+    </div>
+  </section>
+
+  <section id="meaning">
+    <div class="section-head"><div class="section-no">05</div><div><h2>这次提升意味着什么，以及不意味着什么</h2><p class="section-lead">最稳妥的解释是“统计坐标接口兼容性提升”，而不是“跨域语义已经对齐”。</p></div></div>
+    <div class="claims">
+      <div class="claim-col yes">
+        <h3>现有证据可以支持</h3>
+        <ul class="clean">
+          <li>在固定clean、transductive、split-1协议下，双端independent-SVD100形成了可用的迁移接口。</li>
+          <li>按validation选组后的test显著高于上一轮SVD1433方案和test-majority描述性基线。</li>
+          <li>正向结果不是单一超参数组造成：全部27个组均值及135个单run都越过0.3040。</li>
+          <li>validation对test具有较强排序信息，本轮自动选组没有test-oracle偏差。</li>
+        </ul>
+      </div>
+      <div class="claim-col no">
+        <h3>现有证据不能支持</h3>
+        <ul class="clean">
+          <li>不能说Citeseer与Cora的独立SVD100共享语义基底；两端不共享V，分量符号也可任意翻转。</li>
+          <li>不能把+20.18pp单因果归给Citeseer GraphCL知识；目标SVD、图传播、降参和linear probe都同时变化。</li>
+          <li>不能声称inductive泛化、跨downstream split稳定性、Metattack鲁棒性或prompt有效性。</li>
+          <li>本实验根本没有prompt阶段，因此它只回答clean encoder transfer的前置问题。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="two-col" style="margin-top:20px">
+      <div class="panel">
+        <h3>为何比SVD1433→raw1433合理</h3>
+        <p>旧方案把Citeseer的“奇异分量坐标权重”直接施加到Cora的“原词表BoW坐标”，虽然都是1433维，但坐标类型完全不同。新方案至少让两端都成为按奇异值排序的稠密低秩分量，匹配了尺度、稠密性和谱能量次序这一统计接口。</p>
+      </div>
+      <div class="panel">
+        <h3>为何仍不是语义对齐</h3>
+        <p>第j个Citeseer奇异分量与第j个Cora奇异分量只共享“各自第j大”的排序，不共享词方向或语义。冻结GCN第一层的第j列权重仍被用于目标数据的另一条方向；成功可能来自通用图平滑、低秩去噪或随机特征，而非跨域知识。</p>
+      </div>
+    </div>
+    <p class="note">另一个实质变化是第一层参数从1433×256降到100×256，权重规模缩小约14.33倍；目标特征也从稀疏BoW变成稠密SVD坐标。因此两轮差值不是一个只改变“语义对齐”的单因素实验。</p>
+  </section>
+
+  <section id="next">
+    <div class="section-head"><div class="section-no">06</div><div><h2>下一步：先做机制判别，再扩展污染图</h2><p class="section-lead">clean可用性门槛已经通过。现在最有价值的不是继续调prompt loss，而是用最小对照确认0.4995究竟来自哪里。</p></div></div>
+    <div class="panel">
+      <div class="decision"><div class="decision-no">1</div><div><h3>随机冻结GCN对照</h3><p>保持Cora-SVD100、完整图、all-node z-score和同一LogisticRegression，只把Citeseer checkpoint换成5个随机初始化100→256→256 GCN。直接检验source GraphCL是否超越随机图特征。</p></div><span class="tag">最高优先级</span></div>
+      <div class="decision"><div class="decision-no">2</div><div><h3>直接Cora-SVD100→LogisticRegression</h3><p>移除GCN，隔离“目标SVD100+35个标签”本身的贡献；与随机GCN和Citeseer checkpoint组成最小三角对照。</p></div><span class="tag">可并行</span></div>
+      <div class="decision"><div class="decision-no">3</div><div><h3>target SVD坐标signed-permutation</h3><p>对100个目标分量做固定随机置换和符号翻转后送入同一checkpoint。若性能基本不变，不能把成功解释为source/target奇异分量的序位对应。</p></div><span class="tag">机制判别</span></div>
+      <div class="decision"><div class="decision-no">4</div><div><h3>跨split与transductive消融</h3><p>固定最佳组，增加downstream split；比较all-node z-score与train-only统计，并明确full-graph与inductive边界。当前5个seed不是5个split。</p></div><span class="tag">稳定性</span></div>
+      <div class="decision"><div class="decision-no">5</div><div><h3>通过机制对照后再跑ptb=0.05–0.25</h3><p>沿用validation选定的组和同一口径扩展污染浓度，才开始讨论鲁棒性；同时保留clean=0.00锚点，不把结果直接外推到prompt有效性。</p></div><span class="tag">后续阶段</span></div>
+    </div>
+  </section>
+
+  <section id="evidence">
+    <div class="section-head"><div class="section-no">07</div><div><h2>证据索引与剩余缺口</h2><p class="section-lead">区分真实日志、仓库代码、旧报告与推断；本地没有服务器checkpoint和SVD cache实体，因此不把离线无法复验的部分写成更强证据。</p></div></div>
+    <div class="panel">
+      <details open><summary>真实结果表</summary><p><a href="../logs/citeseer_svd100_to_cora_svd100_graphcl_135/per_seed_results_incremental.csv">per_seed_results_incremental.csv</a>：135条seed级收据。<br><a href="../logs/citeseer_svd100_to_cora_svd100_graphcl_135/group_summary_incremental.csv">group_summary_incremental.csv</a>：27组官方汇总。</p></details>
+      <details><summary>运行manifest与source cache收据</summary><p><a href="../logs/citeseer_svd100_to_cora_svd100_graphcl_135/manifest.tsv">manifest.tsv</a>记录commit、数据范围、完整参数和选择口径。<br><a href="../logs/citeseer_svd100_to_cora_svd100_graphcl_135/citeseer_svd100_cache_receipt.json">citeseer_svd100_cache_receipt.json</a>记录Citeseer原始/降维shape、SHA256和Torch/PyG版本。</p></details>
+      <details><summary>代表性run日志</summary><p><a href="../logs/citeseer_svd100_to_cora_svd100_graphcl_135/run_logs/a1_maskN__a2_dropN__r_0.2__s_1.attempt_20260804T145115Z_1343893.log">最佳组seed1日志</a>包含实际数据统计、GCN层shape、200个epoch、checkpoint严格加载、SHA256和val/test。</p></details>
+      <details><summary>代码调用链</summary><p><a href="../run_citeseer_svd100_to_cora_svd100_graphcl_135.sh">总控脚本</a>；<a href="../eval_citeseer_svd100_to_cora_svd100.py">专用评估器</a>；<a href="../prompt_graph/pretrain/GraphCL.py">GraphCL实现</a>；<a href="../prompt_graph/data/load4data.py">数据加载与SVD/METIS链</a>；<a href="../eval_pretrain.py">frozen GCN+z-score+LogisticRegression</a>。</p></details>
+      <details><summary>上一轮对照</summary><p><a href="citeseer_cora_graphcl_clean_brief_20260730.html">Citeseer-SVD1433→Cora-clean简报</a>记录按validation选组的0.2977±0.0370和test-majority 0.3040。</p></details>
+      <details><summary>离线证据缺口</summary><p>同步包未包含135个服务器checkpoint和Cora-SVD100 cache，故本地无法重新计算tensor hash或重跑linear probe。每份服务器日志都记录strict load到100→256→256 GCN且checkpoint SHA与CSV 135/135一致；source receipt完整。target cache在服务器代码中校验metadata和tensor hash，但target reduced hash未写入CSV或独立收据，建议下轮把它加入manifest/结果表。</p></details>
+    </div>
+  </section>
+
+  <footer>审计口径：clean Cora(ptb=0.00)；DeepRobust/Nettack Citeseer LCC→full clean Cora；5-shot/split-1=35/265/2408；accuracy为5个pretrain seed的mean±population std。生成日期：2026-08-05（Asia/Shanghai）。</footer>
+</main>
+
+<script>
+  const rows = [{"aug1":"maskN","aug2":"dropN","aug_ratio":0.2,"val_mean":0.464151,"val_std":0.044522,"test_mean":0.499502,"test_std":0.047767},{"aug1":"maskN","aug2":"maskN","aug_ratio":0.1,"val_mean":0.463396,"val_std":0.04829,"test_mean":0.492691,"test_std":0.056772},{"aug1":"dropN","aug2":"dropN","aug_ratio":0.2,"val_mean":0.455849,"val_std":0.083579,"test_mean":0.491528,"test_std":0.070084},{"aug1":"dropN","aug2":"dropN","aug_ratio":0.1,"val_mean":0.449811,"val_std":0.052473,"test_mean":0.467027,"test_std":0.047624},{"aug1":"permE","aug2":"permE","aug_ratio":0.1,"val_mean":0.449811,"val_std":0.052636,"test_mean":0.478987,"test_std":0.056003},{"aug1":"dropN","aug2":"maskN","aug_ratio":0.1,"val_mean":0.446793,"val_std":0.05021,"test_mean":0.478488,"test_std":0.045705},{"aug1":"maskN","aug2":"dropN","aug_ratio":0.1,"val_mean":0.443019,"val_std":0.044815,"test_mean":0.461046,"test_std":0.050468},{"aug1":"maskN","aug2":"dropN","aug_ratio":0.3,"val_mean":0.443019,"val_std":0.049178,"test_mean":0.483472,"test_std":0.042899},{"aug1":"permE","aug2":"permE","aug_ratio":0.2,"val_mean":0.437736,"val_std":0.057922,"test_mean":0.451578,"test_std":0.057417},{"aug1":"dropN","aug2":"maskN","aug_ratio":0.2,"val_mean":0.435472,"val_std":0.039187,"test_mean":0.490365,"test_std":0.053487},{"aug1":"maskN","aug2":"maskN","aug_ratio":0.3,"val_mean":0.435472,"val_std":0.036321,"test_mean":0.479568,"test_std":0.049049},{"aug1":"dropN","aug2":"maskN","aug_ratio":0.3,"val_mean":0.431698,"val_std":0.05696,"test_mean":0.458887,"test_std":0.044113},{"aug1":"permE","aug2":"dropN","aug_ratio":0.1,"val_mean":0.431698,"val_std":0.040333,"test_mean":0.44701,"test_std":0.028335},{"aug1":"maskN","aug2":"permE","aug_ratio":0.1,"val_mean":0.429434,"val_std":0.018853,"test_mean":0.462375,"test_std":0.020878},{"aug1":"maskN","aug2":"permE","aug_ratio":0.2,"val_mean":0.424905,"val_std":0.023938,"test_mean":0.45407,"test_std":0.016098},{"aug1":"permE","aug2":"dropN","aug_ratio":0.2,"val_mean":0.423396,"val_std":0.038439,"test_mean":0.46902,"test_std":0.03054},{"aug1":"dropN","aug2":"dropN","aug_ratio":0.3,"val_mean":0.421132,"val_std":0.060311,"test_mean":0.45789,"test_std":0.044895},{"aug1":"maskN","aug2":"maskN","aug_ratio":0.2,"val_mean":0.418868,"val_std":0.067757,"test_mean":0.455399,"test_std":0.064522},{"aug1":"dropN","aug2":"permE","aug_ratio":0.1,"val_mean":0.415094,"val_std":0.048561,"test_mean":0.448754,"test_std":0.047157},{"aug1":"permE","aug2":"dropN","aug_ratio":0.3,"val_mean":0.413585,"val_std":0.03702,"test_mean":0.449502,"test_std":0.033781},{"aug1":"dropN","aug2":"permE","aug_ratio":0.3,"val_mean":0.41283,"val_std":0.036242,"test_mean":0.438622,"test_std":0.026087},{"aug1":"permE","aug2":"permE","aug_ratio":0.3,"val_mean":0.412075,"val_std":0.044611,"test_mean":0.435548,"test_std":0.037309},{"aug1":"maskN","aug2":"permE","aug_ratio":0.3,"val_mean":0.409811,"val_std":0.031446,"test_mean":0.448588,"test_std":0.033546},{"aug1":"permE","aug2":"maskN","aug_ratio":0.1,"val_mean":0.408302,"val_std":0.065247,"test_mean":0.437957,"test_std":0.069911},{"aug1":"permE","aug2":"maskN","aug_ratio":0.2,"val_mean":0.403774,"val_std":0.043486,"test_mean":0.40706,"test_std":0.030267},{"aug1":"permE","aug2":"maskN","aug_ratio":0.3,"val_mean":0.401509,"val_std":0.016638,"test_mean":0.427326,"test_std":0.017175},{"aug1":"dropN","aug2":"permE","aug_ratio":0.2,"val_mean":0.400755,"val_std":0.019593,"test_mean":0.430814,"test_std":0.01982}];
+
+  let metric = "test_mean";
+  let ratio = "all";
+  const explorer = document.getElementById("explorer");
+  function renderExplorer() {
+    const stdKey = metric === "test_mean" ? "test_std" : "val_std";
+    const filtered = rows.filter(r => ratio === "all" || String(r.aug_ratio) === ratio).sort((a,b) => b[metric] - a[metric]);
+    const min = Math.min(...filtered.map(r => r[metric]));
+    const max = Math.max(...filtered.map(r => r[metric]));
+    explorer.innerHTML = filtered.map((r, i) => {
+      const width = 18 + 82 * (r[metric] - min) / Math.max(max - min, 1e-9);
+      const best = r.aug1 === "maskN" && r.aug2 === "dropN" && r.aug_ratio === 0.2;
+      return `<div class="bar-row" ${best ? 'style="font-weight:700"' : ''}><span class="bar-label">${String(i+1).padStart(2,'0')} · ${r.aug1}→${r.aug2}</span><span class="bar-ratio">r=${r.aug_ratio}</span><span class="mini-track"><span class="mini-fill" style="display:block;width:${width}%;background:${best ? 'var(--green)' : 'var(--blue)'}"></span></span><span class="bar-value">${r[metric].toFixed(6)}±${r[stdKey].toFixed(6)}</span></div>`;
+    }).join("");
+  }
+  document.querySelectorAll(".metric-btn").forEach(btn => btn.addEventListener("click", () => {
+    document.querySelectorAll(".metric-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active"); metric = btn.dataset.metric; renderExplorer();
+  }));
+  document.querySelectorAll(".ratio-btn").forEach(btn => btn.addEventListener("click", () => {
+    document.querySelectorAll(".ratio-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active"); ratio = btn.dataset.ratio; renderExplorer();
+  }));
+  renderExplorer();
+
+  const seedData = [
+    {seed:1,val:0.516981,test:0.559801}, {seed:2,val:0.483019,test:0.536960},
+    {seed:3,val:0.407547,test:0.450166}, {seed:4,val:0.498113,test:0.512458},
+    {seed:5,val:0.415094,test:0.438123}
+  ];
+  const svg = document.getElementById("seedChart");
+  const NS = "http://www.w3.org/2000/svg";
+  const ink = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim();
+  const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();
+  const line = getComputedStyle(document.documentElement).getPropertyValue('--line').trim();
+  const green = getComputedStyle(document.documentElement).getPropertyValue('--green').trim();
+  const blue = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim();
+  const x = i => 72 + i * 126;
+  const y = v => 282 - (v - 0.35) / 0.23 * 232;
+  function el(name, attrs, text) { const n=document.createElementNS(NS,name); Object.entries(attrs||{}).forEach(([k,v])=>n.setAttribute(k,v)); if(text) n.textContent=text; svg.appendChild(n); return n; }
+  [0.35,0.40,0.45,0.50,0.55].forEach(v => { el('line',{x1:54,y1:y(v),x2:600,y2:y(v),stroke:line,'stroke-width':1}); el('text',{x:8,y:y(v)+4,fill:muted,'font-size':12},v.toFixed(2)); });
+  seedData.forEach((d,i)=>el('text',{x:x(i),y:312,fill:muted,'font-size':12,'text-anchor':'middle'},`seed ${d.seed}`));
+  const pathFor = key => seedData.map((d,i)=>`${i?'L':'M'}${x(i)},${y(d[key])}`).join(' ');
+  el('path',{d:pathFor('val'),fill:'none',stroke:blue,'stroke-width':3});
+  el('path',{d:pathFor('test'),fill:'none',stroke:green,'stroke-width':3});
+  seedData.forEach((d,i)=>{ el('circle',{cx:x(i),cy:y(d.val),r:5,fill:blue}); el('circle',{cx:x(i),cy:y(d.test),r:5,fill:green}); });
+  el('line',{x1:390,y1:22,x2:420,y2:22,stroke:blue,'stroke-width':3}); el('text',{x:428,y:27,fill:ink,'font-size':12},'validation');
+  el('line',{x1:500,y1:22,x2:530,y2:22,stroke:green,'stroke-width':3}); el('text',{x:538,y:27,fill:ink,'font-size':12},'test');
+</script>
+</body>
+</html>

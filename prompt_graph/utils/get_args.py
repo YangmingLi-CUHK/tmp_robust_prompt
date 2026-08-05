@@ -50,9 +50,13 @@ def get_args():
     parser.add_argument('--preprocess_method', type=str, default='None', help='Choose preprocess method svd')
     parser.add_argument('--svd_out_dim', type=int, default=100,
                         help='Output feature dimension when --preprocess_method svd is used.')
+    parser.add_argument('--downstream_svd_cache', type=str, default=None,
+                        help='Fixed downstream SVD feature cache. Required for formal cross-dataset SVD runs.')
     parser.add_argument('--attack_downstream', action='store_true', default=False, help='Attack Downstream Task')
     parser.add_argument('--specified', action='store_true', default=False,
                         help='Attack specified split, Used for some distribution-based attacks')
+    parser.add_argument('--strict_attack_raw', action='store_true', default=False,
+                        help='Load specified attack files directly from canonical raw data, bypassing PyG processed caches.')
     # ArgumentParser在传布尔类型变量时，传入参数按字符串处理，所以无论传入什么值，参数值都为True。
     parser.add_argument('--attack_method', type=str, default='None')  # ['DICE-0.1','Meta_Self-0.05' ,...] 攻击方式-扰动率
     # 如果用自适应攻击，就使用下面的参数
@@ -63,8 +67,8 @@ def get_args():
     parser.add_argument('--adaptive_ptb_rate', type=float, default=0.)
 
     parser.add_argument('--filter_mode', type=str, default='original',
-                        choices=['original', 'neighbor_similarity', 'hybrid', 'focusedcleaner_lp'],
-                        help='Choose which robust filter to use. Default keeps the current behavior unchanged.')
+                        choices=['none', 'original', 'neighbor_similarity', 'hybrid', 'focusedcleaner_lp'],
+                        help='Choose which robust filter to use. none is the unfiltered GPPT baseline.')
     parser.add_argument('--filter_sim1_weight', type=float, default=0.5,
                         help='Weight for cosine similarity on H1 = A @ X in neighbor-similarity filtering.')
     parser.add_argument('--filter_sim2_weight', type=float, default=0.5,

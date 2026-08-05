@@ -22,12 +22,15 @@ class BaseTask:
         dataset_name='Cora',
         prompt_type='GPF',
         preprocess_method='None',
+        svd_out_dim=100,
+        downstream_svd_cache=None,
         attack_downstream=False,
         attack_method=None,
         epochs=100,
         shot_num=10,
         run_split=1,
         specified=False,
+        strict_attack_raw=False,
         adaptive=False,
         adaptive_scenario='',
         adaptive_split=0,
@@ -71,6 +74,8 @@ class BaseTask:
         self.pre_train_type = self.return_pre_train_type(pre_train_model_path)
         self.device = torch.device('cuda:' + str(device) if torch.cuda.is_available() else 'cpu')
         self.preprocess_method = preprocess_method
+        self.svd_out_dim = svd_out_dim
+        self.downstream_svd_cache = downstream_svd_cache
         self.hid_dim = hid_dim
         self.num_layer = num_layer
         self.dataset_name = dataset_name
@@ -85,6 +90,7 @@ class BaseTask:
         self.attack_downstream = attack_downstream
         self.attack_method = attack_method
         self.specified = specified
+        self.strict_attack_raw = strict_attack_raw
         # adaptive use
         self.adaptive = adaptive
         self.adaptive_scenario = adaptive_scenario
@@ -203,7 +209,11 @@ class BaseTask:
             # node_embedding = self.gnn(self.data.x, self.data.edge_index)
             # self.prompt.weigth_init(node_embedding,self.data.edge_index, self.data.y, train_ids)
             if self.task_type == 'NodeTask':
-                prompt_filter = build_filter(self._build_filter_config(pt_threshold=0.0))
+                prompt_filter = (
+                    None
+                    if self.filter_mode == 'none'
+                    else build_filter(self._build_filter_config(pt_threshold=0.0))
+                )
                 if self.dataset_name == 'Texas':
                     self.prompt = GPPTPrompt(
                         self.hid_dim, 5, self.output_dim,

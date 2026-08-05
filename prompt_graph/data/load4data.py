@@ -1,6 +1,9 @@
 import torch
 import os
+import hashlib
 import numpy as np
+import scipy.sparse as sp
+from types import SimpleNamespace
 from torch_geometric.transforms import NormalizeFeatures
 from torch_geometric.utils import add_remaining_self_loops, remove_self_loops, to_undirected
 from torch_geometric.loader.cluster import ClusterData
@@ -414,6 +417,180 @@ def load4node_attack_specified_shot_index(data_dir_name, dataname, attack_method
         print('train indices: {}'.format(whole_train_idx))
 
         raise Exception("Generated the specified data split, but it still needs to be attacked.")
+
+
+def load4node_attack_specified_raw(data_dir_name, dataname, attack_method, shot_num=10, run_split=1):
+    """Load the formal Cora attack graph directly from canonical raw files.
+
+    This bypasses PyG ``*_processed`` caches, which may outlive a regenerated
+    attack graph on a long-running server checkout.
+    """
+
+    if dataname != 'Cora' or shot_num != 5 or run_split != 1:
+        raise ValueError(
+            "Strict raw attack loading is dedicated to Cora 5-shot/split-1; "
+            f"got dataset={dataname}, shot={shot_num}, split={run_split}."
+        )
+    if '-' not in attack_method:
+        raise ValueError(f"Invalid attack method: {attack_method}")
+    atk_type, ptb_rate = attack_method.rsplit('-', 1)
+    expected_graphs = {
+        '0.00': (0, 0, 5278, 13264, '57b4528c357b3b8ff5ed44ecca47f3de42b84f36c4814961e048c48e67bd65ce'),
+        '0.05': (257, 6, 5529, 13766, '660e5ad3b7182007c2ba351e0160c20981bb30345246050b8497b43f111edb80'),
+        '0.10': (488, 39, 5727, 14162, '412dd306682d73f6a0adf918fac029ce661c50f1c20935f8fb5bdc92d715f74a'),
+        '0.15': (728, 63, 5943, 14594, 'e785143e7127598e14465536337a4a55b6f8a6f5888b0cba083e4e9e3cf54f68'),
+        '0.20': (976, 79, 6175, 15058, 'cb71b9db4fc517f15c3f2631dd9dc686589cb82e35b30ba307fb525bf440ff31'),
+        '0.25': (1212, 107, 6383, 15474, 'ac4192398d9be424fb15d80df2a0090115f49a5f78fee24fe4870a3b55ed2824'),
+    }
+    if atk_type != 'Meta_Self' or ptb_rate not in expected_graphs:
+        raise ValueError(
+            "Strict raw loading requires Meta_Self with a canonical two-decimal "
+            f"pollution rate; got {attack_method}."
+        )
+
+    root = project_path(data_dir_name, dataname, f'shot_{shot_num}', str(run_split))
+    raw_dir = project_path(root, atk_type, 'raw')
+    prefix = f'{atk_type}_{dataname}_{ptb_rate}'
+    required = [
+        project_path(raw_dir, f'{dataname}_features.npz'),
+        project_path(raw_dir, f'{dataname}_labels.npy'),
+        project_path(raw_dir, f'{prefix}.pt'),
+        project_path(raw_dir, f'{prefix}_idx_train.npy'),
+        project_path(raw_dir, f'{prefix}_idx_val.npy'),
+        project_path(raw_dir, f'{prefix}_idx_test.npy'),
+    ]
+    canonical_index_paths = [
+        project_path(root, 'index', 'train_idx.pt'),
+        project_path(root, 'index', 'val_idx.pt'),
+        project_path(root, 'index', 'test_idx.pt'),
+    ]
+    missing = [str(path) for path in required + canonical_index_paths if not os.path.isfile(path)]
+    if missing:
+        raise FileNotFoundError(f"Missing canonical raw attack files: {missing}")
+
+    def file_hash(path):
+        digest = hashlib.sha256()
+        with open(path, 'rb') as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    expected_file_hashes = {
+        required[0]: 'cba12dbb6b543cf81e601fb29eebc8d2897c35d2455ae6b51658dc95c94228e5',
+        required[1]: '1f2fde4fd4b4aca1a4ca053376fb00f5ebeb8fa3e04e8b2a9c0bfd273ca1c83b',
+        required[2]: expected_graphs[ptb_rate][4],
+        required[3]: '1d2230968368cac607798c04c24d6b634ca2c0e92f3149cc48efb1b0d562dec8',
+        required[4]: '00838368d5334cfef5493e7b33c635f57efd307c4dbedd602c178c76683db299',
+        required[5]: '37fc182a19c25253f522562d4ecd6a533676928f43530ffe781c67d2c342186f',
+    }
+    for path, expected_hash in expected_file_hashes.items():
+        actual_hash = file_hash(path)
+        if actual_hash != expected_hash:
+            raise RuntimeError(
+                f"Canonical raw SHA256 mismatch for {path}: "
+                f"expected {expected_hash}, got {actual_hash}."
+            )
+
+    features = sp.load_npz(required[0]).toarray().astype(np.float32, copy=False)
+    labels = np.load(required[1])
+    if features.shape != (2708, 1433) or labels.shape != (2708,):
+        raise RuntimeError(
+            f"Unexpected Cora raw shapes: features={features.shape}, labels={labels.shape}."
+        )
+
+    def load_raw_edges(rate):
+        adjacency_path = project_path(raw_dir, f'{atk_type}_{dataname}_{rate}.pt')
+        adjacency = torch.load(adjacency_path, map_location='cpu', weights_only=False)
+        if not isinstance(adjacency, torch.Tensor):
+            raise RuntimeError(f"Attack adjacency is not a tensor: {adjacency_path}")
+        if adjacency.layout == torch.strided:
+            indices = adjacency.nonzero(as_tuple=False).t().contiguous()
+        else:
+            sparse_adjacency = adjacency.to_sparse_coo().coalesce()
+            nonzero = sparse_adjacency.values() != 0
+            indices = sparse_adjacency.indices()[:, nonzero]
+        pairs = {
+            (min(int(source), int(target)), max(int(source), int(target)))
+            for source, target in indices.t().tolist()
+            if source != target
+        }
+        return indices, pairs
+
+    raw_edge_index, attack_edges = load_raw_edges(ptb_rate)
+    _, clean_edges = load_raw_edges('0.00')
+    added_edges = attack_edges - clean_edges
+    deleted_edges = clean_edges - attack_edges
+    expected_added, expected_deleted, expected_edges, expected_runtime_edges, graph_hash = expected_graphs[ptb_rate]
+    actual_graph = (
+        len(added_edges),
+        len(deleted_edges),
+        len(attack_edges),
+        2 * len(attack_edges) + 2708,
+    )
+    expected_graph = (
+        expected_added,
+        expected_deleted,
+        expected_edges,
+        expected_runtime_edges,
+    )
+    if len(clean_edges) != 5278 or actual_graph != expected_graph:
+        raise RuntimeError(
+            "Canonical corrected-budget graph check failed: "
+            f"attack={attack_method}, clean_edges={len(clean_edges)}, "
+            f"actual(add,delete,E,runtimeE)={actual_graph}, expected={expected_graph}."
+        )
+
+    raw_edge_index, _ = remove_self_loops(raw_edge_index)
+    edge_index, _ = add_remaining_self_loops(raw_edge_index, num_nodes=2708)
+    data = Data(
+        x=torch.from_numpy(features),
+        edge_index=edge_index,
+        y=torch.as_tensor(labels, dtype=torch.long),
+    )
+    if data.num_edges != expected_runtime_edges or not data.is_undirected():
+        raise RuntimeError(
+            "Strict raw loader produced an unexpected runtime graph: "
+            f"edges={data.num_edges}, undirected={data.is_undirected()}."
+        )
+
+    split_names = ('train', 'val', 'test')
+    masks = {}
+    for split_name, raw_index_path, canonical_path in zip(
+        split_names, required[3:], canonical_index_paths
+    ):
+        raw_indices = np.load(raw_index_path).astype(np.int64, copy=False)
+        canonical_indices = torch.load(
+            canonical_path,
+            map_location='cpu',
+            weights_only=True,
+        ).to(torch.long).cpu().numpy()
+        if not np.array_equal(raw_indices, canonical_indices):
+            raise RuntimeError(
+                f"Raw {split_name} indices do not match the canonical 5-shot/split-1 index."
+            )
+        mask = torch.zeros(2708, dtype=torch.bool)
+        mask[torch.from_numpy(raw_indices)] = True
+        masks[split_name] = mask
+
+    if tuple(int(masks[name].sum()) for name in split_names) != (35, 265, 2408):
+        raise RuntimeError("Unexpected canonical Cora split sizes in strict raw loader.")
+    if bool((masks['train'] & masks['val']).any()) or bool(
+        (masks['train'] & masks['test']).any()
+    ) or bool((masks['val'] & masks['test']).any()):
+        raise RuntimeError("Canonical Cora train/val/test masks overlap.")
+
+    data.train_mask = masks['train']
+    data.val_mask = masks['val']
+    data.test_mask = masks['test']
+    dataset = SimpleNamespace(num_classes=7, num_features=1433)
+    print(
+        "Strict attack raw verified | "
+        f"path={required[2]} | attack={attack_method} | "
+        f"added={len(added_edges)} | deleted={len(deleted_edges)} | "
+        f"clean_edges={len(clean_edges)} | attack_edges={len(attack_edges)} | "
+        f"runtime_edges={data.num_edges} | raw_sha256={graph_hash}"
+    )
+    return data, dataset
 
 
 # =============================================================================

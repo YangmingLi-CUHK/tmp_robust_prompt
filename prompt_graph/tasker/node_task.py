@@ -6,7 +6,8 @@ from torch_geometric.data   import Data
 import torch.utils.data as Data1
 from prompt_graph.utils import constraint,  center_embedding, Gprompt_tuning_loss, process, cmd, MLP, train_MLP, get_psu_labels, finetune_answering, get_detector
 from prompt_graph.evaluation import GPPTEva, GNNNodeEva, GpromptEva, MultiGpromptEva, GPFEva, AllInOneEva, RobustPromptInductiveEva, RobustPromptTranductiveEva, GPFTranductiveEva
-from prompt_graph.data import induced_graphs, split_induced_graphs, split_induced_graphs_save_relabel_central_node_and_raw_index, load4cora_downstream_clean, load4node_attack_shot_index, load4node_attack_specified_shot_index
+from prompt_graph.data import induced_graphs, split_induced_graphs, split_induced_graphs_save_relabel_central_node_and_raw_index, load4cora_downstream_clean, load4node_attack_shot_index, load4node_attack_specified_shot_index, load4node_attack_specified_raw
+from prompt_graph.utils.downstream_svd_cache import apply_cora_svd100_cache
 from  easydict  import EasyDict
 
 from .task import BaseTask
@@ -39,6 +40,11 @@ class NodeTask(BaseTask):
             self.task_type = 'NodeTask'
             self.edge_detection_reference = None
 
+            if self.strict_attack_raw and (not self.attack_downstream or not self.specified):
+                  raise ValueError(
+                        "--strict_attack_raw requires both --attack_downstream and --specified."
+                  )
+
             if self.attack_downstream:
                   # assert self.attack_method != 'None', 'No specific attacks were designated.'
                   self.load_shot_attack_data()
@@ -46,9 +52,31 @@ class NodeTask(BaseTask):
                   self.load_data()
 
             self.initialize_gnn()
+            self._freeze_formal_transductive_backbone()
             self.initialize_prompt()
             self.answering =  torch.nn.Linear(self.hid_dim, self.output_dim).to(self.device)
             self.initialize_optimizer()
+
+
+      def _freeze_formal_transductive_backbone(self):
+            if self.prompt_type not in ['GPPT', 'RobustPrompt-T']:
+                  return
+            for parameter in self.gnn.parameters():
+                  parameter.requires_grad_(False)
+            self.gnn.eval()
+            trainable_parameters = sum(
+                  parameter.numel() for parameter in self.gnn.parameters()
+                  if parameter.requires_grad
+            )
+            if trainable_parameters != 0:
+                  raise RuntimeError(
+                        f"Failed to freeze the pretrained GNN: trainable_parameters={trainable_parameters}."
+                  )
+            print(
+                  "Frozen backbone verified | "
+                  f"prompt_type={self.prompt_type} | "
+                  "trainable_parameters=0 | mode=eval"
+            )
       
 
 
@@ -75,13 +103,43 @@ class NodeTask(BaseTask):
             print("feature",features.shape)
 
 
+      def _apply_downstream_preprocessing(self):
+            method = str(self.preprocess_method).lower()
+            if method == 'none':
+                  return
+            if method != 'svd':
+                  raise ValueError(f"Unsupported downstream preprocess_method: {self.preprocess_method}")
+            if not self.downstream_svd_cache:
+                  raise ValueError(
+                        "--downstream_svd_cache is required when --preprocess_method svd is used "
+                        "for a downstream prompt task."
+                  )
+            self.downstream_preprocess_receipt = apply_cora_svd100_cache(
+                  self.data,
+                  self.downstream_svd_cache,
+                  self.dataset_name,
+                  self.svd_out_dim,
+            )
+            if self.strict_attack_raw:
+                  self.dataset.num_features = int(self.data.x.shape[1])
+
+
 
       def load_shot_attack_data(self):
             if self.specified:
                   # 对指定的train/val/test划分方式进行攻击，因为一些方法对不同的划分会产生不同的分布，这样能更加精准的实施攻击，但是对于每一个攻击都要实施一下，攻击成本更大
                   print("load LLC or attacked data with specified split")
                   data_dir_name = 'data_attack_fewshot' 
-                  self.data, self.dataset = load4node_attack_specified_shot_index(data_dir_name, self.dataset_name, self.attack_method, shot_num = self.shot_num, run_split= self.run_split)
+                  if self.strict_attack_raw:
+                        self.data, self.dataset = load4node_attack_specified_raw(
+                              data_dir_name,
+                              self.dataset_name,
+                              self.attack_method,
+                              shot_num=self.shot_num,
+                              run_split=self.run_split,
+                        )
+                  else:
+                        self.data, self.dataset = load4node_attack_specified_shot_index(data_dir_name, self.dataset_name, self.attack_method, shot_num = self.shot_num, run_split= self.run_split)
             else:
                   # 已经存在对默认的train/val/test划分方式进行攻击的数据集，从默认数据集中的train中提取不同shot的index, 这样更科学，从默认的攻击划分中进行抽取而不是从全局随机抽取可以相对保留攻击的效果
                   print('load LLC or attacked shot data with default split')
@@ -99,6 +157,8 @@ class NodeTask(BaseTask):
                         data_dir_name = 'data_attack_from_default_split' 
                         self.data, self.dataset = load4node_attack_shot_index(data_dir_name, self.dataset_name, self.attack_method, shot_num = self.shot_num, run_split= self.run_split)
 
+
+            self._apply_downstream_preprocessing()
 
             if self.prompt_type == 'MultiGprompt':
                   self.process_multigprompt_data(self.data)
@@ -149,6 +209,7 @@ class NodeTask(BaseTask):
 
       def load_data(self):
             self.data, self.dataset = load4cora_downstream_clean(self.dataset_name, shot_num = self.shot_num, run_split= self.run_split)
+            self._apply_downstream_preprocessing()
 
             if self.prompt_type == 'MultiGprompt':
                   self.process_multigprompt_data(self.data)
@@ -191,6 +252,15 @@ class NodeTask(BaseTask):
 
             atk_type = self.attack_method.split('-')[0]
             if self.specified:
+                  if self.strict_attack_raw:
+                        clean_data, _ = load4node_attack_specified_raw(
+                              data_dir_name,
+                              self.dataset_name,
+                              f'{atk_type}-0.00',
+                              shot_num=self.shot_num,
+                              run_split=self.run_split,
+                        )
+                        return clean_data
                   from data_attack_fewshot.attackdata_specified import AttackDataset_specified
 
                   path = project_path(
@@ -1063,6 +1133,11 @@ class NodeTask(BaseTask):
 
                   # print(f"Final True Accuracy: {test_acc:.4f} | Macro F1 Score: {f1:.4f} | AUROC: {roc:.4f} | AUPRC: {prc:.4f}" )
                   print(f"Final True Accuracy: {test_acc:.4f} | Macro F1 Score: {F1:.4f}" )
+                  print(
+                        "FINAL_RESULT | "
+                        f"test_accuracy={float(test_acc):.10f} | "
+                        f"macro_f1={float(F1):.10f}"
+                  )
                   self._report_edge_detection_metrics()
                   print("best_loss",  batch_best_loss)     
             return test_acc.cpu().numpy() if isinstance(test_acc, torch.Tensor) else test_acc
