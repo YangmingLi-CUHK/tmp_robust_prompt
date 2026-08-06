@@ -33,6 +33,12 @@ parser.add_argument('--shot_num',       type=int,                   default=1,  
 parser.add_argument('--run_split',      type=int,                   default=1,                                                                             help='run_split.')
 
 args = parser.parse_args()
+canonical_ptb_rates = {'0.00', '0.05', '0.10', '0.15', '0.20', '0.25'}
+ptb_rate_token = f'{args.ptb_rate:.2f}'
+if ptb_rate_token not in canonical_ptb_rates or args.ptb_rate != float(ptb_rate_token):
+    parser.error(
+        '--ptb_rate must be one of 0.00/0.05/0.10/0.15/0.20/0.25.'
+    )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 np.random.seed(args.seed)
@@ -142,11 +148,11 @@ path = project_path('data_attack_fewshot', args.dataset, 'shot_{}'.format(args.s
 if not os.path.exists(path):
     os.makedirs(path, exist_ok=True)
 
-torch.save(modified_adj.to_sparse(),   os.path.join(path, '%s_%s_%s.pt' % (args.model, args.dataset,args.ptb_rate)))
+torch.save(modified_adj.to_sparse(),   os.path.join(path, '%s_%s_%s.pt' % (args.model, args.dataset,ptb_rate_token)))
 if args.ptb_rate == 0: #保存一次label和features即可
     scipy.sparse.save_npz(os.path.join(path, '%s_features' % (args.dataset)), scipy.sparse.csr_matrix(np.array(features)))
     np.save(os.path.join(path, '%s_labels' % (args.dataset)),   labels)
 
-np.save(os.path.join(path, '%s_%s_%s_idx_train' % (args.model, args.dataset,args.ptb_rate)),   idx_train)
-np.save(os.path.join(path, '%s_%s_%s_idx_val'   % (args.model, args.dataset,args.ptb_rate)),     idx_val)
-np.save(os.path.join(path, '%s_%s_%s_idx_test'  % (args.model, args.dataset,args.ptb_rate)),    idx_test)
+np.save(os.path.join(path, '%s_%s_%s_idx_train' % (args.model, args.dataset,ptb_rate_token)),   idx_train)
+np.save(os.path.join(path, '%s_%s_%s_idx_val'   % (args.model, args.dataset,ptb_rate_token)),     idx_val)
+np.save(os.path.join(path, '%s_%s_%s_idx_test'  % (args.model, args.dataset,ptb_rate_token)),    idx_test)

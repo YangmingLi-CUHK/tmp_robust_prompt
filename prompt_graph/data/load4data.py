@@ -459,10 +459,13 @@ def load4node_attack_specified_raw(data_dir_name, dataname, attack_method, shot_
         project_path(raw_dir, f'{prefix}_idx_val.npy'),
         project_path(raw_dir, f'{prefix}_idx_test.npy'),
     ]
+    canonical_index_root = project_path(
+        'data_fewshot', dataname, f'shot_{shot_num}', str(run_split), 'index'
+    )
     canonical_index_paths = [
-        project_path(root, 'index', 'train_idx.pt'),
-        project_path(root, 'index', 'val_idx.pt'),
-        project_path(root, 'index', 'test_idx.pt'),
+        project_path(canonical_index_root, 'train_idx.pt'),
+        project_path(canonical_index_root, 'val_idx.pt'),
+        project_path(canonical_index_root, 'test_idx.pt'),
     ]
     missing = [str(path) for path in required + canonical_index_paths if not os.path.isfile(path)]
     if missing:
@@ -564,7 +567,7 @@ def load4node_attack_specified_raw(data_dir_name, dataname, attack_method, shot_
             map_location='cpu',
             weights_only=True,
         ).to(torch.long).cpu().numpy()
-        if not np.array_equal(raw_indices, canonical_indices):
+        if not np.array_equal(np.sort(raw_indices), np.sort(canonical_indices)):
             raise RuntimeError(
                 f"Raw {split_name} indices do not match the canonical 5-shot/split-1 index."
             )
