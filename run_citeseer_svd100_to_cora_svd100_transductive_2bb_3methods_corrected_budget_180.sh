@@ -6,7 +6,7 @@ cd "$PROJECT_ROOT"
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 GPU_ID="${GPU_ID:-0}"
-OUTPUT_DIR="${OUTPUT_DIR:-logs/citeseer_svd100_to_cora_svd100_transductive_3methods_corrected_budget_90}"
+OUTPUT_DIR="${OUTPUT_DIR:-logs/citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180}"
 PREFLIGHT_ONLY="${PREFLIGHT_ONLY:-0}"
 
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
@@ -21,6 +21,6 @@ if [[ "$PREFLIGHT_ONLY" == "1" ]]; then
     ARGS+=(--preflight-only)
 fi
 
-"$PYTHON_BIN" run_citeseer_svd100_to_cora_svd100_transductive_3methods_corrected_budget_90.py \
+"$PYTHON_BIN" run_citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180.py \
     "${ARGS[@]}" \
     "$@"

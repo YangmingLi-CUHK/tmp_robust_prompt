@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the selected Citeseer-SVD100 encoder on corrected-budget Cora attacks."""
+"""Run the fixed Peak/Stable Citeseer-SVD100 backbones on corrected-budget Cora attacks."""
 
 from __future__ import annotations
 
@@ -15,14 +15,13 @@ import statistics
 import subprocess
 import sys
 from datetime import datetime, timezone
-from decimal import Decimal
 from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-EXPERIMENT_NAME = "citeseer_svd100_to_cora_svd100_transductive_3methods_corrected_budget_90"
+EXPERIMENT_NAME = "citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180"
 PTB_RATES = ("0.00", "0.05", "0.10", "0.15", "0.20", "0.25")
-SEEDS = (1, 2, 3, 4, 5)
+DOWNSTREAM_SEEDS = (1, 2, 3, 4, 5)
 
 CANONICAL_FEATURE_SHA256 = "cba12dbb6b543cf81e601fb29eebc8d2897c35d2455ae6b51658dc95c94228e5"
 CANONICAL_LABEL_SHA256 = "1f2fde4fd4b4aca1a4ca053376fb00f5ebeb8fa3e04e8b2a9c0bfd273ca1c83b"
@@ -31,19 +30,67 @@ CANONICAL_INDEX_SHA256 = {
     "val": "00838368d5334cfef5493e7b33c635f57efd307c4dbedd602c178c76683db299",
     "test": "37fc182a19c25253f522562d4ecd6a533676928f43530ffe781c67d2c342186f",
 }
-EXPECTED_CHECKPOINT_SHA256 = {
-    1: "a0e2ad626e53016ab73da1db02480da203a13b87e3a30e32a6d9f1214c08a51b",
-    2: "3a78d928b7a2fa59d42f4c45e0af9ba236f8e90a1a87bdebf050bb1f53de0596",
-    3: "758992befc4f1bd8dd5efebf1908e09fb91792f1bb35cfab785df25c6b6ad4b6",
-    4: "82f0ffc37d01f9acbed1c1b6b89151b57f279ad21a47e87fc2cd4a59ba316179",
-    5: "4e35eafe79e8be0833e5f6287ed96221757896482d289170e4c7b538ea4d3455",
+SOURCE_SVD_RECEIPT = {
+    "dataset": "Citeseer_Nettack_LCC",
+    "original_shape": [2110, 3703],
+    "original_x_sha256": "b3ae8a20c3ad485d49b3357b5a7537963e388dceee1005032310f90b877b8c63",
+    "preprocessing": "raw_bow_to_l1_to_independent_svd100",
+    "reduced_shape": [2110, 100],
+    "reduced_x_sha256": "c5acb8034c33d907e4aec92fda71254e59b556367d9c96a92964f75044bbbb3e",
+    "svd_backend": "torch_geometric.SVDFeatureReduction(torch.linalg.svd)",
+    "torch_geometric_version": "2.7.0",
+    "torch_version": "2.8.0+cu129",
+    "version": 1,
 }
+
+BACKBONES = (
+    {
+        "id": "peak_bb",
+        "label": "Peak BB",
+        "pretrain_seed": 1,
+        "filename": (
+            "Citeseer.GraphCL.GCN.256_hidden_dim.preprocess_svd_100."
+            "aug1_dropN.aug2_dropN.lr_0.001.ratio_0.1.seed_1.pth"
+        ),
+        "sha256": "25bfafe8bcfd4495df6a49542b7e64c2b1897468bcfdcb6cf71cddc7c53a84d4",
+        "source_svd_sha256": SOURCE_SVD_RECEIPT["reduced_x_sha256"],
+        "clean_val_accuracy": "0.535849",
+        "clean_test_accuracy": "0.531561",
+        "selection": (
+            "highest single-checkpoint clean validation accuracy among all 135 runs; "
+            "dropN/dropN,ratio=0.1,lr=0.001,pretrain_seed=1"
+        ),
+        "selection_group_val_mean": "",
+        "selection_group_val_std": "",
+    },
+    {
+        "id": "stable_bb",
+        "label": "Stable BB",
+        "pretrain_seed": 1,
+        "filename": (
+            "Citeseer.GraphCL.GCN.256_hidden_dim.preprocess_svd_100."
+            "aug1_maskN.aug2_dropN.lr_0.001.ratio_0.2.seed_1.pth"
+        ),
+        "sha256": "a0e2ad626e53016ab73da1db02480da203a13b87e3a30e32a6d9f1214c08a51b",
+        "source_svd_sha256": SOURCE_SVD_RECEIPT["reduced_x_sha256"],
+        "clean_val_accuracy": "0.516981",
+        "clean_test_accuracy": "0.559801",
+        "selection": (
+            "highest clean validation checkpoint within the rank-1 complete-5-seed "
+            "validation-mean group; maskN/dropN,ratio=0.2,lr=0.001,pretrain_seed=1"
+        ),
+        "selection_group_val_mean": "0.464151",
+        "selection_group_val_std": "0.044522",
+    },
+)
+
+EXPECTED_CHECKPOINT_SHA256 = {row["id"]: row["sha256"] for row in BACKBONES}
 EXPECTED_CLEAN_REPLAY = {
-    1: {"val_accuracy": "0.516981", "test_accuracy": "0.559801"},
-    2: {"val_accuracy": "0.483019", "test_accuracy": "0.536960"},
-    3: {"val_accuracy": "0.407547", "test_accuracy": "0.450166"},
-    4: {"val_accuracy": "0.498113", "test_accuracy": "0.512458"},
-    5: {"val_accuracy": "0.415094", "test_accuracy": "0.438123"},
+    row["id"]: {
+        "val_accuracy": row["clean_val_accuracy"],
+        "test_accuracy": row["clean_test_accuracy"],
+    }
+    for row in BACKBONES
 }
 
 EXPECTED_ATTACKS = {
@@ -98,8 +145,12 @@ METHODS = (
     },
 )
 
+FORMAL_RUN_COUNT = len(BACKBONES) * len(METHODS) * len(PTB_RATES) * len(DOWNSTREAM_SEEDS)
+FORMAL_GROUP_COUNT = len(BACKBONES) * len(METHODS) * len(PTB_RATES)
+
 RESULT_FIELDS = [
-    "run_key", "status", "method", "ptb_rate", "pretrain_seed", "downstream_seed",
+    "run_key", "status", "backbone_id", "backbone_label", "backbone_selection",
+    "method", "ptb_rate", "pretrain_seed", "downstream_seed",
     "source_dataset", "target_dataset", "feature_alignment", "target_preprocessing",
     "encoder_dimensions", "prompt_space", "prompt_variant", "filter_mode_argument",
     "effective_edge_path", "epochs",
@@ -115,7 +166,8 @@ RESULT_FIELDS = [
 ]
 
 SUMMARY_FIELDS = [
-    "method", "ptb_rate", "selection_status", "n_seeds", "seeds_ok", "seeds_missing",
+    "backbone_id", "backbone_label", "method", "ptb_rate", "selection_status",
+    "n_seeds", "seeds_ok", "seeds_missing",
     "test_accuracy_mean", "test_accuracy_std", "test_macro_f1_mean", "test_macro_f1_std",
 ]
 
@@ -133,23 +185,11 @@ class RunFailure(RuntimeError):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    selection_dir = "logs/citeseer_svd100_to_cora_svd100_graphcl_135"
-    parser.add_argument(
-        "--selection-results",
-        default=f"{selection_dir}/per_seed_results_incremental.csv",
-    )
-    parser.add_argument(
-        "--selection-summary",
-        default=f"{selection_dir}/group_summary_incremental.csv",
-    )
-    parser.add_argument(
-        "--source-receipt",
-        default=f"{selection_dir}/citeseer_svd100_cache_receipt.json",
-    )
-    parser.add_argument("--checkpoint-dir", default="pre_trained_model_raw")
+    asset_dir = "experiment_assets/citeseer_svd100_transductive"
+    parser.add_argument("--checkpoint-dir", default=asset_dir)
     parser.add_argument(
         "--target-cache",
-        default="data/preprocessed/cora_clean_full_l1_svd_100.pt",
+        default=f"{asset_dir}/cora_clean_full_l1_svd_100.pt",
     )
     parser.add_argument(
         "--output-dir",
@@ -160,7 +200,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--plan-only",
         action="store_true",
-        help="Validate the selected CSV rows and print all 90 run keys without loading artifacts.",
+        help="Print all 180 hard-coded run keys without loading artifacts.",
     )
     parser.add_argument(
         "--preflight-only",
@@ -182,7 +222,8 @@ def atomic_write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f"{path.name}.tmp.{os.getpid()}")
     try:
-        temporary.write_text(content, encoding="utf-8", newline="")
+        with temporary.open("w", encoding="utf-8", newline="") as handle:
+            handle.write(content)
         os.replace(temporary, path)
     finally:
         if temporary.exists():
@@ -203,13 +244,6 @@ def atomic_write_csv(path: Path, fields: list[str], rows: list[dict[str, object]
             temporary.unlink()
 
 
-def read_csv(path: Path) -> list[dict[str, str]]:
-    if not path.is_file():
-        raise FileNotFoundError(path)
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        return list(csv.DictReader(handle))
-
-
 def read_results(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
         return []
@@ -225,107 +259,36 @@ def read_results(path: Path) -> list[dict[str, str]]:
 
 
 def selected_checkpoint_rows(args: argparse.Namespace) -> list[dict[str, object]]:
-    summary_rows = read_csv(Path(args.selection_summary))
-    selected_summary = [
-        row for row in summary_rows
-        if row.get("selection_status") == "complete_5_of_5"
-        and row.get("aug1") == "maskN"
-        and row.get("aug2") == "dropN"
-        and Decimal(row.get("aug_ratio", "-1")) == Decimal("0.2")
-        and Decimal(row.get("pretrain_lr", "-1")) == Decimal("0.001")
-    ]
-    if len(selected_summary) != 1 or selected_summary[0].get("rank_by_val") != "1":
-        raise RuntimeError(
-            "The frozen selection receipt no longer identifies maskN/dropN, ratio=0.2, "
-            "lr=0.001 as rank-1 by complete-5-seed validation mean."
-        )
-    expected_summary_receipt = {
-        "n_seeds": "5",
-        "seeds_ok": "1;2;3;4;5",
-        "seeds_missing": "",
-        "val_mean": "0.464151",
-        "val_std": "0.044522",
-        "test_mean": "0.499502",
-        "test_std": "0.047767",
-    }
-    summary_mismatches = {
-        field: (selected_summary[0].get(field), expected)
-        for field, expected in expected_summary_receipt.items()
-        if selected_summary[0].get(field) != expected
-    }
-    if summary_mismatches:
-        raise RuntimeError(f"Frozen clean selection summary receipt changed: {summary_mismatches}")
-
-    result_rows = read_csv(Path(args.selection_results))
-    selected = []
     checkpoint_dir = Path(args.checkpoint_dir)
-    for seed in SEEDS:
-        matches = [
-            row for row in result_rows
-            if row.get("status") == "ok"
-            and row.get("aug1") == "maskN"
-            and row.get("aug2") == "dropN"
-            and Decimal(row.get("aug_ratio", "-1")) == Decimal("0.2")
-            and Decimal(row.get("pretrain_lr", "-1")) == Decimal("0.001")
-            and row.get("pretrain_seed") == str(seed)
-        ]
-        if len(matches) != 1:
-            raise RuntimeError(f"Expected exactly one selected checkpoint receipt for seed {seed}.")
-        row = matches[0]
-        expected_name = (
-            "Citeseer.GraphCL.GCN.256_hidden_dim.preprocess_svd_100."
-            "aug1_maskN.aug2_dropN.lr_0.001.ratio_0.2."
-            f"seed_{seed}.pth"
-        )
-        if Path(row["checkpoint"]).name != expected_name:
-            raise RuntimeError(f"Unexpected selected checkpoint name for seed {seed}: {row['checkpoint']}")
-        checkpoint_hash = row.get("checkpoint_sha256", "")
-        if checkpoint_hash != EXPECTED_CHECKPOINT_SHA256[seed]:
-            raise RuntimeError(
-                f"Frozen checkpoint SHA256 receipt changed for seed {seed}: "
-                f"expected {EXPECTED_CHECKPOINT_SHA256[seed]}, got {checkpoint_hash}."
-            )
-        clean_metric_mismatches = {
-            field: (row.get(field), expected)
-            for field, expected in EXPECTED_CLEAN_REPLAY[seed].items()
-            if row.get(field) != expected
-        }
-        if clean_metric_mismatches:
-            raise RuntimeError(
-                f"Frozen clean per-seed receipt changed for seed {seed}: "
-                f"{clean_metric_mismatches}"
-            )
-        selected.append(
-            {
-                "seed": seed,
-                "path": checkpoint_dir / expected_name,
-                "sha256": checkpoint_hash,
-                "source_svd_sha256": row.get("source_svd_sha256", ""),
-                "clean_val_accuracy": row.get("val_accuracy", ""),
-                "clean_test_accuracy": row.get("test_accuracy", ""),
-            }
-        )
-    return selected
+    return [dict(row, path=checkpoint_dir / str(row["filename"])) for row in BACKBONES]
 
 
 def build_plan(selected: list[dict[str, object]]) -> list[dict[str, object]]:
-    by_seed = {int(row["seed"]): row for row in selected}
     plan = []
-    for method in METHODS:
-        for ptb_rate in PTB_RATES:
-            for seed in SEEDS:
-                plan.append(
-                    {
-                        "run_key": f"method={method['id']}|ptb={ptb_rate}|seed={seed}",
-                        "method": method,
-                        "ptb_rate": ptb_rate,
-                        "pretrain_seed": seed,
-                        "downstream_seed": seed,
-                        "checkpoint": by_seed[seed],
-                    }
-                )
-    if len(plan) != 90 or len({row["run_key"] for row in plan}) != 90:
-        raise RuntimeError("The formal paired-seed plan must contain exactly 90 unique runs.")
+    for checkpoint in selected:
+        for method in METHODS:
+            for ptb_rate in PTB_RATES:
+                for downstream_seed in DOWNSTREAM_SEEDS:
+                    plan.append(
+                        {
+                            "run_key": (
+                                f"backbone={checkpoint['id']}|method={method['id']}|"
+                                f"ptb={ptb_rate}|downstream_seed={downstream_seed}"
+                            ),
+                            "method": method,
+                            "ptb_rate": ptb_rate,
+                            "pretrain_seed": checkpoint["pretrain_seed"],
+                            "downstream_seed": downstream_seed,
+                            "checkpoint": checkpoint,
+                        }
+                    )
+    if (
+        len(plan) != FORMAL_RUN_COUNT
+        or len({row["run_key"] for row in plan}) != FORMAL_RUN_COUNT
+    ):
+        raise RuntimeError(
+            f"The fixed two-backbone plan must contain exactly {FORMAL_RUN_COUNT} unique runs."
+        )
     return plan
 
 
@@ -351,8 +314,8 @@ def validate_checkpoint(path: Path, expected_hash: str) -> None:
 
 def code_bundle_sha256() -> str:
     paths = [
-        Path(__file__),
-        PROJECT_ROOT / "run_citeseer_svd100_to_cora_svd100_transductive_3methods_corrected_budget_90.sh",
+        Path(__file__).resolve(),
+        PROJECT_ROOT / "run_citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180.sh",
         PROJECT_ROOT / "MyTask.py",
         PROJECT_ROOT / "eval_citeseer_svd100_to_cora_svd100.py",
         PROJECT_ROOT / "eval_pretrain.py",
@@ -431,17 +394,18 @@ def replay_selected_clean_receipts(
         )
         observed_val = f"{float(val_accuracy):.6f}"
         observed_test = f"{float(test_accuracy):.6f}"
-        expected_val = EXPECTED_CLEAN_REPLAY[int(row["seed"])]["val_accuracy"]
-        expected_test = EXPECTED_CLEAN_REPLAY[int(row["seed"])]["test_accuracy"]
+        expected_val = EXPECTED_CLEAN_REPLAY[str(row["id"])]["val_accuracy"]
+        expected_test = EXPECTED_CLEAN_REPLAY[str(row["id"])]["test_accuracy"]
         if observed_val != expected_val or observed_test != expected_test:
             raise RuntimeError(
                 "The active Cora SVD100 cache does not replay the frozen clean receipt for "
-                f"pretrain seed {row['seed']}: expected val/test="
+                f"backbone {row['id']}: expected val/test="
                 f"{expected_val}/{expected_test}, observed={observed_val}/{observed_test}."
             )
         replay_rows.append(
             {
-                "pretrain_seed": row["seed"],
+                "backbone_id": row["id"],
+                "pretrain_seed": row["pretrain_seed"],
                 "expected_val_accuracy": expected_val,
                 "observed_val_accuracy": observed_val,
                 "expected_test_accuracy": expected_test,
@@ -449,7 +413,7 @@ def replay_selected_clean_receipts(
                 "status": "exact_6dp_match",
             }
         )
-    print("Target SVD clean replay verified | checkpoints=5 | metrics=10/10 exact_6dp_match")
+    print("Target SVD clean replay verified | checkpoints=2 | metrics=4/4 exact_6dp_match")
     return replay_rows
 
 
@@ -504,9 +468,7 @@ def full_preflight(
         "device_total_memory": device_properties.total_memory,
     }
 
-    source_receipt_path = Path(args.source_receipt)
-    with source_receipt_path.open("r", encoding="utf-8") as handle:
-        source_receipt = json.load(handle)
+    source_receipt = SOURCE_SVD_RECEIPT
     source_hashes = {str(row["source_svd_sha256"]) for row in selected}
     if source_hashes != {source_receipt.get("reduced_x_sha256")} or "" in source_hashes:
         raise RuntimeError("Selected checkpoint rows and source SVD receipt disagree.")
@@ -639,11 +601,12 @@ def config_sha256(context: dict[str, object]) -> str:
     config = {
         "experiment": EXPERIMENT_NAME,
         "code_sha256": context["code_sha256"],
-        "matrix": "3_methods*6_ptb*5_paired_full_pipeline_seeds",
+        "matrix": "2_fixed_backbones*3_methods*6_ptb*5_downstream_seeds",
         "methods": METHODS,
         "ptb_rates": PTB_RATES,
-        "seeds": SEEDS,
-        "pretrain": "Citeseer_LCC_L1_independent_SVD100_GraphCL_maskN_dropN_ratio0.2",
+        "downstream_seeds": DOWNSTREAM_SEEDS,
+        "backbones": BACKBONES,
+        "pretrain": "Citeseer_LCC_L1_independent_SVD100_GraphCL",
         "encoder": "GCN_100_256_256_final_epoch_frozen",
         "target": "Cora_full_2708_L1_fixed_independent_SVD100",
         "target_svd_sha256": context["target_receipt"]["reduced_x_sha256"],
@@ -702,9 +665,18 @@ def write_manifests(
         ("code_sha256", context["code_sha256"]),
         ("config_sha256", config_hash),
         ("runtime_environment_json", json.dumps(context["runtime_environment"], sort_keys=True)),
-        ("selection", "maskN/dropN,ratio=0.2,lr=0.001; rank-1 by complete-5-seed clean validation mean"),
-        ("matrix", "3 methods * 6 corrected-budget ptb levels * 5 paired full-pipeline seeds = 90 runs"),
-        ("seed_pairing", "pretrain_seed i == downstream_seed i; five complete-pipeline replicates"),
+        ("peak_bb_selection", BACKBONES[0]["selection"]),
+        ("stable_bb_selection", BACKBONES[1]["selection"]),
+        (
+            "matrix",
+            "2 fixed backbones * 3 methods * 6 corrected-budget ptb levels * "
+            "5 downstream seeds = 180 runs",
+        ),
+        (
+            "seed_policy",
+            "each fixed pretrain checkpoint is reused across downstream seeds 1..5; "
+            "five downstream replicates per backbone-method-ptb group",
+        ),
         ("source_pipeline", "Citeseer raw3703->L1->independent SVD100->GraphCL GCN(100->256->256)"),
         ("source_svd_sha256", source_receipt["reduced_x_sha256"]),
         ("target_pipeline", "Cora raw1433->L1->fixed independent SVD100->frozen GCN(100->256->256)"),
@@ -712,8 +684,8 @@ def write_manifests(
         ("target_cache_file_sha256", context["target_cache_file_sha256"]),
         (
             "target_cache_anchor",
-            "original clean evaluator replayed on 5 selected checkpoints; "
-            "10/10 frozen val/test metrics require exact 6-decimal match",
+            "original clean evaluator replayed on 2 selected checkpoints; "
+            "4/4 frozen val/test metrics require exact 6-decimal match",
         ),
         ("feature_alignment", "independent_svd_shape_only; no shared basis or semantic alignment"),
         ("attack_data", "canonical specified Meta_Self raw; direct raw loader bypasses PyG processed caches"),
@@ -734,17 +706,26 @@ def write_manifests(
             "p_plus=true,attention=false,cosine_constraint=true",
         ),
         ("threshold_policy", "fixed before SVD100 pollution scan; no polluted validation/test retuning"),
-        ("backbone_policy", "checkpoint loaded strictly; requires_grad=false; eval mode; verified in each child log"),
+        (
+            "backbone_policy",
+            "Peak BB and Stable BB are fixed before pollution runs; each checkpoint is "
+            "loaded strictly, requires_grad=false, and eval mode is verified in each child log",
+        ),
         ("endpoint", "train-loss early stop; final state evaluated; no downstream validation selection"),
-        ("reporting", "all five paired seeds; simple mean and population std; no seed removed"),
+        (
+            "reporting",
+            "for each backbone-method-ptb group use all five downstream seeds; "
+            "simple mean and population std; no seed removed",
+        ),
         ("test_policy", "test is report-only; no test-oracle method or hyperparameter selection"),
     ]
     manifest_content = "field\tvalue\n" + "".join(f"{key}\t{value}\n" for key, value in manifest_rows)
     write_or_verify(output_dir / "manifest.tsv", manifest_content)
 
     checkpoint_fields = [
-        "pretrain_seed", "checkpoint", "checkpoint_sha256", "source_svd_sha256",
-        "clean_val_accuracy", "clean_test_accuracy",
+        "backbone_id", "backbone_label", "selection", "selection_group_val_mean",
+        "selection_group_val_std", "pretrain_seed", "checkpoint", "checkpoint_sha256",
+        "source_svd_sha256", "clean_val_accuracy", "clean_test_accuracy",
     ]
     checkpoint_lines = ["\t".join(checkpoint_fields)]
     for row in selected:
@@ -753,12 +734,17 @@ def write_manifests(
                 str(
                     row[
                         {
-                            "pretrain_seed": "seed",
+                            "backbone_id": "id",
+                            "backbone_label": "label",
+                            "pretrain_seed": "pretrain_seed",
                             "checkpoint": "path",
                             "checkpoint_sha256": "sha256",
                             "source_svd_sha256": "source_svd_sha256",
                             "clean_val_accuracy": "clean_val_accuracy",
                             "clean_test_accuracy": "clean_test_accuracy",
+                            "selection": "selection",
+                            "selection_group_val_mean": "selection_group_val_mean",
+                            "selection_group_val_std": "selection_group_val_std",
                         }[field]
                     ]
                 )
@@ -768,7 +754,7 @@ def write_manifests(
     write_or_verify(output_dir / "selected_checkpoints.tsv", "\n".join(checkpoint_lines) + "\n")
 
     replay_fields = [
-        "pretrain_seed", "expected_val_accuracy", "observed_val_accuracy",
+        "backbone_id", "pretrain_seed", "expected_val_accuracy", "observed_val_accuracy",
         "expected_test_accuracy", "observed_test_accuracy", "status",
     ]
     replay_lines = ["\t".join(replay_fields)]
@@ -789,8 +775,8 @@ def write_manifests(
     write_or_verify(output_dir / "attack_graph_manifest.tsv", "\n".join(attack_lines) + "\n")
 
     plan_fields = [
-        "run_key", "method", "ptb_rate", "pretrain_seed", "downstream_seed",
-        "checkpoint", "checkpoint_sha256",
+        "run_key", "backbone_id", "method", "ptb_rate", "pretrain_seed",
+        "downstream_seed", "checkpoint", "checkpoint_sha256",
     ]
     plan_lines = ["\t".join(plan_fields)]
     for run in plan:
@@ -798,6 +784,7 @@ def write_manifests(
             "\t".join(
                 [
                     str(run["run_key"]),
+                    str(run["checkpoint"]["id"]),
                     str(run["method"]["id"]),
                     str(run["ptb_rate"]),
                     str(run["pretrain_seed"]),
@@ -812,47 +799,56 @@ def write_manifests(
 
 def summary_rows(results: list[dict[str, str]]) -> list[dict[str, object]]:
     summaries = []
-    for method in METHODS:
-        for ptb_rate in PTB_RATES:
-            rows = [
-                row for row in results
-                if row["status"] == "ok"
-                and row["method"] == method["id"]
-                and row["ptb_rate"] == ptb_rate
-            ]
-            seeds_ok = sorted(int(row["pretrain_seed"]) for row in rows)
-            if len(seeds_ok) != len(set(seeds_ok)):
-                raise RuntimeError(f"Duplicate successful seed for {method['id']} ptb={ptb_rate}.")
-            missing = sorted(set(SEEDS) - set(seeds_ok))
-            accuracies = [float(row["test_accuracy"]) for row in rows]
-            f1_values = [float(row["test_macro_f1"]) for row in rows]
-            complete = seeds_ok == list(SEEDS)
-            summaries.append(
-                {
-                    "method": method["id"],
-                    "ptb_rate": ptb_rate,
-                    "selection_status": "complete_5_of_5" if complete else "incomplete",
-                    "n_seeds": len(rows),
-                    "seeds_ok": ";".join(map(str, seeds_ok)),
-                    "seeds_missing": ";".join(map(str, missing)),
-                    "test_accuracy_mean": f"{statistics.mean(accuracies):.6f}" if rows else "",
-                    "test_accuracy_std": f"{statistics.pstdev(accuracies):.6f}" if rows else "",
-                    "test_macro_f1_mean": f"{statistics.mean(f1_values):.6f}" if rows else "",
-                    "test_macro_f1_std": f"{statistics.pstdev(f1_values):.6f}" if rows else "",
-                }
-            )
+    for backbone in BACKBONES:
+        for method in METHODS:
+            for ptb_rate in PTB_RATES:
+                rows = [
+                    row for row in results
+                    if row["status"] == "ok"
+                    and row["backbone_id"] == backbone["id"]
+                    and row["method"] == method["id"]
+                    and row["ptb_rate"] == ptb_rate
+                ]
+                seeds_ok = sorted(int(row["downstream_seed"]) for row in rows)
+                if len(seeds_ok) != len(set(seeds_ok)):
+                    raise RuntimeError(
+                        f"Duplicate downstream seed for {backbone['id']}/{method['id']} "
+                        f"ptb={ptb_rate}."
+                    )
+                missing = sorted(set(DOWNSTREAM_SEEDS) - set(seeds_ok))
+                accuracies = [float(row["test_accuracy"]) for row in rows]
+                f1_values = [float(row["test_macro_f1"]) for row in rows]
+                complete = seeds_ok == list(DOWNSTREAM_SEEDS)
+                summaries.append(
+                    {
+                        "backbone_id": backbone["id"],
+                        "backbone_label": backbone["label"],
+                        "method": method["id"],
+                        "ptb_rate": ptb_rate,
+                        "selection_status": "complete_5_of_5" if complete else "incomplete",
+                        "n_seeds": len(rows),
+                        "seeds_ok": ";".join(map(str, seeds_ok)),
+                        "seeds_missing": ";".join(map(str, missing)),
+                        "test_accuracy_mean": f"{statistics.mean(accuracies):.6f}" if rows else "",
+                        "test_accuracy_std": f"{statistics.pstdev(accuracies):.6f}" if rows else "",
+                        "test_macro_f1_mean": f"{statistics.mean(f1_values):.6f}" if rows else "",
+                        "test_macro_f1_std": f"{statistics.pstdev(f1_values):.6f}" if rows else "",
+                    }
+                )
     return summaries
 
 
 def sort_results(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    backbone_order = {backbone["id"]: index for index, backbone in enumerate(BACKBONES)}
     method_order = {method["id"]: index for index, method in enumerate(METHODS)}
     ptb_order = {rate: index for index, rate in enumerate(PTB_RATES)}
     return sorted(
         rows,
         key=lambda row: (
+            backbone_order.get(row["backbone_id"], 999),
             method_order.get(row["method"], 999),
             ptb_order.get(row["ptb_rate"], 999),
-            int(row["pretrain_seed"]),
+            int(row["downstream_seed"]),
         ),
     )
 
@@ -930,20 +926,22 @@ def run_one(
 ) -> dict[str, object]:
     method = run["method"]
     ptb_rate = str(run["ptb_rate"])
-    seed = int(run["pretrain_seed"])
+    downstream_seed = int(run["downstream_seed"])
+    backbone_id = str(run["checkpoint"]["id"])
     expected_attack = EXPECTED_ATTACKS[ptb_rate]
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     log_path = (
         Path(args.output_dir)
         / "run_logs"
+        / backbone_id
         / str(method["id"])
         / f"ptb_{ptb_rate}"
-        / f"seed_{seed}.attempt_{timestamp}_{os.getpid()}.log"
+        / f"downstream_seed_{downstream_seed}.attempt_{timestamp}_{os.getpid()}.log"
     )
     log_path.parent.mkdir(parents=True, exist_ok=True)
     command = build_command(args, run)
     environment = os.environ.copy()
-    environment["PYTHONHASHSEED"] = str(seed)
+    environment["PYTHONHASHSEED"] = str(downstream_seed)
     environment["PYTHONUNBUFFERED"] = "1"
     final_results = []
     strict_attack_seen = False
@@ -1042,6 +1040,9 @@ def base_result_row(
     return {
         "run_key": run["run_key"],
         "status": "failed",
+        "backbone_id": checkpoint["id"],
+        "backbone_label": checkpoint["label"],
+        "backbone_selection": checkpoint["selection"],
         "method": method["id"],
         "ptb_rate": ptb_rate,
         "pretrain_seed": run["pretrain_seed"],
@@ -1097,7 +1098,8 @@ def safe_to_skip(
     if existing.get("status") != "ok":
         return False
     guarded_fields = [
-        "method", "ptb_rate", "pretrain_seed", "downstream_seed", "attack_graph_sha256",
+        "backbone_id", "backbone_label", "backbone_selection", "method", "ptb_rate",
+        "pretrain_seed", "downstream_seed", "attack_graph_sha256",
         "feature_file_sha256", "label_file_sha256", "train_idx_sha256", "val_idx_sha256",
         "test_idx_sha256", "target_svd_sha256", "target_original_x_sha256",
         "target_cache_file_sha256", "source_svd_sha256", "checkpoint_sha256",
@@ -1199,7 +1201,7 @@ def run_experiment(
 
     print(
         "Preflight passed | corrected canonical raw verified | fixed Cora SVD100 verified | "
-        "clean replay=10/10 exact | 5 selected checkpoints verified | plan=90"
+        "clean replay=4/4 exact | 2 selected checkpoints verified | plan=180"
     )
     if args.preflight_only:
         print(f"Preflight-only complete: {Path(args.output_dir).resolve()}")
@@ -1210,10 +1212,10 @@ def run_experiment(
         row = base_result_row(args, run, context, config_hash)
         old_row = existing_by_key.get(str(run["run_key"]))
         if old_row is not None and safe_to_skip(old_row, row):
-            print(f"[{index}/90] verified skip: {run['run_key']}")
+            print(f"[{index}/{FORMAL_RUN_COUNT}] verified skip: {run['run_key']}")
             continue
 
-        print(f"[{index}/90] start: {run['run_key']}")
+        print(f"[{index}/{FORMAL_RUN_COUNT}] start: {run['run_key']}")
         try:
             metrics = run_one(args, run, context, config_hash)
             row.update(metrics)
@@ -1225,7 +1227,7 @@ def run_experiment(
                 field: str(row.get(field, "")) for field in RESULT_FIELDS
             }
             print(
-                f"[{index}/90] recorded: {run['run_key']} | "
+                f"[{index}/{FORMAL_RUN_COUNT}] recorded: {run['run_key']} | "
                 f"test={row['test_accuracy']} | macro_f1={row['test_macro_f1']}"
             )
         except Exception as error:
@@ -1245,14 +1247,19 @@ def run_experiment(
     successful = [row for row in results if row["status"] == "ok"]
     summaries = summary_rows(results)
     complete_groups = [row for row in summaries if row["selection_status"] == "complete_5_of_5"]
-    if len(successful) != 90 or len(complete_groups) != 18:
+    if len(successful) != FORMAL_RUN_COUNT or len(complete_groups) != FORMAL_GROUP_COUNT:
         print(
-            f"Incomplete experiment: successful={len(successful)}/90, "
-            f"complete_groups={len(complete_groups)}/18. Rerun the same command.",
+            f"Incomplete experiment: successful={len(successful)}/{FORMAL_RUN_COUNT}, "
+            f"complete_groups={len(complete_groups)}/{FORMAL_GROUP_COUNT}. "
+            "Rerun the same command.",
             file=sys.stderr,
         )
         return 1
-    print(f"Completed: 90/90 runs and 18/18 method-by-ptb groups | {Path(args.output_dir).resolve()}")
+    print(
+        f"Completed: {FORMAL_RUN_COUNT}/{FORMAL_RUN_COUNT} runs and "
+        f"{FORMAL_GROUP_COUNT}/{FORMAL_GROUP_COUNT} backbone-by-method-by-ptb groups | "
+        f"{Path(args.output_dir).resolve()}"
+    )
     return 0
 
 
@@ -1295,7 +1302,10 @@ def main() -> int:
     plan = build_plan(selected)
 
     if args.plan_only:
-        print("Formal plan: 3 methods * 6 ptb levels * 5 paired seeds = 90 runs")
+        print(
+            "Formal plan: 2 fixed backbones * 3 methods * 6 ptb levels * "
+            "5 downstream seeds = 180 runs"
+        )
         for run in plan:
             print(run["run_key"])
         return 0
