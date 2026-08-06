@@ -189,7 +189,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint-dir", default=asset_dir)
     parser.add_argument(
         "--target-cache",
-        default=f"{asset_dir}/cora_clean_full_l1_svd_100.pt",
+        default="data/preprocessed/cora_clean_full_l1_svd_100.pt",
     )
     parser.add_argument(
         "--output-dir",
@@ -539,6 +539,15 @@ def full_preflight(
         )
 
     target_cache = Path(args.target_cache)
+    _, target_cache_dataset, target_cache_prepare_action = load_cora_svd100(target_cache)
+    if int(target_cache_dataset.num_classes) != 7:
+        raise RuntimeError(
+            f"Expected 7 Cora classes while preparing SVD100, got {target_cache_dataset.num_classes}."
+        )
+    print(
+        "Target SVD100 cache prepared | "
+        f"action={target_cache_prepare_action} | path={target_cache.resolve()}"
+    )
     target_cache_file_hash = file_sha256(target_cache)
     target_receipt = apply_cora_svd100_cache(
         data_by_rate["0.00"], target_cache, "Cora", 100
@@ -679,8 +688,13 @@ def write_manifests(
         ),
         ("source_pipeline", "Citeseer raw3703->L1->independent SVD100->GraphCL GCN(100->256->256)"),
         ("source_svd_sha256", source_receipt["reduced_x_sha256"]),
-        ("target_pipeline", "Cora raw1433->L1->fixed independent SVD100->frozen GCN(100->256->256)"),
+        (
+            "target_pipeline",
+            "Cora raw1433->L1->once-per-clone independent SVD100->fixed cache->"
+            "frozen GCN(100->256->256)",
+        ),
         ("target_svd_sha256", target_receipt["reduced_x_sha256"]),
+        ("target_cache_policy", "compute_if_missing_then_strict_reuse"),
         ("target_cache_file_sha256", context["target_cache_file_sha256"]),
         (
             "target_cache_anchor",
