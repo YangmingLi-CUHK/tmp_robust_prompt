@@ -1,0 +1,20 @@
+{
+  "cache_path": "/home/user/LnL/DFS_HK5/data/deeprobust/citeseer_nettack_lcc_l1_svd_100.pt",
+  "dataset": "Citeseer_Nettack_LCC",
+  "original_shape": [
+    2110,
+    3703
+  ],
+  "original_x_sha256": "b3ae8a20c3ad485d49b3357b5a7537963e388dceee1005032310f90b877b8c63",
+  "preprocessing": "raw_bow_to_l1_to_independent_svd100",
+  "recorded_utc": "2026-08-04T14:41:13+00:00",
+  "reduced_shape": [
+    2110,
+    100
+  ],
+  "reduced_x_sha256": "c5acb8034c33d907e4aec92fda71254e59b556367d9c96a92964f75044bbbb3e",
+  "svd_backend": "torch_geometric.SVDFeatureReduction(torch.linalg.svd)",
+  "torch_geometric_version": "2.7.0",
+  "torch_version": "2.8.0+cu129",
+  "version": 1
+}

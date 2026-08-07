@@ -217,7 +217,8 @@ def main():
         print(f"\n{'='*100}")
         print(f"BEST CHECKPOINT: {best['filename']}")
         print(f"  Test Acc: {best['test_acc']:.4f}  |  Val Acc: {best['val_acc']:.4f}")
-        print(f"  Command: --pre_train_model_path './pre_trained_model_raw/{best['filename']}'")
+        best_path = best['path']
+        print(f"  Command: --pre_train_model_path '{best_path}'")
         print(f"{'='*100}")
 
 

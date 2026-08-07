@@ -1,0 +1,21 @@
+field	value
+experiment	citeseer_svd100_to_cora_svd100_graphcl_linear_probe
+git_commit	39e7cb5d0653d722a923fc6c6d9e4927ce96b7d0
+source_scope	DeepRobust/Nettack Citeseer LCC: 2110 nodes, 3668 undirected edges, 3703 BoW features
+source_pipeline	raw_BoW->L1_row_normalization->independent_SVD100->METIS_200->GraphCL
+source_cache	raw-feature SHA256 + SVD-feature SHA256 + Torch/PyG versions recorded before training
+target_scope	full clean Cora: 2708 nodes, 1433 BoW features, 5-shot/split-1
+target_pipeline	raw_BoW->L1_row_normalization->independent_SVD100->frozen_GCN->all-node_zscore->multinomial_logistic
+target_cache	raw-feature SHA256 + SVD-feature SHA256 + Torch/PyG versions validated before reuse
+feature_alignment	independent_svd_shape_only; no shared SVD basis or semantic alignment
+grid	aug1(3 ordered choices)*aug2(3 ordered choices)*ratio(3)*seed(5)=135 runs; 27 groups*5 seeds
+augmentations	dropN,permE,maskN; same-view pairs allowed
+augmentation_ratios	0.1,0.2,0.3; shared by both GraphCL views
+pretrain_seeds	1,2,3,4,5
+encoder	GCN 100->256->256; 2 layers; mean graph pooling
+graphcl	epochs=200; batch_size=10; temperature=0.1; projection=256->256->256; final-epoch GNN saved
+graphcl_views	one augmented-view pair is generated before training and reused for all 200 epochs
+optimizer	Adam; lr=0.001; weight_decay=0.0001; early stopping disabled
+probe	frozen encoder; full-graph embeddings; all-node z-score; sklearn multinomial LogisticRegression(lbfgs,max_iter=10000)
+selection	rank only complete 5-seed groups by validation mean; test is not used for selection
+accuracy_summary	all 5 seeds; simple mean and population std; no seed removed

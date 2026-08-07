@@ -33,3 +33,8 @@ reference/code_sources/All_in_One_ProG_ori_code/
 # Exact release checkpoints for the shallow-clone runnable SVD100 transductive experiment.
 !experiment_assets/citeseer_svd100_transductive/Citeseer.GraphCL.GCN.256_hidden_dim.preprocess_svd_100.aug1_dropN.aug2_dropN.lr_0.001.ratio_0.1.seed_1.pth
 !experiment_assets/citeseer_svd100_transductive/Citeseer.GraphCL.GCN.256_hidden_dim.preprocess_svd_100.aug1_maskN.aug2_dropN.lr_0.001.ratio_0.2.seed_1.pth
+
+# Curated legacy backbones moved out of training-output directories.
+!experiment_assets/cora_graphcl_meeting14_legacy/Cora.GraphCL.GCN.256_hidden_dim.aug1_permE.aug2_dropN.lr_0.001.ratio_0.2.seed_1.pth
+!experiment_assets/cora_graphcl_meeting14_legacy/Cora.GraphCL.GCN.256_hidden_dim.aug1_permE.aug2_maskN.lr_0.001.ratio_0.3.seed_1.pth
+!experiment_assets/cora_graphmae_legacy/Cora.GraphMAE.GCN.64hidden_dim.pth

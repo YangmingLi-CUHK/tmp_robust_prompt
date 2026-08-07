@@ -69,7 +69,7 @@
 
 简报：`neo_report/citeseer_cora_graphcl_clean_brief_20260730.html`。
 
-## 6.当前待运行主线：Citeseer-SVD100→Cora-SVD100
+## 6.已完成clean选型：Citeseer-SVD100→Cora-SVD100
 
 实验假设：把两端都压到100维，测试按奇异分量次序形成的低维表示能否比“Citeseer-SVD1433→Cora原生1433”更适合迁移。它仍是**independent-SVD、shape-only**实验。
 
@@ -94,25 +94,50 @@ Cora raw1433→L1→另行独立SVD100→冻结同一encoder
 bash run_citeseer_svd100_to_cora_svd100_graphcl_135.sh
 ```
 
-关键文件：
+原始运行与发布收据：
 
 - `run_citeseer_svd100_to_cora_svd100_graphcl_135.sh`
 - `eval_citeseer_svd100_to_cora_svd100.py`
-- `logs/citeseer_svd100_to_cora_svd100_graphcl_135/manifest.tsv`
-- `logs/citeseer_svd100_to_cora_svd100_graphcl_135/per_seed_results_incremental.csv`
-- `logs/citeseer_svd100_to_cora_svd100_graphcl_135/group_summary_incremental.csv`
+- `experiment_assets/citeseer_svd100_transductive/selection_evidence/manifest.tsv`
+- `experiment_assets/citeseer_svd100_transductive/selection_evidence/per_seed_results_incremental.csv`
+- `experiment_assets/citeseer_svd100_transductive/selection_evidence/group_summary_incremental.csv`
+- `experiment_assets/citeseer_svd100_transductive/selection_evidence/citeseer_svd100_cache_receipt.json`
 
 脚本会校验source/target SVD缓存来源、checkpoint结构与SHA256，增量原子写结果，并在续跑时重建summary。没有成功CSV收据的同名checkpoint视为来源不明，会保留改名后重训。
 
-**当前状态**：代码、Bash语法、135个命名、增量汇总和续跑逻辑已静态/模拟验证；真实135次GPU结果尚未产生。未来不得把本节写成“实验已经成功”或引用不存在的SVD100 accuracy。
+**真实结果**：135/135个checkpoint均成功完成clean评估。
 
-## 7.下一步决策顺序
+- Peak BB：全部135个单checkpoint中validation最高，`dropN/dropN,ratio=0.1,seed=1`；validation=`0.535849`，test=`0.531561`。
+- Stable BB：先按完整5-seed validation mean选出第一组`maskN/dropN,ratio=0.2`，组validation为`0.464151±0.044522`（population std），再在组内按validation选出seed1；该checkpoint validation=`0.516981`，test=`0.559801`。
+- 两个选择步骤都不使用test。两个独立SVD仍只对齐shape，不共享语义基底。
+- 两份发布权重、字节数、SHA256、维数和历史路径统一登记在`experiment_assets/manifest.tsv`。
 
-1. 在服务器运行SVD100总控脚本；重复执行同一命令可续跑。
-2. 只按`group_summary_incremental.csv`中的complete-5-seed validation mean选组，再读取该组test mean±std。
-3. 与majority baseline及SVD1433的`0.2977±0.0370`比较。
-4. 若clean仍接近majority，优先判断为跨域表示/基底不兼容；不要先调prompt loss或防御阈值。
-5. 只有clean迁移具备基本可用性后，再把最佳组扩展到各污染浓度，讨论鲁棒性。
+## 7.当前待运行主线：2BB×3方法×6浓度Transductive
+
+当前实验固定使用上述Peak/Stable两个backbone，对比：
+
+- GPromptShield经典版匹配设置；
+- 本仓更改版GPromptShield；
+- 冻结同一GraphCL encoder、无filter的GPPT。
+
+污染浓度统一为`0.00/0.05/0.10/0.15/0.20/0.25`，每个`backbone×method×rate`运行5个downstream seed，因此总计`2×3×6×5=180`次。
+
+入口：
+
+```bash
+bash run_citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180.sh
+```
+
+关键事实：
+
+- 控制器：`run_citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180.py`。
+- 两份当前权重位于`experiment_assets/citeseer_svd100_transductive/`，并按固定SHA256和`GCN(100→256→256)`严格校验。
+- Cora target-SVD100缓存缺失时自动精确重算并原子写入`data/preprocessed/cora_clean_full_l1_svd_100.pt`；缓存是可重算产物，不进入Git资产。
+- 六张corrected-budget污染图、feature、label和split均按固定SHA256预检；浓度命名不得回退为`0.0/0.1/0.2`等别名。
+- 输出目录为`logs/citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180/`，重复运行同一入口按成功CSV收据续跑。
+- 本地已通过静态、180计划、资产manifest、选择收据复算和Git归档模拟；由于本机没有PyTorch环境，正式`torch.load(strict=True)`、clean replay与180次GPU运行仍由服务器preflight完成。
+
+服务器顺序：先运行`PREFLIGHT_ONLY=1`，确认两份权重、SVD缓存、clean replay及污染图全部通过，再启动正式总控。最终结果按每组5个seed的test mean±population std报告，不删除seed；表格与可视化保持极简，不做超出证据的防御机制归因。
 
 ## 8.常见陷阱
 
