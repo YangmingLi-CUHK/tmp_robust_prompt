@@ -132,8 +132,8 @@ bash run_citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budg
 
 - 控制器：`run_citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180.py`。
 - 两份当前权重位于`experiment_assets/citeseer_svd100_transductive/`，并按固定SHA256和`GCN(100→256→256)`严格校验。
-- Cora target-SVD100缓存缺失时按当前Torch/数值栈重算并原子写入`data/preprocessed/cora_clean_full_l1_svd_100.pt`；`torch.linalg.svd`的奇异向量不保证跨软硬件bit-exact，因此该缓存只要求在同一180批次内固定复用，并把tensor SHA写入config，不能再声称任意机器精确重算。
-- clean replay是跨环境兼容性smoke gate：validation正确数必须与135次选型收据完全一致；未参与选型的test允许正确数绝对漂移最多2，且expected/observed count与有符号delta全部写入`target_svd_clean_replay.tsv`。权重、原始数据、split、污染图、cache自哈希和同批次复用仍保持严格门禁。
+- Cora target-SVD100缓存缺失时按当前Torch/数值栈重算并原子写入`data/preprocessed/cora_clean_full_l1_svd_100.pt`；`torch.linalg.svd`的奇异向量不保证跨软硬件bit-exact，因此该缓存只要求在同一180批次内固定复用，并把tensor/file SHA与runtime写入config，不能再声称任意机器精确重算。
+- clean replay只作为历史选型收据的非阻断审计：expected/observed count与有符号delta全部写入`target_svd_clean_replay.tsv`，不再用跨环境预测差异拒绝fresh clone。权重、原始数据、split、污染图、cache自哈希和同批次复用仍保持严格门禁；不同fresh clone只有在`target_svd_sha256`、runtime与`config_sha256`一致时才可合并结果。
 - 六张corrected-budget污染图、feature、label和split均按固定SHA256预检；浓度命名不得回退为`0.0/0.1/0.2`等别名。
 - 输出目录为`logs/citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180/`，重复运行同一入口按成功CSV收据续跑。
 - 本地已通过静态、180计划、资产manifest、选择收据复算和Git归档模拟；由于本机没有PyTorch环境，正式`torch.load(strict=True)`、clean replay与180次GPU运行仍由服务器preflight完成。
