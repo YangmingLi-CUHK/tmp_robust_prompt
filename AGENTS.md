@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> Codex在本仓库的长期工作记忆。最后更新：2026-08-04。这里只保留会影响后续判断的稳定事实、当前主线和操作纪律；历史细节查报告，不在此复制。
+> Codex在本仓库的长期工作记忆。最后更新：2026-08-08。这里只保留会影响后续判断的稳定事实、当前主线和操作纪律；历史细节查报告，不在此复制。
 
 ## 1.目标与当前问题
 
@@ -112,33 +112,37 @@ bash run_citeseer_svd100_to_cora_svd100_graphcl_135.sh
 - 两个选择步骤都不使用test。两个独立SVD仍只对齐shape，不共享语义基底。
 - 两份发布权重、字节数、SHA256、维数和历史路径统一登记在`experiment_assets/manifest.tsv`。
 
-## 7.当前待运行主线：2BB×3方法×6浓度Transductive
+## 7.已完成180主实验与当前120消融
 
-当前实验固定使用上述Peak/Stable两个backbone，对比：
+### 7.1 2BB×3方法×6浓度Transductive已完成
 
-- GPromptShield经典版匹配设置；
-- 本仓更改版GPromptShield；
-- 冻结同一GraphCL encoder、无filter的GPPT。
+`2×3×6×5=180`次全部成功，36组均为完整5-seed。实验对比GPromptShield经典版、本仓更改版和GPPT；六档为`0.00/0.05/0.10/0.15/0.20/0.25`。
 
-污染浓度统一为`0.00/0.05/0.10/0.15/0.20/0.25`，每个`backbone×method×rate`运行5个downstream seed，因此总计`2×3×6×5=180`次。
+- 入口：`run_citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180.sh`。
+- 结果：`logs/citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180/`。
+- 本批target-SVD100 tensor SHA256为`59c30ec574df9e58a2e3be38f183d81fd6f7b6b47ecfaaa11f5781cdd8b22ee9`。
+- 独立复算与控制器summary逐项一致；accuracy使用全部5个seed的简单mean±population std。
+- 12个`backbone×rate`单元内，经典版accuracy最高8次，更改版2次，GPPT 2次；从`0.05`起整体明显低于clean，高污染下三者均严重下降，不能据此声称已有明显鲁棒增益。
+- 极简报告：`neo_report/citeseer_svd100_to_cora_svd100_clean_analysis_20260805.html`。
 
-入口：
+### 7.2 当前待运行：经典版sim/degree selector消融
+
+保持同一SVD100管线、Peak/Stable两个backbone、六张corrected-budget污染图和5个downstream seed，只比较经典版中的两个特殊节点提示选择器：
+
+- `sim-only`：`sim=0.2,degree=-1,out=-1`；
+- `degree-only`：`sim=-1,degree=1,out=-1`。
+
+负阈值会在`Task.initialize_prompt()`中把对应tip从`pt_dict`移除。两组仍保留`other_pt='all'`补集prompt和经典版训练期`pt_threshold=0.5`的prompt后余弦删边，因此这是selector消融，不是只剩一种完整防御机制。
+
+`2×2×6×5=120`次，共24个完整5-seed组：
 
 ```bash
-bash run_citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180.sh
+bash run_citeseer_svd100_to_cora_svd100_transductive_classic_tip_ablation_2bb_2tips_corrected_budget_120.sh
 ```
 
-关键事实：
+控制器为同名`.py`，默认输出到`logs/citeseer_svd100_to_cora_svd100_transductive_classic_tip_ablation_2bb_2tips_corrected_budget_120/`。它继承180入口的checkpoint、feature/label/split、攻击图、SVD缓存、日志、原子汇总和续跑门禁，并额外把active tip与三个阈值写入plan、逐run CSV、manifest和config。
 
-- 控制器：`run_citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180.py`。
-- 两份当前权重位于`experiment_assets/citeseer_svd100_transductive/`，并按固定SHA256和`GCN(100→256→256)`严格校验。
-- Cora target-SVD100缓存缺失时按当前Torch/数值栈重算并原子写入`data/preprocessed/cora_clean_full_l1_svd_100.pt`；`torch.linalg.svd`的奇异向量不保证跨软硬件bit-exact，因此该缓存只要求在同一180批次内固定复用，并把tensor/file SHA与runtime写入config，不能再声称任意机器精确重算。
-- clean replay只作为历史选型收据的非阻断审计：expected/observed count与有符号delta全部写入`target_svd_clean_replay.tsv`，不再用跨环境预测差异拒绝fresh clone。权重、原始数据、split、污染图、cache自哈希和同批次复用仍保持严格门禁；不同fresh clone只有在`target_svd_sha256`、runtime与`config_sha256`一致时才可合并结果。
-- 六张corrected-budget污染图、feature、label和split均按固定SHA256预检；浓度命名不得回退为`0.0/0.1/0.2`等别名。
-- 输出目录为`logs/citeseer_svd100_to_cora_svd100_transductive_2bb_3methods_corrected_budget_180/`，重复运行同一入口按成功CSV收据续跑。
-- 本地已通过静态、180计划、资产manifest、选择收据复算和Git归档模拟；由于本机没有PyTorch环境，正式`torch.load(strict=True)`、clean replay与180次GPU运行仍由服务器preflight完成。
-
-服务器顺序：先运行`PREFLIGHT_ONLY=1`，确认两份权重、SVD缓存、clean replay及污染图全部通过，再启动正式总控。最终结果按每组5个seed的test mean±population std报告，不删除seed；表格与可视化保持极简，不做超出证据的防御机制归因。
+旧180批次中的经典版60次只有在新批次target-SVD100 SHA与上述`59c30e…`一致时，才能作为严格同输入baseline直接合并；若SHA不同，新120仍可比较sim-only与degree-only，但不能把旧classic曲线当作同一精确输入下的消融基线。
 
 ## 8.常见陷阱
 

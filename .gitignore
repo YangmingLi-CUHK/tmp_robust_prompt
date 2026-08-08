@@ -24,6 +24,7 @@ logs/
 *.log
 __pycache__/
 .DS_Store
+tmp/
 M17_lry/
 reference/code_sources/All_in_One_ProG_ori_code/
 !handoff_cora/**/*.pt
